@@ -127,3 +127,24 @@ body.ak{margin:0;padding:24px;font:14px/1.5 Inter,'Noto Sans Thai',system-ui,san
 
 @media (max-width:640px){body.ak{padding:16px}.ak-page-head{flex-wrap:wrap}.ak-table th,.ak-table td{padding:8px 10px}}
 @media (prefers-reduced-motion:reduce){.ak-toast,.ak-modal{animation:none}}
+
+/* line chart: AK.line(el, opts) / <div data-ak-line='{"labels":[…],"series":[{"label","color","values"}]}'> */
+.ak-lc-legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;font-size:12.5px;color:var(--ak-muted)}
+.ak-lc-legend span{display:inline-flex;align-items:center;gap:6px}.ak-lc-legend i,.ak-lc-tip i{width:14px;height:2px;border-radius:1px;flex-shrink:0}
+.ak-lc-toggle{margin-left:auto;border:0;background:none;padding:0;color:var(--ak-primary);font:inherit;cursor:pointer}
+.ak-lc-plot{padding-left:40px;outline:0;border-radius:var(--ak-r-sm)}.ak-lc-plot:focus-visible{box-shadow:var(--ak-focus)}
+.ak-lc-inner{position:relative}.ak-lc svg{display:block;width:100%;overflow:visible;cursor:crosshair}
+.ak-lc-grid{stroke:var(--ak-chart-grid);stroke-width:1}.ak-lc-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ak-lc-area{opacity:.08}.ak-lc-cross{stroke:var(--ak-muted);stroke-width:1;stroke-dasharray:3 3}
+.ak-lc-y{position:absolute;left:-40px;width:34px;text-align:right;transform:translateY(-50%);font-size:11px;line-height:1;color:var(--ak-muted);font-variant-numeric:tabular-nums}
+.ak-lc-x{position:relative;height:18px;margin-top:4px}.ak-lc-x span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--ak-muted);white-space:nowrap}
+.ak-lc-x .ak-first{transform:none}.ak-lc-x .ak-last{transform:translateX(-100%)}
+.ak-lc-dot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--ak-surface);border:2px solid;box-shadow:0 0 0 2px var(--ak-surface);pointer-events:none}
+.ak-lc-tip{position:absolute;top:0;margin-left:14px;min-width:140px;padding:8px 12px;background:var(--ak-surface);border:1px solid var(--ak-border);border-radius:10px;box-shadow:var(--ak-shadow-lg);pointer-events:none;font-size:12.5px;white-space:nowrap;z-index:2}
+.ak-lc-tip.left{transform:translateX(calc(-100% - 28px))}.ak-lc-tip div{display:flex;align-items:center;gap:8px}
+.ak-lc-tip b{font-variant-numeric:tabular-nums}.ak-lc-tip span,.ak-lc-tip .ak-lc-date{color:var(--ak-muted)}.ak-lc-tip .ak-lc-date{display:block;font-size:11.5px;margin-bottom:4px}
+.ak-lc-table{max-height:280px;overflow:auto}.ak-lc-table .ak-table th,.ak-lc-table .ak-table td{padding:6px 12px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .ak-lc-area{opacity:.16}}:root[data-theme=dark] .ak-lc-area{opacity:.16}
+
+/* dashboard widget documents (<div class="ak-widget">): the card's own surface, tighter padding */
+body.ak:has(>.ak-widget){padding:16px;background:var(--ak-surface)}

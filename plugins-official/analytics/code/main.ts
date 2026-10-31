@@ -4,7 +4,7 @@
 // (was capability view_stats) and the dashboard widget "Visitors, last 7 days".
 import { record } from './track';
 import { summary } from './summary';
-import { renderAdmin, renderWidget } from './admin';
+import { renderAdmin, renderWidget, WIDGET_HEIGHT } from './admin';
 import { legacyImport } from './legacy';
 
 // prefetch / prerender requests and internal referrers are told apart with ResponseInfo.headers / host
@@ -20,9 +20,9 @@ site.adminPage('stats', {
 // the admin dashboard card (was the Angular AnalyticsWidget)
 site.dashboardWidget('visitors', {
   label: { th: 'ผู้เข้าชม 7 วันล่าสุด', en: 'Visitors, last 7 days' },
-  icon: '📈',
+  icon: '📊',
   access: ['editor'],
-  height: 230,
+  height: WIDGET_HEIGHT, // initial: the kit sizes the frame to the card (KPIs, chart, top pages)
   render: (ctx) => renderWidget(ctx),
 });
 

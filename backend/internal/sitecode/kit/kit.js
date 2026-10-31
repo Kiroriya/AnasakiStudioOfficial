@@ -1,8 +1,8 @@
 /* Anasaki admin UI kit → window.AK (API: kit-demo.html). th/en from <html lang>. */
 (() => {
 const d = document, M = {
- th: {ok: 'ตกลง', cancel: 'ยกเลิก', empty: 'ไม่มีข้อมูล', required: 'กรุณากรอกช่องนี้', invalid: 'รูปแบบไม่ถูกต้อง'},
- en: {ok: 'OK', cancel: 'Cancel', empty: 'No data', required: 'This field is required', invalid: 'Invalid value'},
+ th: {ok: 'ตกลง', cancel: 'ยกเลิก', empty: 'ไม่มีข้อมูล', required: 'กรุณากรอกช่องนี้', invalid: 'รูปแบบไม่ถูกต้อง', table: 'ดูเป็นตาราง', chart: 'ดูเป็นกราฟ', date: 'วันที่'},
+ en: {ok: 'OK', cancel: 'Cancel', empty: 'No data', required: 'This field is required', invalid: 'Invalid value', table: 'View as table', chart: 'View as chart', date: 'Date'},
 };
 const lang = () => (/^en/.test(d.documentElement.lang) ? 'en' : 'th');
 const t = k => M[lang()][k] || k;
@@ -149,6 +149,86 @@ function sparkline(root, data, o = {}) {
  $(root).replaceChildren(s); return s;
 }
 
+// line(el, {labels, series: [{label, color, values}], height, locale, tableLabel, chartLabel, dateLabel}) → {set}
+// one y-axis with nice ticks, a soft area under the first series, hover/keyboard crosshair + tooltip, legend, chart ⇄ table
+const nice = r => {if (r <= 1) return 1; const p = 10 ** Math.floor(Math.log10(r)), f = r / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;};
+function line(root, o) {
+ root = $(root);
+ const W = 1000, box = el('div', 'ak-lc');
+ let opt, asTable = false, ro;
+ root.replaceChildren(box);
+ function draw() {
+  const L = (opt.labels || []).map(String), S = (opt.series || []).filter(s => s && Array.isArray(s.values)), H = +opt.height || 240, n = Math.max(1, L.length),
+   fmt = v => (+v || 0).toLocaleString(opt.locale || (lang() == 'en' ? 'en-US' : 'th-TH')), m = Math.max(1, ...S.flatMap(s => s.values.map(v => +v || 0))),
+   max = Math.ceil(m / nice(m / 4)) * nice(m / 4), step = nice(max / 4),
+   x = i => (n == 1 ? W / 2 : i * W / (n - 1)), px = i => x(i) / W * 100, y = v => 8 + (1 - (+v || 0) / max) * (H - 12),
+   path = vs => L.map((_, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(vs[i]).toFixed(1)).join('');
+  const head = el('div', 'ak-lc-legend'), tg = el('button', 'ak-lc-toggle', asTable ? opt.chartLabel || t('chart') : opt.tableLabel || t('table'), {type: 'button'});
+  if (S.length > 1) for (const z of S) head.appendChild(el('span', 0, z.label)).prepend(el('i', 0, null, {style: 'background:' + z.color}));
+  tg.onclick = () => {asTable = !asTable; draw();};
+  head.append(tg); box.replaceChildren(head);
+  if (ro) ro.disconnect();
+  if (asTable) {
+   const tb = el('table', 'ak-table'), hr = el('tr'), body = el('tbody'), wrap = el('div', 'ak-lc-table');
+   hr.append(el('th', 0, opt.dateLabel || t('date')), ...S.map(z => el('th', 'ak-num', z.label)));
+   L.forEach((l, i) => body.insertRow().append(el('td', 0, l), ...S.map(z => el('td', 'ak-num', fmt(z.values[i])))));
+   tb.append(el('thead'), body); tb.tHead.append(hr); wrap.append(tb); box.append(wrap);
+   return;
+  }
+  const plot = el('div', 'ak-lc-plot', null, {tabindex: 0}), inner = plot.appendChild(el('div', 'ak-lc-inner')),
+   s = inner.appendChild(svg('svg', {viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': S.map(z => z.label).join(', '), style: 'height:' + H + 'px'})),
+   cross = svg('line', {class: 'ak-lc-cross', y1: 8, y2: H - 4, 'vector-effect': 'non-scaling-stroke', visibility: 'hidden'}), xs = el('div', 'ak-lc-x'), hov = el('div');
+  for (let v = 0; v <= max + 1e-9; v += step) {
+   s.append(svg('line', {class: 'ak-lc-grid', x1: 0, x2: W, y1: y(v), y2: y(v), 'vector-effect': 'non-scaling-stroke'}));
+   inner.append(el('span', 'ak-lc-y', fmt(v), {style: 'top:' + y(v) + 'px'}));
+  }
+  if (S[0] && L.length) s.append(svg('path', {class: 'ak-lc-area', fill: S[0].color, d: path(S[0].values) + `L${x(L.length - 1)},${y(0)}L${x(0)},${y(0)}Z`}));
+  if (L.length) for (const z of S) s.append(svg('path', {class: 'ak-lc-line', stroke: z.color, d: path(z.values), 'vector-effect': 'non-scaling-stroke'}));
+  s.append(cross); inner.append(xs, hov); box.append(plot);
+  let cur = -1;
+  const show = i => {
+   cur = i; hov.replaceChildren(); at(cross, {visibility: i < 0 ? 'hidden' : 'visible', x1: x(i), x2: x(i)});
+   if (i < 0 || !L.length) return;
+   const tip = el('div', 'ak-lc-tip' + (px(i) > 60 ? ' left' : ''), null, {style: `left:${px(i)}%`});
+   tip.append(el('div', 'ak-lc-date', L[i]));
+   for (const z of S) {
+    hov.append(el('span', 'ak-lc-dot', null, {style: `left:${px(i)}%;top:${y(z.values[i])}px;border-color:${z.color}`}));
+    tip.appendChild(el('div')).append(el('i', 0, null, {style: 'background:' + z.color}), el('b', 0, fmt(z.values[i])), el('span', 0, z.label));
+   }
+   hov.append(tip);
+  };
+  const clamp = i => Math.max(0, Math.min(n - 1, i));
+  s.onpointermove = e => {const r = s.getBoundingClientRect(); show(clamp(Math.round((e.clientX - r.left) / (r.width || 1) * (n - 1)) || 0));};
+  plot.onpointerleave = plot.onblur = () => show(-1);
+  plot.onkeydown = e => {const k = {ArrowLeft: -1, ArrowRight: 1}[e.key]; if (k) {e.preventDefault(); show(clamp(cur < 0 ? (k > 0 ? 0 : n - 1) : cur + k));}};
+  // x labels: as many as fit without overlapping (first and last always)
+  const ticks = () => {
+   const w = inner.clientWidth || 600, lw = Math.max(1, ...L.map(l => l.length)) * 7 + 16, want = Math.min(L.length, Math.max(2, Math.floor(w / lw))), ix = new Set();
+   for (let k = 0; k < want; k++) ix.add(want < 2 ? 0 : Math.round(k * (L.length - 1) / (want - 1)));
+   xs.replaceChildren(...[...ix].map(i => el('span', n > 1 && i == 0 ? 'ak-first' : n > 1 && i == n - 1 ? 'ak-last' : '', L[i], {style: `left:${px(i)}%`})));
+  };
+  ticks();
+  if (window.ResizeObserver) (ro = new ResizeObserver(ticks)).observe(inner);
+ }
+ const set = v => {opt = v || {}; draw();};
+ set(o);
+ return {set, el: box};
+}
+
+// iframe ↔ admin: the admin sizes the frame to the document ({type: 'ak:height'}) and opens admin paths ({type: 'ak:navigate'})
+const framed = () => window.parent !== window;
+let lastH = -1;
+function height() {
+ const h = Math.ceil(d.documentElement.getBoundingClientRect().height);
+ if (framed() && h != lastH) parent.postMessage({type: 'ak:height', height: lastH = h}, '*');
+ return h;
+}
+// open('/admin/x/code/<plugin>:<page>'): an admin page in the top window (the admin validates it; the sandbox never navigates the top)
+function open(path) {
+ path = String(path || '');
+ framed() ? parent.postMessage({type: 'ak:navigate', path}, '*') : (location.href = path);
+}
+
 function init() {
  d.body.classList.add('ak');
  each('[data-ak-tabs]', tabs);
@@ -156,7 +236,16 @@ function init() {
  each('form[data-ak-validate]', f => {f.noValidate = true; f.addEventListener('submit', e => {if (!validate(f)) {e.preventDefault(); e.stopImmediatePropagation();}}, true);});
  each('[data-ak-bar]', e => bar(e, JSON.parse(e.dataset.akBar)));
  each('[data-ak-spark]', e => sparkline(e, JSON.parse(e.dataset.akSpark)));
+ each('[data-ak-line]', e => line(e, JSON.parse(e.dataset.akLine)));
+ // <a href="/admin/…" data-ak-open>: opens in the admin (a modified click keeps the browser's own new tab)
+ d.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('[data-ak-open]');
+  if (a && !e.defaultPrevented && !e.button && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {e.preventDefault(); open(a.dataset.akOpen || a.getAttribute('href'));}
+ });
+ if (window.ResizeObserver) new ResizeObserver(() => height()).observe(d.body);
+ window.addEventListener('load', () => height());
+ height();
 }
-window.AK = {lang, t, messages: M, toast, confirm, tabs, table, sortable, pager, validate, bar, sparkline, init};
+window.AK = {lang, t, messages: M, toast, confirm, tabs, table, sortable, pager, validate, bar, sparkline, line, open, height, init};
 d.readyState == 'loading' ? d.addEventListener('DOMContentLoaded', init) : init();
 })();

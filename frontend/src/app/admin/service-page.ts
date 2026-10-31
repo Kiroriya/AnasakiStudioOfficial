@@ -1,13 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Api, errorMessage } from '../core/api';
 import { I18n, TPipe, localized } from '../core/i18n';
 import { Plugins } from '../core/plugins';
 import { PostTypes } from '../core/post-types';
+import { PAGE_MAX_HEIGHT, adminBase, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
 import './messages-platform';
 import './messages-content-types';
+
+/** The frame's CSS min-height (styles below): shorter pages keep the default frame. */
+const FRAME_MIN_HEIGHT = 480;
 
 /** /x/code/<id> hosts the admin pages of the site code (site.adminPage). */
 export const CODE_PAGES_ID = 'code';
@@ -22,6 +26,7 @@ export const CODE_PAGES_ID = 'code';
   selector: 'rea-service-page',
   imports: [TPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:message)': 'onFrameMessage($event)' },
   template: `
     <header class="page-head">
       <span class="page-icon">{{ icon() }}</span>
@@ -34,9 +39,9 @@ export const CODE_PAGES_ID = 'code';
     @if (error()) { <p class="alert" [attr.id]="isCode() ? 'code-admin-error' : null">{{ error() }}</p> }
     @if (src(); as s) {
       @if (isCode()) {
-        <iframe class="svc-frame" id="code-admin-frame" [src]="s" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer" [title]="title()"></iframe>
+        <iframe class="svc-frame" id="code-admin-frame" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer" [title]="title()"></iframe>
       } @else {
-        <iframe class="svc-frame" [src]="s" sandbox="allow-scripts allow-forms allow-popups allow-downloads allow-modals" referrerpolicy="no-referrer" [title]="title()"></iframe>
+        <iframe class="svc-frame" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-downloads allow-modals" referrerpolicy="no-referrer" [title]="title()"></iframe>
       }
     }
   `,
@@ -54,6 +59,10 @@ export class ServicePage {
   readonly page = signal('');
   readonly src = signal<SafeResourceUrl | null>(null);
   readonly error = signal('');
+  /** The page's own height (kit.js {type:'ak:height'}): the frame grows to it, the admin scrolls instead of the frame. */
+  readonly contentHeight = signal<number | null>(null);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private router = inject(Router);
   readonly isCode = computed(() => this.id() === CODE_PAGES_ID);
   readonly codePage = computed(() => (this.isCode() ? this.postTypes.adminPages().find(p => p.id === this.page()) : undefined));
   readonly plugin = computed(() => this.plugins.list().find(p => p.id === this.id()));
@@ -75,9 +84,18 @@ export class ServicePage {
     });
   }
 
+  /** Auto-height and AK.open() — only messages whose window is this page's iframe. */
+  onFrameMessage(e: MessageEvent) {
+    if (!sourceFrame(this.host.nativeElement.querySelectorAll<HTMLIFrameElement>('iframe.svc-frame'), e.source)) return;
+    const m = readFrameMessage(e.data, adminBase());
+    if (m?.type === 'height') this.contentHeight.set(clampHeight(m.height, FRAME_MIN_HEIGHT, PAGE_MAX_HEIGHT));
+    else if (m?.type === 'navigate') this.router.navigateByUrl(m.route);
+  }
+
   async load() {
     this.error.set('');
     this.src.set(null);
+    this.contentHeight.set(null);
     try {
       const { url } = this.isCode() ? await this.codeTicket() : await this.api.serviceTicket(this.id(), this.page());
       this.src.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));

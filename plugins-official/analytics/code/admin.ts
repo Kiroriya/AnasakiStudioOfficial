@@ -9,6 +9,7 @@ const M = {
     periodVisitors: 'ผู้เข้าชม {n} วัน', trend: 'แนวโน้มรายวัน', topPages: 'หน้าที่เข้าชมมากที่สุด', page: 'หน้า',
     referrers: 'มาจากที่ไหน', direct: 'พิมพ์เข้ามาเอง / ไม่ทราบ', noRef: 'ยังไม่มีข้อมูล', empty: 'ยังไม่มีคนเข้าชมในช่วงนี้',
     privacy: 'ไม่ใช้คุกกี้ ไม่เก็บ IP — นับผู้เข้าชมด้วยรหัสที่เปลี่ยนทุกวัน', asTable: 'ดูเป็นตาราง', asChart: 'ดูเป็นกราฟ', date: 'วันที่',
+    viewAll: 'ดูทั้งหมด →',
   },
   en: {
     title: 'Visitor statistics', desc: 'See how many people visit and which pages are most popular.', range: '{n} days', views: 'Views',
@@ -16,7 +17,7 @@ const M = {
     periodVisitors: 'Visitors, {n} days', trend: 'Daily trend', topPages: 'Most viewed pages', page: 'Page',
     referrers: 'Top referrers', direct: 'Direct / unknown', noRef: 'No data yet', empty: 'No visits in this period yet',
     privacy: 'No cookies, no stored IPs — visitors are counted with a hash that rotates daily.', asTable: 'View as table',
-    asChart: 'View as chart', date: 'Date',
+    asChart: 'View as chart', date: 'Date', viewAll: 'View all →',
   },
 };
 type Key = keyof typeof M.th;
@@ -35,29 +36,77 @@ function dayLabel(day: string, en: boolean): string {
 
 const attr = (v: unknown) => esc(JSON.stringify(v));
 
+/** Validated categorical slots 1–2 (blue, orange) — the colours of the former built-in charts. */
+const VIEWS_COLOR = '#2a78d6';
+const VISITORS_COLOR = '#eb6834';
+
+/** data-ak-line options (AK.line of the admin UI kit): views + visitors per day. */
+function lineChart(a: Summary, en: boolean, L: typeof M.th, height: number): string {
+  return attr({
+    labels: a.daily.map((d) => dayLabel(d.day, en)),
+    series: [
+      { label: L.views, color: VIEWS_COLOR, values: a.daily.map((d) => d.views) },
+      { label: L.visitors, color: VISITORS_COLOR, values: a.daily.map((d) => d.visitors) },
+    ],
+    height,
+    locale: en ? 'en-US' : 'th-TH',
+    tableLabel: L.asTable,
+    chartLabel: L.asChart,
+    dateLabel: L.date,
+  });
+}
+
+/** The admin page of this plugin (site.adminPage 'stats') as an admin path. */
+export const STATS_PATH = '/admin/x/code/analytics:stats';
+
 const STYLE = `<style>
 .an-seg{display:flex;gap:4px}.an-seg a{padding:6px 12px;border:1px solid var(--ak-border,#d1d5db);border-radius:8px;text-decoration:none;color:inherit}
 .an-seg a.on{background:var(--ak-primary,#4f46e5);border-color:var(--ak-primary,#4f46e5);color:#fff}
 .an-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}
 .an-cols{display:grid;grid-template-columns:2fr 1fr;gap:12px}@media (max-width:800px){.an-cols{grid-template-columns:1fr}}
-.an-rank{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;background:var(--ak-muted-bg,#f3f4f6)}
-.an-rank.top{background:#fde68a;color:#78350f}.an-bar{height:4px;border-radius:2px;background:var(--ak-border,#e5e7eb);margin-top:4px}
+.an-rank{display:inline-flex;flex-shrink:0;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--ak-surface-2);color:var(--ak-muted)}
+.an-rank.top{background:var(--ak-primary-soft);color:var(--ak-primary)}.an-bar{height:4px;border-radius:2px;background:var(--ak-border,#e5e7eb);margin-top:4px}
 .an-bar span{display:block;height:100%;border-radius:2px;background:#2a78d6}.an-list{list-style:none;margin:0;padding:0}
 .an-list li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--ak-border,#e5e7eb)}
-.an-path{font-family:ui-monospace,monospace;font-size:12px}.an-legend{display:flex;gap:16px;font-size:13px;margin:4px 0 8px}
+.an-path{font-family:ui-monospace,monospace;font-size:12px}
 </style>`;
 
-/** The dashboard card: totals of the last 7 days and the daily views chart (admin UI kit). */
+const WIDGET_STYLE = `<style>
+.an-w-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-size:13px}
+.an-w-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:28px}
+.an-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:12px}
+.an-kpis b{display:block;font-size:22px;line-height:1.25;font-variant-numeric:tabular-nums}.an-kpis small{color:var(--ak-muted);font-size:12px}
+.an-w h4{margin:0 0 4px;font-size:14px}.an-top{list-style:none;margin:0;padding:0}
+.an-top li{display:flex;align-items:center;gap:10px;min-height:40px;border-bottom:1px solid var(--ak-border);font-size:13px}.an-top li:last-child{border-bottom:0}
+.an-top .an-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.an-top b{font-variant-numeric:tabular-nums}
+@media (max-width:720px){.an-w-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
+@media (max-width:420px){.an-kpis{grid-template-columns:1fr 1fr}}
+</style>`;
+
+/** Initial height of the dashboard card (the kit then sizes the frame to its content). */
+export const WIDGET_HEIGHT = 330;
+
+/** The dashboard card "Visitors, last 7 days" — the former built-in widget: KPIs, views + visitors chart, top 5 pages. */
 export function renderWidget(ctx: { locale?: string }): string {
   const en = ctx.locale === 'en';
   const L = en ? M.en : M.th;
+  const t = (k: Key, n?: number) => L[k].replace('{n}', String(n ?? ''));
   const a: Summary = summary(7);
-  const chart = a.daily.map((d) => ({ label: dayLabel(d.day, en), value: d.views }));
-  return `<style>.an-w{display:flex;gap:16px;margin-bottom:8px}.an-w div{display:flex;flex-direction:column}.an-w b{font-size:22px}</style>` +
-    `<div class="an-w" id="an-widget"><div data-stat="views"><span class="ak-muted ak-small">${esc(L.views)}</span><b>${num(a.totals.views)}</b></div>` +
-    `<div data-stat="visitors"><span class="ak-muted ak-small">${esc(L.visitors)}</span><b>${num(a.totals.visitors)}</b></div>` +
-    `<div data-stat="todayViews"><span class="ak-muted ak-small">${esc(L.todayViews)}</span><b>${num(a.totals.todayViews)}</b></div></div>` +
-    `<div data-ak-bar="${attr(chart)}" id="an-widget-chart"></div>`;
+  const kpi = (id: string, v: number, label: string) => `<div data-stat="${id}"><b>${num(v)}</b><small>${esc(label)}</small></div>`;
+  const first = a.daily[0]?.day ?? '';
+  const last = a.daily[a.daily.length - 1]?.day ?? '';
+  const top = a.topPages.slice(0, 5);
+  const pages = top.length
+    ? top.map((p, i) => `<li data-path="${esc(p.path)}"><span class="an-rank${i < 3 ? ' top' : ''}">${i + 1}</span>` +
+        `<span class="an-t" title="${esc(p.path)}">${esc(p.title || p.path)}</span><b>${num(p.views)}</b></li>`).join('')
+    : `<li class="ak-muted">${esc(t('empty'))}</li>`;
+  return WIDGET_STYLE +
+    `<div class="an-w" id="an-widget"><div class="an-w-head"><span class="ak-muted">${esc(first ? dayLabel(first, en) + ' – ' + dayLabel(last, en) : '')}</span>` +
+    `<a href="${STATS_PATH}" id="an-widget-all" data-ak-open>${esc(t('viewAll'))}</a></div>` +
+    `<div class="an-w-grid"><div><div class="an-kpis">${kpi('todayViews', a.totals.todayViews, t('todayViews'))}` +
+    `${kpi('views', a.totals.views, t('periodViews', 7))}${kpi('visitors', a.totals.visitors, t('periodVisitors', 7))}</div>` +
+    `<div id="an-widget-chart" data-ak-line="${lineChart(a, en, L, 150)}"></div></div>` +
+    `<div><h4>🏆 ${esc(t('topPages'))}</h4><ol class="an-top" id="an-widget-top">${pages}</ol></div></div></div>`;
 }
 
 export function renderAdmin(ctx: { query: Record<string, string | string[]>; locale?: string }): { title: string; html: string } {
@@ -69,8 +118,6 @@ export function renderAdmin(ctx: { query: Record<string, string | string[]>; loc
   const seg = [7, 30, 90].map((d) => `<a href="?days=${d}" class="${d === days ? 'on' : ''}" data-days="${d}">${esc(t('range', d))}</a>`).join('');
   const stat = (icon: string, v: number, label: string, id: string) =>
     `<div class="ak-card"><div class="ak-stat" data-stat="${id}"><span>${icon} ${esc(label)}</span><b>${num(v)}</b></div></div>`;
-  const chartViews = a.daily.map((d) => ({ label: dayLabel(d.day, en), value: d.views }));
-  const chartVisitors = a.daily.map((d) => ({ label: dayLabel(d.day, en), value: d.visitors }));
   const maxViews = a.topPages[0]?.views ?? 0;
   const pages = a.topPages.length
     ? a.topPages.map((p, i) => `<tr data-path="${esc(p.path)}"><td><span class="an-rank${i < 3 ? ' top' : ''}">${i + 1}</span></td>` +
@@ -81,20 +128,13 @@ export function renderAdmin(ctx: { query: Record<string, string | string[]>; loc
   const refs = a.topReferrers.length
     ? a.topReferrers.map((r) => `<li data-host="${esc(r.host)}"><span>${esc(r.host || t('direct'))}</span><b class="ak-num">${num(r.views)}</b></li>`).join('')
     : `<li class="ak-muted">${esc(t('noRef'))}</li>`;
-  const table = `<table class="ak-table" data-ak-sortable><thead><tr><th data-sort>${esc(t('date'))}</th><th data-sort class="ak-num">${esc(t('views'))}</th>` +
-    `<th data-sort class="ak-num">${esc(t('visitors'))}</th></tr></thead><tbody>` +
-    a.daily.map((d) => `<tr><td data-value="${d.day}">${esc(dayLabel(d.day, en))}</td><td class="ak-num">${d.views}</td><td class="ak-num">${d.visitors}</td></tr>`).join('') +
-    `</tbody></table>`;
   const html = STYLE +
     `<header class="ak-page-head"><span class="ak-page-icon">📊</span><div class="ak-page-head-text"><h1>${esc(t('title'))}</h1><p>${esc(t('desc'))}</p></div>` +
     `<div class="ak-actions an-seg" id="an-range">${seg}</div></header>` +
     `<div class="an-stats">${stat('👁', a.totals.todayViews, t('todayViews'), 'todayViews')}${stat('🙋', a.totals.todayVisitors, t('todayVisitors'), 'todayVisitors')}` +
     `${stat('📈', a.totals.views, t('periodViews', days), 'views')}${stat('👥', a.totals.visitors, t('periodVisitors', days), 'visitors')}</div>` +
-    `<div class="ak-card" id="an-trend"><div class="ak-card-head"><h2>${esc(t('trend'))}</h2>` +
-    `<div class="ak-tabs" data-ak-tabs><button class="ak-tab" data-tab="chart">${esc(t('asChart'))}</button><button class="ak-tab" data-tab="table">${esc(t('asTable'))}</button></div></div>` +
-    `<section data-tab-panel="chart"><div class="an-legend"><span>■ ${esc(t('views'))}</span></div><div data-ak-bar="${attr(chartViews)}" id="an-chart-views"></div>` +
-    `<div class="an-legend"><span>■ ${esc(t('visitors'))}</span></div><div data-ak-bar="${attr(chartVisitors)}" id="an-chart-visitors"></div></section>` +
-    `<section data-tab-panel="table" hidden>${table}</section></div>` +
+    `<div class="ak-card" id="an-trend"><div class="ak-card-head"><h2>${esc(t('trend'))}</h2></div>` +
+    `<div id="an-chart" data-ak-line="${lineChart(a, en, L, 260)}"></div></div>` +
     `<div class="an-cols"><div class="ak-card ak-card-flush"><div class="ak-card-head"><h2>🏆 ${esc(t('topPages'))}</h2><span class="ak-muted ak-small">${esc(t('range', days))}</span></div>` +
     `<div class="ak-table-wrap"><table class="ak-table" id="an-pages"><thead><tr><th>#</th><th>${esc(t('page'))}</th><th class="ak-num">${esc(t('views'))}</th>` +
     `<th class="ak-num">${esc(t('visitors'))}</th></tr></thead><tbody>${pages}</tbody></table></div></div>` +

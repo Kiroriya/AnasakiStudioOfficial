@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -10,6 +10,7 @@ import { I18n, TPipe, localized } from '../core/i18n';
 import { Post, Settings, Stats } from '../core/models';
 import { Plugins } from '../core/plugins';
 import { starterPage } from '../editor/presets';
+import { WIDGET_MAX_HEIGHT, WIDGET_MIN_HEIGHT, adminBase, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
 
 interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; run: () => void }
 
@@ -17,6 +18,7 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
   selector: 'rea-dashboard',
   imports: [RouterLink, NgTemplateOutlet, TPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:message)': 'onFrameMessage($event)' },
   template: `
     <section class="welcome">
       <div>
@@ -47,7 +49,7 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
         @for (w of widgets(); track w.id) {
           <section class="card dash-widget" [attr.data-id]="w.id">
             <h3>{{ w.icon || '🧩' }} {{ label(w) }}</h3>
-            <iframe class="dash-widget-frame" [src]="frameSrc(w)" [style.height.px]="w.height" sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+            <iframe class="dash-widget-frame" [attr.data-id]="w.id" [src]="frameSrc(w)" [style.height.px]="frameHeight(w)" sandbox="allow-scripts allow-forms allow-popups allow-downloads"
               referrerpolicy="no-referrer" [title]="label(w)"></iframe>
           </section>
         }
@@ -114,6 +116,25 @@ export class Dashboard implements OnInit {
     let s = this.frames.get(w.url);
     if (!s) { s = this.sanitizer.bypassSecurityTrustResourceUrl(w.url); this.frames.set(w.url, s); }
     return s;
+  }
+
+  /** Heights the widgets reported (kit.js {type:'ak:height'}); the registered height until then. */
+  readonly heights = signal<Record<string, number>>({});
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  frameHeight(w: DashboardWidget) { return this.heights()[w.id] ?? w.height; }
+
+  /** Auto-height and AK.open() of a widget frame — only messages whose window is one of our widget iframes. */
+  onFrameMessage(e: MessageEvent) {
+    const frame = sourceFrame(this.host.nativeElement.querySelectorAll<HTMLIFrameElement>('iframe.dash-widget-frame'), e.source);
+    const id = frame?.dataset['id'];
+    const m = id ? readFrameMessage(e.data, adminBase()) : null;
+    if (!id || !m) return;
+    if (m.type === 'height') {
+      const h = clampHeight(m.height, WIDGET_MIN_HEIGHT, WIDGET_MAX_HEIGHT);
+      if (this.heights()[id] !== h) this.heights.update(x => ({ ...x, [id]: h }));
+    } else {
+      this.router.navigateByUrl(m.route);
+    }
   }
 
   /** Stat cards; each links to its list only for accounts that may open it. */

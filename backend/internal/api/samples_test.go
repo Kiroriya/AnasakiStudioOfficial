@@ -847,8 +847,31 @@ func TestSampleAdminCrud(t *testing.T) {
 		t.Fatalf("list after create:\n%s", html)
 	}
 	html, _ = adminPage(t, e, admin, "admin-crud:data", "r=contacts&q=bo&lang=en")
-	if !strings.Contains(html, "Bob") || strings.Contains(html, "cmd") || !strings.Contains(html, "1 rows") || !strings.Contains(html, `name="lang" value="en"`) {
-		t.Fatalf("search:\n%s", html)
+	// row values only ("=cmd()"), not a bare "cmd" that a random ticket in the page URLs could contain;
+	// on failure say which check failed and show the list part, not the whole page
+	var bad []string
+	for _, c := range []struct {
+		ok   bool
+		what string
+	}{
+		{strings.Contains(html, ">Bob<"), `row "Bob" missing`},
+		{!strings.Contains(html, "=cmd()") && !strings.Contains(html, "Alice"), "rows that do not match q=bo are listed"},
+		{strings.Contains(html, ">1 rows<"), `count "1 rows" missing`},
+		{strings.Contains(html, `name="lang" value="en"`), "lang=en not kept in the search form"},
+	} {
+		if !c.ok {
+			bad = append(bad, c.what)
+		}
+	}
+	if len(bad) > 0 {
+		part := html
+		if i := strings.Index(html, `<div class="bar">`); i >= 0 {
+			part = html[i:]
+			if j := strings.Index(part, "</table>"); j >= 0 {
+				part = part[:j+len("</table>")]
+			}
+		}
+		t.Fatalf("search (r=contacts&q=bo&lang=en): %s\n%s", strings.Join(bad, "; "), part)
 	}
 	// Export CSV (the page's download handler, same ticket + role check)
 	rec := adminDownload(t, e, admin, "admin-crud:data", "r=contacts")

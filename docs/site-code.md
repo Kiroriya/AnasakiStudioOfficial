@@ -1002,8 +1002,14 @@ gives `ak-*` classes (cards, buttons, badges, tables, forms, tabs, toasts, dialo
 that follow light/dark (`prefers-color-scheme`, or `<html data-theme="dark|light">`) and `window.AK`:
 `AK.toast(msg, kind)`, `AK.confirm(text, {ok, cancel, danger}) → Promise<boolean>`, `AK.tabs(el)`,
 `AK.table(...)`, `AK.sortable(table)`, `AK.pager(...)`, `AK.validate(form)`, `AK.bar(el, data)`,
-`AK.sparkline(el, values)`, `AK.t(key)`; declarative `data-ak-tabs`, `data-ak-sortable`, `data-ak-validate`,
-`data-ak-bar`, `data-ak-spark` attributes are initialised on load — see `backend/internal/sitecode/kit/kit-demo.html` for every component and its exact options.
+`AK.sparkline(el, values)`, `AK.line(el, {labels, series: [{label, color, values}], height, locale, tableLabel,
+chartLabel, dateLabel})` (line chart: nice y ticks, area under the first series, hover tooltip, legend, chart ⇄ table),
+`AK.open(path)` (opens an admin path such as `/admin/x/code/<plugin>:<page>` in the admin — the sandboxed frame never
+navigates the top window; the admin accepts admin paths only), `AK.t(key)`; declarative `data-ak-tabs`, `data-ak-sortable`,
+`data-ak-validate`, `data-ak-bar`, `data-ak-spark`, `data-ak-line` (JSON options) and `<a href="/admin/…" data-ak-open>`
+attributes are initialised on load. The kit also reports the document height to the admin (`{type: 'ak:height'}`), which
+sizes dashboard widgets (80–2000 px; the registered `height` is the initial one) and lets admin pages grow to their
+content instead of scrolling inside the frame — see `backend/internal/sitecode/kit/kit-demo.html` for every component and its exact options.
 
 ### For the built-in plugins (phase 7)
 

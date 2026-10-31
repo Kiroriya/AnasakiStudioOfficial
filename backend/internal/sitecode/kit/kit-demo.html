@@ -32,6 +32,14 @@
     <div id="demo-bar"></div>
   </div>
 
+  <div class="ak-card">
+    <div class="ak-card-head"><h2 data-th="ผู้เข้าชม 14 วัน" data-en="Visitors, 14 days"></h2><span class="ak-muted ak-small">AK.line(el, {labels, series})</span></div>
+    <div id="demo-line"></div>
+    <p class="ak-hint">data-ak-line='{"labels":["Mon","Tue","Wed"],"series":[{"label":"Views","color":"#2a78d6","values":[3,8,5]}],"height":120}' ·
+      <a href="/admin/x/code/demo:page" data-ak-open>AK.open('/admin/x/code/demo:page')</a></p>
+    <div data-ak-line='{"labels":["Mon","Tue","Wed"],"series":[{"label":"Views","color":"#2a78d6","values":[3,8,5]}],"height":120}'></div>
+  </div>
+
   <div class="ak-tabs" data-ak-tabs id="demo-tabs">
     <button class="ak-tab" data-tab="table" data-th="ตาราง" data-en="Table"></button>
     <button class="ak-tab" data-tab="form" data-th="ฟอร์ม" data-en="Form"></button>
@@ -86,12 +94,26 @@
   const L = () => AK.lang();
   function texts() { document.querySelectorAll('[data-th]').forEach(e => { e.textContent = e.getAttribute('data-' + L()); }); }
   texts();
-  document.getElementById('demo-lang').onclick = () => { document.documentElement.lang = L() === 'th' ? 'en' : 'th'; texts(); render(); };
+  document.getElementById('demo-lang').onclick = () => { document.documentElement.lang = L() === 'th' ? 'en' : 'th'; texts(); render(); lineChart(); };
   document.getElementById('demo-theme').onclick = () => {
     const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     r.dataset.theme = dark ? 'light' : 'dark';
   };
   AK.sparkline('#demo-spark', [9, 7, 8, 5, 6, 4, 7, 6, 8]);
+  const days = Array.from({ length: 14 }, (_, i) => new Date(2026, 9, 18 + i));
+  const line = AK.line('#demo-line', {});
+  function lineChart() {
+    const th = L() === 'th';
+    line.set({
+      labels: days.map(d => d.toLocaleDateString(th ? 'th-TH' : 'en-US', { day: 'numeric', month: 'short' })),
+      series: [
+        { label: th ? 'การเข้าชม' : 'Views', color: '#2a78d6', values: days.map((_, i) => Math.round(90 + 40 * Math.sin(i / 2) + i * 6)) },
+        { label: th ? 'ผู้เข้าชม' : 'Visitors', color: '#eb6834', values: days.map((_, i) => Math.round(40 + 18 * Math.sin(i / 2 + 1) + i * 2)) },
+      ],
+      height: 200,
+    });
+  }
+  lineChart();
   AK.bar('#demo-bar', Array.from({ length: 14 }, (_, i) => ({ label: String(i + 1), value: Math.round(800 + 600 * Math.sin(i / 2) + i * 40) })));
 
   const people = Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: ['Somchai', 'Ann', 'Niran', 'Ploy', 'Ben'][i % 5] + ' ' + (i + 1), orders: (i * 7) % 19, status: i % 4 ? 'active' : 'pending' }));

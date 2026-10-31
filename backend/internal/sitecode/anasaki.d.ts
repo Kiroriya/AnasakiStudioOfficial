@@ -1020,7 +1020,7 @@ interface DashboardWidgetSpec {
   icon?: string;
   /** Roles (default ['administrator']). */
   access?: string[];
-  /** iframe height in px (60-2000, default 220). */
+  /** Initial iframe height in px (60-2000, default 220); pages using the admin UI kit then fit their content. */
   height?: number;
   /** HTML of the card (same document, kit and anasaki.call as admin pages). */
   render(ctx: AdminPageContext & { widget: string }): string | { html: string } | Promise<string | { html: string }>;

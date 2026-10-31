@@ -142,7 +142,7 @@ func TestOfficialAnalytics(t *testing.T) {
 	// admin page: administrators and editors (was view_stats), English for the owner
 	html, _ := adminPage(t, e.toSample(), admin, "analytics:stats", "days=7")
 	offBContains(t, "admin page", html, "<title>Visitor statistics</title>", `data-stat="todayViews"><span>👁 Views today</span><b>5</b>`,
-		`data-path="/about"`, "About us", `data-host="google.com"`, "No cookies, no stored IPs", `data-ak-bar=`, `class="on" data-days="7"`)
+		`data-path="/about"`, "About us", `data-host="google.com"`, "No cookies, no stored IPs", `id="an-chart" data-ak-line=`, `class="on" data-days="7"`)
 	ed := user("Ed", "editor")
 	if code, _ := ed.do("POST", "/api/v1/code/admin-pages/analytics:stats/ticket", map[string]any{}); code != 200 {
 		t.Fatalf("editor ticket: %d", code)
@@ -209,7 +209,7 @@ func TestOfficialAnalytics(t *testing.T) {
 		t.Fatalf("widgets: %v", wl)
 	}
 	rec := e.c.send("GET", wl.([]any)[0].(map[string]any)["url"].(string), nil, nil)
-	offBContains(t, "widget", rec.Body.String(), `id="an-widget"`, `data-stat="views"`, `<b>50</b>`, `data-ak-bar=`, "/ext-ui/kit.js")
+	offBContains(t, "widget", rec.Body.String(), `id="an-widget"`, `data-stat="views"`, `<b>50</b>`, `id="an-widget-chart" data-ak-line=`, `data-ak-open`, `/admin/x/code/analytics:stats`, `class="an-top"`, "/ext-ui/kit.js")
 
 	// case-sensitive paths (utf8mb4_bin, like the built-in tables): /CaseTest and /casetest are two pages
 	publishCode(t, admin, map[string]string{"main.ts": `
