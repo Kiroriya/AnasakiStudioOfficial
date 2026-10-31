@@ -573,8 +573,16 @@ func TestLegacyRoutesNeedManageOptions(t *testing.T) {
 func TestLegacyMigrationRealPackages(t *testing.T) {
 	ids := []string{"analytics", "seo", "forms", "redirects", "cookie-consent", "maintenance", "custom-code"}
 	e := newLegacyEnv(t, ids...)
+	version := map[string]string{} // each official package's own manifest version (they are released separately)
 	for _, id := range ids {
 		files := dirFiles(t, filepath.Join("..", "..", "..", "plugins-official", id))
+		var mf struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal([]byte(files["manifest.json"]), &mf); err != nil || mf.Version == "" {
+			t.Fatalf("%s manifest version: %v", id, err)
+		}
+		version[id] = mf.Version
 		e.store.put(t, files)
 		if err := legacy.CreateOldTables(e.st.DB, id); err != nil {
 			t.Fatal(err)
@@ -611,7 +619,7 @@ func TestLegacyMigrationRealPackages(t *testing.T) {
 	want := map[string]float64{"analytics": 5, "seo": 1, "forms": 3, "redirects": 3}
 	for _, id := range ids {
 		m := it[id]
-		if m["status"] != "done" || m["version"] != "2.0.0" || m["imported"].(float64) != want[id] {
+		if m["status"] != "done" || m["version"] != version[id] || m["imported"].(float64) != want[id] {
 			t.Errorf("%s = %v", id, m)
 		}
 		p := pkgOf(t, e.admin, id)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,9 @@ func offAInstall(t *testing.T, admin *client, ids ...string) {
 		if err := json.Unmarshal([]byte(files["manifest.json"]), &mf); err != nil {
 			t.Fatalf("%s manifest: %v", id, err)
 		}
-		if mf["id"] != id || mf["version"] != "2.0.0" || mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["legacy"] != id {
+		// official packages start at 2.0.0 (the built-ins were 1.x) and are released separately afterwards
+		if v, _ := mf["version"].(string); mf["id"] != id || !regexp.MustCompile(`^([2-9]|[1-9][0-9]+)\.[0-9]+\.[0-9]+$`).MatchString(v) ||
+			mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["legacy"] != id {
 			t.Fatalf("%s manifest fields: %v", id, mf)
 		}
 		if ex, _ := mf["code"].(map[string]any)["exports"].([]any); !strings.Contains(fmt.Sprint(ex), "legacyImport") {
