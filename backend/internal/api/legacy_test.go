@@ -39,6 +39,25 @@ func newFakeStore(t *testing.T) *fakeStore {
 		if fs.down.Load() {
 			panic(http.ErrAbortHandler) // connection dropped: "store unreachable"
 		}
+		if r.URL.Path == "/api/v1/plugins" { // catalogue (only the recommended filter is faked)
+			items := []any{}
+			fs.mu.Lock()
+			for _, d := range fs.details {
+				if r.URL.Query().Get("recommended") != "1" || d["recommended"] == true {
+					sum := map[string]any{}
+					for k, v := range d {
+						if k != "permissions" { // like the real Store: no permissions in summaries
+							sum[k] = v
+						}
+					}
+					items = append(items, sum)
+				}
+			}
+			fs.mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "total": len(items), "page": 1})
+			return
+		}
 		id, rest, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/"), "/")
 		fs.mu.Lock()
 		z, d := fs.zips[id], fs.details[id]
@@ -72,6 +91,22 @@ func (fs *fakeStore) put(t *testing.T, files map[string]string) {
 	fs.zips[id] = zipBytes(t, files)
 	fs.details[id] = map[string]any{"id": id, "name": mf["name"], "version": mf["version"], "official": true,
 		"permissions": mf["permissions"], "code": mf["code"]}
+}
+
+// recommend marks id as recommended by the Store (detail-only when the id
+// has no package: listed but not downloadable).
+func (fs *fakeStore) recommend(id string, checked bool, order int, extra map[string]any) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	d := fs.details[id]
+	if d == nil {
+		d = map[string]any{"id": id, "name": id, "version": "1.0.0", "official": true}
+		fs.details[id] = d
+	}
+	d["recommended"], d["recommendedChecked"], d["recommendedOrder"] = true, checked, order
+	for k, v := range extra {
+		d[k] = v
+	}
 }
 
 // fakeOfficial builds an official package of built-in id. withImport adds a

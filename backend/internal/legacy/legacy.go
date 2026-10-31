@@ -55,6 +55,13 @@ type Builtin struct {
 	Options []string
 }
 
+// SecretOption reports the stored settings of former built-ins that may hold
+// secrets or raw code (custom code, the maintenance bypass key): a site
+// export never carries them.
+func SecretOption(name string) bool {
+	return name == OptionSettingsPrefix+"custom-code" || name == OptionSettingsPrefix+"maintenance"
+}
+
 // OptionActive and OptionSettingsPrefix mirror the plugin platform's option
 // names of the built-in era (internal/plugin).
 const (

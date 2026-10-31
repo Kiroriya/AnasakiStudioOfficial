@@ -118,6 +118,8 @@ export class Api {
   // settings & users
   settings() { return this.get<Settings>('/settings'); }
   saveSettings(s: Settings) { return this.put<Settings>('/settings', s); }
+  /** Paths the admin path / URL bases may not use: the core's and those the installed plugins declare (since 2.0.4). */
+  reservedPaths() { return this.get<{ items: ReservedPath[] }>('/settings/reserved-paths'); }
   users(q: { role?: string; search?: string; status?: string; page?: number; perPage?: number } = {}) { return this.get<UserList>('/users', q); }
   bulkUsers(ids: number[], action: 'role' | 'suspend' | 'activate' | 'delete', role?: string) { return this.post<{ updated: number }>('/users/bulk', { ids, action, role }); }
   createUser(u: Partial<User> & { password: string }) { return this.post<User>('/users', u); }
@@ -345,6 +347,9 @@ export async function blobErrorMessage(e: unknown): Promise<string> {
 }
 
 /** Built-in icon and shape sets of the designer. */
+/** A path the admin path / URL bases may not use; plugin = the declaring plugin ('' or absent = the core). */
+export interface ReservedPath { path: string; plugin?: string }
+
 export interface DesignAssets {
   icons: Record<string, { body: string; fill?: boolean }>;
   iconNames: string[];

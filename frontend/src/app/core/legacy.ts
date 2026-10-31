@@ -115,10 +115,15 @@ export class LegacyMigrations {
 
 export interface RecommendedItem {
   id: string;
-  name: { th: string; en: string };
-  description: { th: string; en: string };
+  /** As the Store sends it: a plain string or { th, en }. */
+  name: string | { th?: string; en?: string };
+  description: string | { th?: string; en?: string };
   icon: string;
+  iconUrl?: string;
+  /** Ticked by default (the Store's "recommendedChecked"). */
   checked: boolean;
+  /** The Store's "recommendedOrder" (the list is already sorted). */
+  order?: number;
   available: boolean;
   version: string;
   permissions: string[];

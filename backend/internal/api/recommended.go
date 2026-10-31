@@ -2,37 +2,34 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/anasaki/studio/backend/internal/auth"
-	"github.com/anasaki/studio/backend/internal/legacy"
 	"github.com/anasaki/studio/backend/internal/plugin"
 )
 
-// Setup wizard step "Recommended plugins" (phase 7): the official plugins
-// that replaced the built-ins, installed from the Store right after the site
-// is created. Setup never depends on the Store: when it is unreachable the
-// wizard finishes and says "install later from the Plugins page".
-
-// recommendedPlugins are offered by the wizard; Checked = ticked by default.
-var recommendedPlugins = []struct {
-	ID      string
-	Checked bool
-}{
-	{"seo", true}, {"redirects", true}, {"forms", true}, {"cookie-consent", true},
-	{"analytics", false}, {"maintenance", false}, {"custom-code", false},
-}
+// Setup wizard step "Recommended plugins": the plugins the configured Store
+// marks as recommended (store admins decide; the core never names a plugin),
+// installed right after the site is created. Setup never depends on the
+// Store: when it is unreachable or recommends nothing the wizard finishes and
+// says "install later from the Plugins page".
 
 // RecommendedItem is an entry of GET /api/v1/setup/recommended.
 type RecommendedItem struct {
-	ID          string      `json:"id"`
-	Name        plugin.I18n `json:"name"`
-	Description plugin.I18n `json:"description"`
-	Icon        string      `json:"icon"`
-	Checked     bool        `json:"checked"`
-	// From the Store (empty when it is unreachable):
-	Available   bool     `json:"available"` // published in the Store
+	ID string `json:"id"`
+	// Name / Description as the Store sends them: a plain string or {th,en}.
+	Name        any    `json:"name"`
+	Description any    `json:"description"`
+	Icon        string `json:"icon"`
+	IconURL     string `json:"iconUrl,omitempty"`
+	Checked     bool   `json:"checked"` // ticked by default (Store "recommendedChecked")
+	Order       int    `json:"order"`   // Store "recommendedOrder"
+	// Available: published in the Store (always true for a listed item).
+	Available   bool     `json:"available"`
 	Version     string   `json:"version"`
 	Permissions []string `json:"permissions"`
 	Scopes      []string `json:"scopes"`
@@ -57,34 +54,116 @@ func strList(v any) []string {
 	return out
 }
 
+// textOf keeps a Store text field when it is a string or an object ({th,en}).
+func textOf(v any) any {
+	switch v.(type) {
+	case string, map[string]any:
+		return v
+	}
+	return ""
+}
+
+// sortName is the name used to sort recommendations (English first).
+func sortName(o map[string]any) string {
+	switch n := o["name"].(type) {
+	case string:
+		return strings.ToLower(n)
+	case map[string]any:
+		s, _ := n["en"].(string)
+		if s == "" {
+			s, _ = n["th"].(string)
+		}
+		return strings.ToLower(s)
+	}
+	return ""
+}
+
+// storeRecommended asks the Store for its recommended plugins
+// (GET /api/v1/plugins?recommended=1&perPage=50) and keeps the official ones,
+// sorted by recommendedOrder then name.
+func (a *API) storeRecommended() ([]map[string]any, error) {
+	q := url.Values{"recommended": {"1"}, "perPage": {"50"}}
+	v, err := a.plugins.StoreJSON(http.MethodGet, "/api/v1/plugins", q, nil, plugin.StoreRaw, nil)
+	if err != nil {
+		return nil, err
+	}
+	var raw []any
+	switch x := v.(type) {
+	case map[string]any:
+		raw, _ = x["items"].([]any)
+	case []any:
+		raw = x
+	}
+	out := []map[string]any{}
+	seen := map[string]bool{}
+	for _, x := range raw {
+		o, ok := x.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := o["id"].(string)
+		// a Store that ignores the filter must not turn its whole catalogue
+		// into recommendations: both flags are required.
+		if !plugin.ValidPackageID(id) || seen[id] || o["recommended"] != true || o["official"] != true {
+			continue
+		}
+		seen[id] = true
+		out = append(out, o)
+	}
+	order := func(o map[string]any) float64 { f, _ := o["recommendedOrder"].(float64); return f }
+	sort.SliceStable(out, func(i, j int) bool {
+		if oi, oj := order(out[i]), order(out[j]); oi != oj {
+			return oi < oj
+		}
+		if ni, nj := sortName(out[i]), sortName(out[j]); ni != nj {
+			return ni < nj
+		}
+		return out[i]["id"].(string) < out[j]["id"].(string)
+	})
+	return out, nil
+}
+
 // recommendedList answers GET /api/v1/setup/recommended.
 func (a *API) recommendedList(w http.ResponseWriter, r *http.Request) {
 	items := []RecommendedItem{}
-	storeOK := true
-	for _, rp := range recommendedPlugins {
-		b := legacy.Get(rp.ID)
-		it := RecommendedItem{ID: rp.ID, Name: plugin.T(b.Name, b.NameEn), Description: plugin.T(b.Description, b.DescEn),
-			Icon: b.Icon, Checked: rp.Checked, Permissions: []string{}, Scopes: []string{}, Hosts: []string{},
-			Installed: a.plugins.InstalledVersion(rp.ID) != ""}
-		if storeOK {
-			v, err := a.plugins.StoreJSON(http.MethodGet, "/api/v1/plugins/"+url.PathEscape(rp.ID), nil, nil, plugin.StoreRaw, nil)
-			switch {
-			case storeDown(err):
-				storeOK = false
-			case err == nil:
-				if o, ok := v.(map[string]any); ok {
-					it.Available = true
-					it.Version, _ = o["version"].(string)
-					it.Permissions = strList(o["permissions"])
-					if c, ok := o["code"].(map[string]any); ok {
-						it.Scopes, it.Hosts = strList(c["scopes"]), strList(c["hosts"])
+	list, err := a.storeRecommended()
+	if err != nil {
+		// unreachable, or a Store without the recommended list: nothing to offer
+		writeJSON(w, http.StatusOK, map[string]any{"storeAvailable": false, "items": items})
+		return
+	}
+	for _, o := range list {
+		id := o["id"].(string)
+		it := RecommendedItem{ID: id, Name: textOf(o["name"]), Description: textOf(o["description"]), Available: true,
+			Permissions: []string{}, Scopes: []string{}, Hosts: []string{}, Installed: a.plugins.InstalledVersion(id) != "",
+			Checked: o["recommendedChecked"] == true}
+		it.Icon, _ = o["icon"].(string)
+		it.IconURL, _ = o["iconUrl"].(string)
+		it.Version, _ = o["version"].(string)
+		if f, ok := o["recommendedOrder"].(float64); ok {
+			it.Order = int(f)
+		}
+		code, _ := o["code"].(map[string]any)
+		perms, hasPerms := o["permissions"]
+		if !hasPerms {
+			// list summaries carry no permissions, the detail does (the wizard
+			// shows what each plugin asks for before installing it)
+			if d, err := a.plugins.StoreJSON(http.MethodGet, "/api/v1/plugins/"+url.PathEscape(id), nil, nil, plugin.StoreRaw, nil); err == nil {
+				if dm, ok := d.(map[string]any); ok {
+					perms = dm["permissions"]
+					if c, ok := dm["code"].(map[string]any); ok && code == nil {
+						code = c
 					}
 				}
 			}
 		}
+		it.Permissions = strList(perms)
+		if code != nil {
+			it.Scopes, it.Hosts = strList(code["scopes"]), strList(code["hosts"])
+		}
 		items = append(items, it)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"storeAvailable": storeOK, "items": items})
+	writeJSON(w, http.StatusOK, map[string]any{"storeAvailable": true, "items": items})
 }
 
 // RecommendedResult is the outcome of one install.
@@ -96,8 +175,10 @@ type RecommendedResult struct {
 }
 
 // recommendedInstall answers POST /api/v1/setup/recommended/install {ids}:
-// downloads each official plugin from the Store, checks it is official,
-// installs and activates it (the wizard showed its permissions).
+// only ids the Store currently lists as recommended and official are
+// installed, in the list order (other ids are ignored); each package is
+// downloaded, checked to be official, installed and activated (the wizard
+// showed its permissions).
 func (a *API) recommendedInstall(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		IDs []string `json:"ids"`
@@ -110,18 +191,30 @@ func (a *API) recommendedInstall(w http.ResponseWriter, r *http.Request) {
 		want[id] = true
 	}
 	results := []RecommendedResult{}
+	list, err := a.storeRecommended()
+	if err != nil {
+		for id := range want {
+			if plugin.ValidPackageID(id) {
+				results = append(results, RecommendedResult{ID: id, Error: "store unavailable"})
+			}
+		}
+		sort.Slice(results, func(i, j int) bool { return results[i].ID < results[j].ID })
+		writeJSON(w, http.StatusOK, map[string]any{"storeAvailable": false, "results": results})
+		return
+	}
 	storeOK := true
-	for _, rp := range recommendedPlugins { // known ids only, in the list order
-		if !want[rp.ID] {
+	for _, o := range list {
+		id := o["id"].(string)
+		if !want[id] {
 			continue
 		}
-		res := RecommendedResult{ID: rp.ID}
+		res := RecommendedResult{ID: id}
 		if !storeOK {
 			res.Error = "store unavailable"
 			results = append(results, res)
 			continue
 		}
-		inst, err := a.installOfficial(rp.ID)
+		inst, err := a.installOfficial(id)
 		switch {
 		case storeDown(err):
 			storeOK = false
@@ -152,13 +245,29 @@ func (a *API) installOfficial(id string) (plugin.Installed, error) {
 		}
 		return plugin.Installed{}, err
 	}
-	if _, err := legacy.VerifyOfficial(data, id); err != nil {
+	if err := verifyOfficialPackage(data, id); err != nil {
 		return plugin.Installed{}, err
 	}
 	if _, err := a.plugins.InstallPackage(data, "store", id); err != nil {
 		return plugin.Installed{}, err
 	}
 	return a.plugins.SetPackageActive(id, true)
+}
+
+// verifyOfficialPackage checks a downloaded zip is plugin id by the official
+// author (the Store's "official" flag was checked before the download).
+func verifyOfficialPackage(data []byte, id string) error {
+	mf, _, err := plugin.ParsePackage(data)
+	if err != nil {
+		return err
+	}
+	if mf.ID != id {
+		return &plugin.PackageError{Msg: fmt.Sprintf("this is plugin %q, not %q", mf.ID, id)}
+	}
+	if mf.Author != plugin.OfficialAuthor {
+		return &plugin.PackageError{Msg: fmt.Sprintf("%q is not an official %s plugin", id, plugin.OfficialAuthor)}
+	}
+	return nil
 }
 
 // storeDown reports an unreachable Store (network error or a 5xx answer).

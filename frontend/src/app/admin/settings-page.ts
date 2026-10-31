@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Api, SITE_ORIGIN, errorMessage } from '../core/api';
+import { Api, ReservedPath, SITE_ORIGIN, errorMessage } from '../core/api';
 import { Dialog } from '../core/dialog';
 import { I18n, TPipe, localized } from '../core/i18n';
 import { CodePostType } from '../core/code-models';
@@ -25,8 +25,19 @@ const TIMEZONES = [
 ];
 /** Go time layouts (the server formats dates with them). */
 const DATE_FORMATS = ['2 Jan 2006', '02/01/2006', '2006-01-02', '01/02/2006', '2 January 2006', 'January 2, 2006'];
-const RESERVED_PATHS = ['api', 'uploads', 'download', 'plugin-assets', 'ext-ui', 'shop', 'product', 'cart', 'checkout', 'thank-you', 'forms',
-  'sitemap.xml', 'robots.txt', 'favicon.ico', 'assets', 'static', 'feed', 'search', 'setup'];
+/**
+ * The core's own top-level paths (same list as the server's corePaths). The paths of plugins are never
+ * listed here: they come from GET /settings/reserved-paths (the routes the installed plugins declare).
+ */
+export const CORE_PATHS = ['api', 'uploads', 'download', 'plugin-assets', 'ext-ui', 'setup', '_a', '_c',
+  'sitemap.xml', 'robots.txt', 'favicon.ico', 'favicon.svg', 'assets', 'static'];
+
+/** Who owns path p: null = free, '' = the core, else the id of the plugin that declares it. */
+export function reservedOwner(p: string, reserved: ReservedPath[]): string | null {
+  if (CORE_PATHS.includes(p)) return '';
+  const r = reserved.find(x => x.path === p);
+  return r ? (r.plugin ?? '') : null;
+}
 
 /** Site settings, split into tabs like WordPress (General, Reading, Permalinks, Media) plus admin URL and plugin store. */
 @Component({
@@ -242,7 +253,7 @@ const RESERVED_PATHS = ['api', 'uploads', 'download', 'plugin-assets', 'ext-ui',
             <div class="form-row">
               <div class="form-label">{{ 'mail.uses' | t }}</div>
               <ul class="mail-uses">
-                <li>📝 {{ 'mail.use.forms' | t }}</li>
+                <li>🧩 {{ 'mail.use.plugins' | t }}</li>
                 <li>🔑 {{ 'mail.use.reset' | t }}</li>
                 <li>👋 {{ 'mail.use.welcome' | t }}</li>
               </ul>
@@ -313,6 +324,8 @@ export class SettingsPage implements OnInit {
   readonly tab = signal<Tab>('general');
   readonly saved = signal<Settings>({});
   readonly draft = signal<Settings>({});
+  /** Paths the installed plugins (and the core) reserve, from the server. */
+  readonly reserved = signal<ReservedPath[]>([]);
   readonly pages = signal<Post[]>([]);
   readonly templates = signal<Post[]>([]);
   readonly product = signal('');
@@ -326,7 +339,9 @@ export class SettingsPage implements OnInit {
   readonly pathError = computed(() => {
     const p = this.draft()['admin_path'] ?? 'admin';
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(p)) return this.i18n.t('settings.adminPathInvalid');
-    if (RESERVED_PATHS.includes(p) || p === this.draft()['blog_base'] || p === this.draft()['category_base']) return this.i18n.t('settings.adminPathTaken');
+    const owner = reservedOwner(p, this.reserved());
+    if (owner) return this.i18n.t('settings.adminPathPlugin', { id: owner });
+    if (owner === '' || p === this.draft()['blog_base'] || p === this.draft()['category_base']) return this.i18n.t('settings.adminPathTaken');
     return '';
   });
 
@@ -341,6 +356,7 @@ export class SettingsPage implements OnInit {
     this.api.posts({ type: 'page', perPage: 100 }).then(r => this.pages.set(r.items)).catch(() => undefined);
     this.api.posts({ type: 'template', perPage: 100 }).then(r => this.templates.set(r.items)).catch(() => undefined);
     this.api.publicSite().then(s => this.product.set(`${s.product} ${s.version}`)).catch(() => undefined);
+    this.api.reservedPaths().then(r => this.reserved.set(r.items)).catch(() => undefined); // the server checks again on save
     void this.postTypes.ensureLoaded();
   }
 

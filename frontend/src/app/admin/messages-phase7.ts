@@ -86,6 +86,7 @@ registerMessages({
   'setup.rec.installing': { th: 'กำลังติดตั้ง…', en: 'Installing…' },
   'setup.rec.skip': { th: 'ข้าม', en: 'Skip' },
   'setup.rec.finish': { th: 'ไปที่หน้าแดชบอร์ด →', en: 'Go to the dashboard →' },
+  'setup.rec.none': { th: 'ตอนนี้ Store ยังไม่มีปลั๊กอินแนะนำ — ดูปลั๊กอินเพิ่มเติมได้ภายหลังที่หน้าปลั๊กอิน', en: 'The Store has no recommendations right now — browse plugins later from the Plugins page' },
   'setup.rec.storeDown': { th: 'เชื่อมต่อ Plugin Store ไม่ได้ตอนนี้ — ติดตั้งภายหลังได้ที่หน้าปลั๊กอิน', en: 'The Plugin Store cannot be reached right now — install later from the Plugins page' },
   'setup.rec.done': { th: 'ติดตั้งและเปิดใช้เรียบร้อย', en: 'Installed and switched on' },
   'setup.rec.partial': { th: 'ติดตั้งได้บางตัว — ที่เหลือติดตั้งภายหลังได้ที่หน้าปลั๊กอิน', en: 'Some were installed — install the rest later from the Plugins page' },

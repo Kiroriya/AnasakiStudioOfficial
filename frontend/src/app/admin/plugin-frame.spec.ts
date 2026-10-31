@@ -1,4 +1,4 @@
-import { adminRoute, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
+import { adminRoute, clampHeight, pickMediaResult, readFrameMessage, sourceFrame } from './plugin-frame';
 
 describe('plugin frame messages (admin UI kit)', () => {
   it('maps admin paths to router paths and rejects everything else', () => {
@@ -37,5 +37,15 @@ describe('plugin frame messages (admin UI kit)', () => {
     expect(clampHeight(10, 80, 2000)).toBe(80);
     expect(clampHeight(99999, 80, 2000)).toBe(2000);
     expect(clampHeight(300.2, 80, 2000)).toBe(301);
+  });
+
+  it('reads pick-media requests and builds the reply with public fields only', () => {
+    expect(readFrameMessage({ type: 'ak:pick-media', reqId: 'akx-1', accept: 'image' }, '/admin/')).toEqual({ type: 'pick-media', reqId: 'akx-1', accept: 'image' });
+    expect(readFrameMessage({ type: 'ak:pick-media', reqId: 'a' }, '/admin/')).toEqual({ type: 'pick-media', reqId: 'a', accept: 'image' });
+    expect(readFrameMessage({ type: 'ak:pick-media', reqId: 'a', accept: 'file' }, '/admin/')).toEqual({ type: 'pick-media', reqId: 'a', accept: '' });
+    for (const reqId of [undefined, 1, '', 'x'.repeat(65), '<script>']) expect(readFrameMessage({ type: 'ak:pick-media', reqId }, '/admin/')).toBeNull();
+    const media = { id: 3, filename: 'f.jpg', url: '/uploads/f.jpg', mime: 'image/jpeg', size: 1, width: 10, height: 20, alt: '', authorId: 9, createdAt: 'now' };
+    expect(pickMediaResult('r', media)).toEqual({ type: 'ak:pick-media:result', reqId: 'r', media: { url: '/uploads/f.jpg', id: 3, alt: '', width: 10, height: 20 } });
+    expect(pickMediaResult('r', null)).toEqual({ type: 'ak:pick-media:result', reqId: 'r', media: null });
   });
 });

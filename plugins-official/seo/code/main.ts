@@ -1,4 +1,4 @@
-// SEO (official plugin 2.0.0) — the JavaScript port of the built-in Go plugin "seo":
+// SEO (official plugin 2.0.1) — the JavaScript port of the built-in Go plugin "seo":
 //  - per-post fields (site.fields, post meta "seo.title|description|image|noindex") shown in a "SEO" panel of
 //    the post / page editor (authors on their own posts, like the built-in panel) and on the SEO admin page
 //  - page.meta: per-page overrides, site-wide defaults, the title template (%title% %site% %tagline%),

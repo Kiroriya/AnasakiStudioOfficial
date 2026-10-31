@@ -102,8 +102,22 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 		!strings.Contains(html, `data-seo-setting="titleTemplate" maxlength="2000" value="%site% | %title%"`) || !strings.Contains(html, "/ext-ui/kit.js") {
 		t.Fatalf("seo admin page:\n%s", html)
 	}
+	// defaults card (like the built-in page): image = thumbnail + URL field; the media library picker + remove buttons are
+	// rendered hidden and shown only when the kit has AK.pickMedia (newer CMS: the URL field is hidden instead) — older
+	// kits keep the URL field, never a dead button. Save disabled until changed, the card first on narrow screens.
+	for _, w := range []string{`<input type="text" inputmode="url" class="seo-img-url" name="defaultImage" id="seo-default-image" value="/uploads/share.png" maxlength="512" placeholder="https://…" data-seo-setting="defaultImage">`,
+		`id="seo-default-image-preview"><img src="/uploads/share.png" alt=""></span>`, `id="seo-default-image-pick" data-seo-pick hidden>Choose image</button>`,
+		`id="seo-default-image-remove" data-seo-remove hidden>Remove</button>`, `pick=!!(window.AK&&typeof AK.pickMedia==='function')`,
+		`if(!pick){inp.addEventListener('input'`, `inp.hidden=true;pk.hidden=false;`, `AK.pickMedia({accept:'image'})`, `addEventListener('DOMContentLoaded',wire)`,
+		`id="seo-defaults-save" type="submit" disabled`, `class="ak-card seo-defaults"`, `.seo-defaults{order:-1}`} {
+		if !strings.Contains(html, w) {
+			t.Fatalf("seo defaults card: no %s\n%s", w, html)
+		}
+	}
 	html, _ = offAAdminPage(t, e, admin, "seo:seo", fmt.Sprintf("edit=%d", int(about)))
-	if !strings.Contains(html, `data-seo="form"`) || !strings.Contains(html, `placeholder="About"`) || !strings.Contains(html, "noindex") {
+	if !strings.Contains(html, `data-seo="form"`) || !strings.Contains(html, `placeholder="About"`) || !strings.Contains(html, "noindex") ||
+		!strings.Contains(html, `class="seo-img-url" name="image" id="seo-image" value=""`) || !strings.Contains(html, `id="seo-image-preview">🖼</span>`) ||
+		!strings.Contains(html, `id="seo-image-pick" data-seo-pick hidden>`) || !strings.Contains(html, `id="seo-image-remove" data-seo-remove hidden`) || !strings.Contains(html, "AK.pickMedia") {
 		t.Fatalf("seo edit view:\n%s", html)
 	}
 	// validation (same rules as PUT /api/v1/seo/meta/{postId})
@@ -173,7 +187,7 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 
 	// Thai admin language → Thai screen
 	admin.do("PUT", "/api/v1/auth/me", map[string]any{"locale": "th"})
-	if html, _ := offAAdminPage(t, e, admin, "seo:seo", ""); !strings.Contains(html, "หน้าตาในผลการค้นหา") || !strings.Contains(html, "ค่าเริ่มต้นทั้งเว็บ") {
+	if html, _ := offAAdminPage(t, e, admin, "seo:seo", ""); !strings.Contains(html, "หน้าตาในผลการค้นหา") || !strings.Contains(html, "ค่าเริ่มต้นทั้งเว็บ") || !strings.Contains(html, ">เลือกภาพ</button>") || !strings.Contains(html, ">นำออก</button>") {
 		t.Fatalf("thai admin page:\n%s", html)
 	}
 

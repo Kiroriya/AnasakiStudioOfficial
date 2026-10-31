@@ -200,7 +200,7 @@ site.adminPage('nodl', { label: 'No download', render: () => 'x' })
 			t.Fatalf("%s: %d %v", p, r.Code, r.Header())
 		}
 	}
-	if r := get("/ext-ui/kit.js"); !strings.Contains(r.Body.String(), "AK") {
+	if r := get("/ext-ui/kit.js"); !strings.Contains(r.Body.String(), "AK") || !strings.Contains(r.Body.String(), "pickMedia") || !strings.Contains(r.Body.String(), "ak:pick-media:result") {
 		t.Fatal("kit.js has no AK global")
 	}
 }

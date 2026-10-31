@@ -10,13 +10,14 @@ import { I18n, TPipe, localized } from '../core/i18n';
 import { Post, Settings, Stats } from '../core/models';
 import { Plugins } from '../core/plugins';
 import { starterPage } from '../editor/presets';
-import { WIDGET_MAX_HEIGHT, WIDGET_MIN_HEIGHT, adminBase, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
+import { MediaPicker } from '../shared/media-picker';
+import { FrameMediaPick, WIDGET_MAX_HEIGHT, WIDGET_MIN_HEIGHT, adminBase, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
 
 interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; run: () => void }
 
 @Component({
   selector: 'rea-dashboard',
-  imports: [RouterLink, NgTemplateOutlet, TPipe],
+  imports: [RouterLink, NgTemplateOutlet, TPipe, MediaPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(window:message)': 'onFrameMessage($event)' },
   template: `
@@ -54,6 +55,7 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
           </section>
         }
       </div>
+      <rea-media-picker [kind]="mediaPick.pending()?.accept ?? 'image'" [open]="mediaPick.pending() !== null" (openChange)="!$event && mediaPick.done(null)" (picked)="mediaPick.done($event)" />
     }
 
     <h2 class="section-title">{{ 'dash.quick' | t }}</h2>
@@ -123,17 +125,22 @@ export class Dashboard implements OnInit {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
   frameHeight(w: DashboardWidget) { return this.heights()[w.id] ?? w.height; }
 
-  /** Auto-height and AK.open() of a widget frame — only messages whose window is one of our widget iframes. */
+  /** AK.pickMedia() of a widget frame: the admin's media library dialog. */
+  readonly mediaPick = new FrameMediaPick();
+
+  /** Auto-height, AK.open() and AK.pickMedia() of a widget frame — only messages whose window is one of our widget iframes. */
   onFrameMessage(e: MessageEvent) {
     const frame = sourceFrame(this.host.nativeElement.querySelectorAll<HTMLIFrameElement>('iframe.dash-widget-frame'), e.source);
     const id = frame?.dataset['id'];
-    const m = id ? readFrameMessage(e.data, adminBase()) : null;
-    if (!id || !m) return;
+    const m = frame && id ? readFrameMessage(e.data, adminBase()) : null;
+    if (!frame || !id || !m) return;
     if (m.type === 'height') {
       const h = clampHeight(m.height, WIDGET_MIN_HEIGHT, WIDGET_MAX_HEIGHT);
       if (this.heights()[id] !== h) this.heights.update(x => ({ ...x, [id]: h }));
-    } else {
+    } else if (m.type === 'navigate') {
       this.router.navigateByUrl(m.route);
+    } else {
+      this.mediaPick.request(frame, m.reqId, m.accept, this.auth.can('upload_files'));
     }
   }
 

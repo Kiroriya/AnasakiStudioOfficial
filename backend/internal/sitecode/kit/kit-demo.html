@@ -82,6 +82,12 @@
         <button class="ak-btn ak-btn-sm" disabled>disabled</button>
       </div>
       <p></p>
+      <div class="ak-row">
+        <button class="ak-btn" id="demo-pick" type="button">AK.pickMedia({accept: 'image'})</button>
+        <img id="demo-pick-img" alt="" hidden style="height:48px;border-radius:6px" />
+        <span class="ak-muted ak-small" id="demo-pick-out" data-th="เปิดคลังสื่อของหลังบ้าน (ในหน้าผู้ดูแลเท่านั้น; นอกนั้นได้ null)" data-en="Opens the admin's media library (in an admin page only; null elsewhere)"></span>
+      </div>
+      <p></p>
       <div class="ak-alert" data-th="ข้อความแจ้ง" data-en="Info alert"></div>
       <div class="ak-alert ak-alert-ok" data-th="บันทึกแล้ว" data-en="Saved"></div>
       <div class="ak-alert ak-alert-warn" data-th="โปรดตรวจสอบ" data-en="Please check"></div>
@@ -140,6 +146,11 @@
   document.getElementById('demo-toast-err').onclick = () => AK.toast('Error / ผิดพลาด', 'error');
   document.getElementById('demo-toast-warn').onclick = () => AK.toast('Warning / คำเตือน', 'warning');
   document.getElementById('demo-toast-info').onclick = () => AK.toast('Info / ข้อมูล', 'info');
+  document.getElementById('demo-pick').onclick = async () => {
+    const m = await AK.pickMedia({ accept: 'image' }), img = document.getElementById('demo-pick-img');
+    img.hidden = !m; if (m) img.src = m.url;
+    document.getElementById('demo-pick-out').textContent = JSON.stringify(m);
+  };
   document.getElementById('demo-confirm').onclick = async () => AK.toast(String(await AK.confirm(L() === 'th' ? 'ยืนยันการลบ?' : 'Delete this?', { danger: true })), 'info');
 </script>
 </body>

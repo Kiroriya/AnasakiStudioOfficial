@@ -51,7 +51,9 @@ must be `http(s)://…` or a site path.
 | PUT | `/roles/{slug}` | `{name?, caps?}` → Role. `administrator` is immutable (400); other built-ins are editable |
 | DELETE | `/roles/{slug}` | → 204, custom roles only; their users become `subscriber` |
 
-Groups: `content, design, media, users, settings, shop, stats, other`. The catalog includes plugin caps.
+Groups: `content, design, media, users, settings, stats, code, plugins`. The catalog includes plugin caps; a cap
+that is not in the core catalog is grouped `content` / `users` / `settings` when its name says so (post, page, user,
+option, setting), else `plugins`.
 Built-ins: `administrator` (every cap, always), `editor`, `author`, `contributor` (`read, edit_own_posts` — saving
 with `status:"publish"` is stored as `draft`), `subscriber` (`read`).
 Core caps: `read, edit_own_posts, edit_others_posts, publish_posts, manage_categories, unfiltered_html, edit_pages,
@@ -63,6 +65,7 @@ upload_files, manage_users, manage_options, view_stats`. Effective caps = DB rol
 |---|---|---|---|
 | GET | `/settings` | any | → every key below, defaults filled in (all values are strings) |
 | PUT | `/settings` | `manage_options` | partial `{key: value}`; unknown keys ignored; `""` resets to default → full settings |
+| GET | `/settings/reserved-paths` | `manage_options` | → `{items: [{path, plugin?}]}`: first path segments `admin_path`, `blog_base` and `category_base` may not use — the core's own paths (no `plugin`) and the route prefixes the installed plugins declare (`code.routes`, `service.public`). Since 2.0.4 |
 
 | Key | Default | Rule |
 |---|---|---|
@@ -74,7 +77,7 @@ upload_files, manage_users, manage_options, view_stats`. Effective caps = DB rol
 | `timezone` | `Asia/Bangkok` | IANA zone |
 | `date_format` | `2 Jan 2006` | Go reference-time layout, ≤64 chars |
 | `posts_per_page` | `10` | 1–100 |
-| `blog_base`, `category_base`, `admin_path` | `blog`, `category`, `admin` | `^[a-z0-9-]{3,32}$`, not reserved (`api uploads download plugin-assets shop product cart checkout thank-you forms sitemap.xml robots.txt favicon.ico assets static feed search`), all three distinct |
+| `blog_base`, `category_base`, `admin_path` | `blog`, `category`, `admin` | `^[a-z0-9-]{3,32}$`, not reserved (core: `api uploads download plugin-assets ext-ui setup _a _c sitemap.xml robots.txt favicon.ico favicon.svg assets static`; plus every route prefix an installed plugin declares — see `/settings/reserved-paths`), all three distinct |
 | `search_visibility` | `1` | `1`\|`0` |
 | `max_upload_mb` | `32` | 1–512 |
 | `allowed_upload_types` | `jpg,jpeg,png,gif,webp,svg,mp4,webm,mp3,wav,ogg,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,txt,csv,rtf,zip,rar,7z` | comma list; never-allowed extensions are rejected |

@@ -40,7 +40,7 @@ const attr = (v: unknown) => esc(JSON.stringify(v));
 const VIEWS_COLOR = '#2a78d6';
 const VISITORS_COLOR = '#eb6834';
 
-/** data-ak-line options (AK.line of the admin UI kit): views + visitors per day. */
+/** data-ak-line options (AK.line of the admin UI kit, else assets/chart.js): views + visitors per day. */
 function lineChart(a: Summary, en: boolean, L: typeof M.th, height: number): string {
   return attr({
     labels: a.daily.map((d) => dayLabel(d.day, en)),
@@ -58,6 +58,21 @@ function lineChart(a: Summary, en: boolean, L: typeof M.th, height: number): str
 
 /** The admin page of this plugin (site.adminPage 'stats') as an admin path. */
 export const STATS_PATH = '/admin/x/code/analytics:stats';
+
+/**
+ * The package's chart script (assets/chart.js): on CMS 2.0.3+ the kit's AK.line draws [data-ak-line]; on older CMS
+ * (no AK.line in the kit) chart.js draws it with its own copy of the chart and loads assets/chart.css. Deferred, so
+ * it runs after the kit (deferred in <head>).
+ */
+function chartScript(): string {
+  let u = '';
+  try {
+    u = site.asset('assets/chart.js').url;
+  } catch {
+    u = '';
+  }
+  return u ? `<script src="${esc(u)}" defer></script>` : '';
+}
 
 const STYLE = `<style>
 .an-seg{display:flex;gap:4px}.an-seg a{padding:6px 12px;border:1px solid var(--ak-border,#d1d5db);border-radius:8px;text-decoration:none;color:inherit}
@@ -83,10 +98,17 @@ const WIDGET_STYLE = `<style>
 .an-rank.top{background:var(--ak-primary-soft);color:var(--ak-primary)}
 @media (max-width:720px){.an-w-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
 @media (max-width:420px){.an-kpis{grid-template-columns:1fr 1fr}}
+body.ak:has(>.ak-widget){padding:16px;background:var(--ak-surface)}
+
 </style>`;
 
-/** Initial height of the dashboard card (the kit then sizes the frame to its content). */
-export const WIDGET_HEIGHT = 330;
+/**
+ * Height of the dashboard card. CMS 2.0.3+ then sizes the frame to the content (kit auto-height); older CMS keep this
+ * height, so it fits the card without a scrollbar there: 2 × 16px body padding (the widget surface rule of the newer
+ * kit.css, repeated in WIDGET_STYLE for older kits) + head 30 + KPIs 58 + legend 27 + chart 150 + x labels 22 ≈ 321
+ * (the top-5 list beside the chart is shorter), plus a little room.
+ */
+export const WIDGET_HEIGHT = 340;
 
 /** The dashboard card "Visitors, last 7 days" — the former built-in widget: KPIs, views + visitors chart, top 5 pages. */
 export function renderWidget(ctx: { locale?: string }): string {
@@ -104,11 +126,13 @@ export function renderWidget(ctx: { locale?: string }): string {
     : `<li class="ak-muted">${esc(t('empty'))}</li>`;
   return WIDGET_STYLE +
     `<div class="an-w" id="an-widget"><div class="an-w-head"><span class="ak-muted">${esc(first ? dayLabel(first, en) + ' – ' + dayLabel(last, en) : '')}</span>` +
-    `<a href="${STATS_PATH}" id="an-widget-all" data-ak-open>${esc(t('viewAll'))}</a></div>` +
+    // CMS 2.0.3+: data-ak-open → AK.open (the admin opens its page); older kits ignore it and the link opens a new tab
+    // (a sandboxed frame may not navigate the admin window)
+    `<a href="${STATS_PATH}" id="an-widget-all" data-ak-open target="_blank" rel="noopener">${esc(t('viewAll'))}</a></div>` +
     `<div class="an-w-grid"><div><div class="an-kpis">${kpi('todayViews', a.totals.todayViews, t('todayViews'))}` +
     `${kpi('views', a.totals.views, t('periodViews', 7))}${kpi('visitors', a.totals.visitors, t('periodVisitors', 7))}</div>` +
     `<div id="an-widget-chart" data-ak-line="${lineChart(a, en, L, 150)}"></div></div>` +
-    `<div><h4>🏆 ${esc(t('topPages'))}</h4><ol class="an-top" id="an-widget-top">${pages}</ol></div></div></div>`;
+    `<div><h4>🏆 ${esc(t('topPages'))}</h4><ol class="an-top" id="an-widget-top">${pages}</ol></div></div></div>` + chartScript();
 }
 
 export function renderAdmin(ctx: { query: Record<string, string | string[]>; locale?: string }): { title: string; html: string } {
@@ -141,6 +165,6 @@ export function renderAdmin(ctx: { query: Record<string, string | string[]>; loc
     `<div class="ak-table-wrap"><table class="ak-table" id="an-pages"><thead><tr><th>#</th><th>${esc(t('page'))}</th><th class="ak-num">${esc(t('views'))}</th>` +
     `<th class="ak-num">${esc(t('visitors'))}</th></tr></thead><tbody>${pages}</tbody></table></div></div>` +
     `<div class="ak-card"><div class="ak-card-head"><h2>🔗 ${esc(t('referrers'))}</h2></div><ul class="an-list" id="an-referrers">${refs}</ul>` +
-    `<p class="ak-hint">🔒 ${esc(t('privacy'))}</p></div></div>`;
+    `<p class="ak-hint">🔒 ${esc(t('privacy'))}</p></div></div>` + chartScript();
   return { title: t('title'), html };
 }

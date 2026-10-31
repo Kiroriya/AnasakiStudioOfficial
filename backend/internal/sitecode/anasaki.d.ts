@@ -118,8 +118,6 @@ interface SiteEvents {
   'user.created': { id: number; email: string; name: string; role: string };
   /** A media file was uploaded. / อัปโหลดไฟล์ */
   'media.uploaded': { id: number; filename: string; url: string; mime: string; size: number };
-  /** A form was submitted (official forms plugin: forms.submitted, also delivered under this name). / มีการส่งฟอร์ม */
-  'form.submitted': { formId: number; formName: string; submissionId: number; data: Record<string, string>; submittedAt: string };
 }
 
 interface Site {

@@ -113,6 +113,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 
 	h("GET "+p+"/settings", "", a.getSettings)
 	h("PUT "+p+"/settings", "", a.updateSettings) // manage_options, or a demo visitor for a few harmless keys
+	h("GET "+p+"/settings/reserved-paths", auth.CapManageOptions, a.reservedPathList)
 	h("POST "+p+"/demo/snapshot", auth.CapManageOptions, a.demoSnapshot)
 	h("POST "+p+"/demo/reset", auth.CapManageOptions, a.demoReset)
 

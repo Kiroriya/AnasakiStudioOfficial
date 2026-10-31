@@ -1,7 +1,7 @@
 {
   "id": "seo",
   "name": "SEO",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Search and social meta tags (title template, description, Open Graph, Twitter cards, canonical), per-page overrides with search previews, /sitemap.xml and /robots.txt. / แท็ก meta, Open Graph, Twitter, ปรับแต่ง SEO รายหน้า, sitemap.xml และ robots.txt อัตโนมัติ",
   "author": "Anasaki Studio",
   "icon": "🔍",

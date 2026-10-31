@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { DashboardWidget } from '../core/admin-ext';
 import { Dashboard } from './dashboard';
+import { FrameMediaPick } from './plugin-frame';
 
 /** Dashboard.onFrameMessage with a fake component (no TestBed: the handler only uses host, heights and router). */
 function setup() {
@@ -18,6 +19,8 @@ function setup() {
     host: { nativeElement: root },
     heights: signal<Record<string, number>>({}),
     router: { navigateByUrl: (u: string) => navigated.push(u) },
+    mediaPick: new FrameMediaPick(),
+    auth: { can: (c: string) => c === 'upload_files' },
   };
   const send = (source: unknown, data: unknown) => Dashboard.prototype.onFrameMessage.call(self as unknown as Dashboard, { source, data } as MessageEvent);
   return { root, a, b, self, navigated, send };
@@ -54,6 +57,19 @@ describe('Dashboard widget frames', () => {
     send(a.contentWindow, { type: 'ak:navigate', path: 'https://evil.test/' });
     send(a.contentWindow, { type: 'ak:navigate', path: '//evil.test/admin/' });
     expect(navigated).toEqual(['/x/code/analytics:stats']);
+    root.remove();
+  });
+
+  it('opens the media library for AK.pickMedia of a widget and answers that widget', () => {
+    const { root, a, b, self, send } = setup();
+    const toA = vi.spyOn(a.contentWindow!, 'postMessage'), toB = vi.spyOn(b.contentWindow!, 'postMessage');
+    send(window, { type: 'ak:pick-media', reqId: 'w0' });
+    expect(self.mediaPick.pending()).toBeNull();
+    send(b.contentWindow, { type: 'ak:pick-media', reqId: 'w1', accept: 'image' });
+    expect(self.mediaPick.pending()?.frame).toBe(b);
+    self.mediaPick.done(null);
+    expect(toB).toHaveBeenCalledWith({ type: 'ak:pick-media:result', reqId: 'w1', media: null }, '*');
+    expect(toA).not.toHaveBeenCalled();
     root.remove();
   });
 });

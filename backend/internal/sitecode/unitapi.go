@@ -71,9 +71,10 @@ type HookRow struct {
 	Subscribers []HookSub `json:"subscribers"`
 }
 
-// coreEvents are the events the CMS emits itself.
+// coreEvents are the events the CMS emits itself (events of plugins, even
+// under an alias, are declared by the plugins: code.hooks / eventAliases).
 var coreEvents = map[string]bool{"post.published": true, "post.saved": true, "post.deleted": true, "user.created": true,
-	"media.uploaded": true, "form.submitted": true}
+	"media.uploaded": true}
 
 // Hooks lists every filter and event subscribed or declared by the units:
 // subscribers by ascending priority, then unit load order (Site Code last),
@@ -133,6 +134,13 @@ func (e *Engine) Hooks() []HookRow {
 			for _, n := range ref.Code.Hooks.Events {
 				get(n, "event")
 				declared[key{n, "event"}] = id
+			}
+		}
+		for id, ref := range set.refs {
+			for _, alias := range ref.Code.EventAliases { // delivered under another name too
+				if k := (key{alias, "event"}); rows[k] != nil && declared[k] == "" {
+					declared[k] = id
+				}
 			}
 		}
 	}

@@ -59,6 +59,13 @@ var (
 	eventRe     = regexp.MustCompile(`^[a-z][a-z0-9_.-]{1,63}$`)
 )
 
+// OfficialAuthor is the manifest author of official plugins (the Store's
+// "official" flag is the other half of the check).
+const OfficialAuthor = "Anasaki Studio"
+
+// ValidPackageID reports whether id is a valid package id.
+func ValidPackageID(id string) bool { return pkgIDRe.MatchString(id) }
+
 // Manifest is a package plugin's manifest.json.
 type Manifest struct {
 	ID          string          `json:"id"`

@@ -106,6 +106,7 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
               <p class="muted">{{ 'setup.rec.sub' | t }}</p>
               @if (recLoading()) { <p class="muted">{{ 'setup.rec.loading' | t }}</p> }
               @if (recStoreDown()) { <p class="alert setup-rec-store">{{ 'setup.rec.storeDown' | t }}</p> }
+              @else if (!recLoading() && !recItems().length) { <p class="muted setup-rec-none">{{ 'setup.rec.none' | t }}</p> }
               <ul class="setup-rec-list">
                 @for (r of recItems(); track r.id) {
                   <li>

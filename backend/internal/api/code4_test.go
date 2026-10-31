@@ -469,7 +469,8 @@ func TestCodeJobsAndCron(t *testing.T) {
 	c, code, st := newCodeAPI(t, nil)
 	admin, user := setupSite(t, c)
 	publishCode(t, admin, map[string]string{"main.ts": jobsCode})
-	code.JobBackoff = 50 * time.Millisecond
+	// long enough that a slow CI machine cannot reach the retry time inside one ProcessJobs call
+	code.JobBackoff = 400 * time.Millisecond
 	ctx := context.Background()
 	enq := func(body map[string]any) float64 {
 		t.Helper()
@@ -520,26 +521,26 @@ func TestCodeJobsAndCron(t *testing.T) {
 	}
 	// failures: exponential backoff, then failed after retries+1 attempts
 	j3 := enq(map[string]any{"data": map[string]any{"id": 3, "fail": true}})
-	code.ProcessJobs(ctx, 10)
+	code.ProcessJobs(ctx, 1) // one job per call: a retry never runs inside the same call
 	if s, a, _, e := jobRow(t, st, j3); s != "pending" || a != 1 || !strings.Contains(e, "fail 1") {
 		t.Fatalf("first failure: %s %d %q", s, a, e)
 	}
 	var delayMs float64
 	_ = st.DB.QueryRow(`SELECT TIMESTAMPDIFF(MICROSECOND, finished_at, run_at) / 1000 FROM script_jobs WHERE id = ?`, int64(j3)).Scan(&delayMs)
-	if delayMs < 40 || delayMs > 70 {
-		t.Fatalf("first backoff %v ms (want 50)", delayMs)
+	if delayMs < 390 || delayMs > 420 {
+		t.Fatalf("first backoff %v ms (want 400)", delayMs)
 	}
 	if code.ProcessJobs(ctx, 10) != 0 {
 		t.Fatal("retried before the backoff")
 	}
-	time.Sleep(80 * time.Millisecond)
-	code.ProcessJobs(ctx, 10)
+	time.Sleep(450 * time.Millisecond)
+	code.ProcessJobs(ctx, 1)
 	_ = st.DB.QueryRow(`SELECT TIMESTAMPDIFF(MICROSECOND, finished_at, run_at) / 1000 FROM script_jobs WHERE id = ?`, int64(j3)).Scan(&delayMs)
-	if delayMs < 90 || delayMs > 130 {
-		t.Fatalf("second backoff %v ms (want 100)", delayMs)
+	if delayMs < 790 || delayMs > 820 {
+		t.Fatalf("second backoff %v ms (want 800)", delayMs)
 	}
-	time.Sleep(150 * time.Millisecond)
-	code.ProcessJobs(ctx, 10)
+	time.Sleep(850 * time.Millisecond)
+	code.ProcessJobs(ctx, 1)
 	if s, a, _, e := jobRow(t, st, j3); s != "failed" || a != 3 || !strings.Contains(e, "fail 3") {
 		t.Fatalf("final failure: %s %d %q", s, a, e)
 	}

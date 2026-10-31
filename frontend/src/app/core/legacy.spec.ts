@@ -4,7 +4,7 @@ import {
 } from './legacy';
 import { importCounts } from '../admin/tools-export';
 import { recommendedPerms } from '../admin/setup';
-import { I18n } from './i18n';
+import { I18n, localized } from './i18n';
 
 const item = (id: string, status: LegacyItem['status'], extra: Partial<LegacyItem> = {}): LegacyItem => ({
   id, name: 'ชื่อ ' + id, nameEn: 'Name ' + id, icon: '', status, error: '', attempts: 0, wasActive: true, hadData: true, imported: 0,
@@ -63,6 +63,11 @@ describe('setup wizard: recommended plugins', () => {
     expect(installOutcome({ storeAvailable: true, results: [{ id: 'seo', ok: true }] })).toBe('ok');
     expect(installOutcome({ storeAvailable: true, results: [{ id: 'seo', ok: true }, { id: 'forms', ok: false, error: 'x' }] })).toBe('partial');
     expect(installOutcome({ storeAvailable: false, results: [] })).toBe('store');
+  });
+  it('shows Store names given as a plain string or { th, en }', () => {
+    new I18n().set('en');
+    expect(localized(rec('shop-x', true, { name: 'Shop X' }).name)).toBe('Shop X');
+    expect(localized(rec('seo', true, { name: { th: 'เอสอีโอ', en: 'SEO' } }).name)).toBe('SEO');
   });
   it('describes the permissions in words', () => {
     new I18n().set('en');

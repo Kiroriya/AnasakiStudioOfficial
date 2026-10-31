@@ -152,6 +152,7 @@ registerMessages({
   'settings.adminPathNew': { th: 'ที่อยู่หน้าจัดการ:', en: 'Admin address:' },
   'settings.adminPathInvalid': { th: 'ใช้ a-z 0-9 และ - ยาว 2–40 ตัว', en: 'Use a-z, 0-9 and -, 2–40 characters' },
   'settings.adminPathTaken': { th: 'คำนี้ระบบใช้อยู่แล้ว เลือกคำอื่น', en: 'This path is used by the system — choose another' },
+  'settings.adminPathPlugin': { th: 'ปลั๊กอิน {id} ใช้ที่อยู่นี้อยู่ เลือกคำอื่น', en: 'The plugin {id} uses this path — choose another' },
   'settings.adminPathConfirm': { th: 'ย้ายหน้าจัดการไปที่อยู่ใหม่?', en: 'Move the admin to a new address?' },
   'settings.adminPathMoved': { th: 'ย้ายเรียบร้อย — กำลังพาไปที่อยู่ใหม่', en: 'Moved — taking you to the new address' },
   'settings.version': { th: 'เวอร์ชันระบบ', en: 'Version' },
@@ -364,7 +365,7 @@ registerMessages({
   'mail.testOk': { th: 'ส่งอีเมลทดสอบแล้ว ✉️', en: 'Test email sent ✉️' },
   'mail.testFail': { th: 'ส่งอีเมลไม่สำเร็จ', en: 'Could not send email' },
   'mail.uses': { th: 'ระบบใช้อีเมลเพื่อ', en: 'Used for' },
-  'mail.use.forms': { th: 'แจ้งผู้ดูแลเมื่อมีคนส่งแบบฟอร์ม (กดตอบกลับถึงผู้ส่งได้ทันที)', en: 'Telling the admin about new form submissions (reply goes to the visitor)' },
+  'mail.use.plugins': { th: 'อีเมลที่ปลั๊กอินส่ง (เช่น แจ้งเตือนเมื่อมีคนส่งแบบฟอร์ม)', en: 'Emails your plugins send (e.g. new form submission alerts)' },
   'mail.use.reset': { th: 'ส่งลิงก์ตั้งรหัสผ่านใหม่ เมื่อผู้ใช้กด “ลืมรหัสผ่าน”', en: 'Password reset links (“Forgot password”)' },
   'mail.use.welcome': { th: 'อีเมลต้อนรับผู้ใช้ใหม่ พร้อมลิงก์ให้ตั้งรหัสผ่านเอง', en: 'Welcome emails with a link for new users to choose their password' },
 

@@ -215,7 +215,7 @@ function line(root, o) {
  return {set, el: box};
 }
 
-// iframe ↔ admin: the admin sizes the frame to the document ({type: 'ak:height'}) and opens admin paths ({type: 'ak:navigate'})
+// iframe ↔ admin: the admin sizes the frame to the document ({type: 'ak:height'}), opens admin paths ({type: 'ak:navigate'}) and picks media ({type: 'ak:pick-media'})
 const framed = () => window.parent !== window;
 let lastH = -1;
 function height() {
@@ -228,6 +228,26 @@ function open(path) {
  path = String(path || '');
  framed() ? parent.postMessage({type: 'ak:navigate', path}, '*') : (location.href = path);
 }
+
+// pickMedia({accept: 'image'|'file', timeout}) → Promise<{url, id, alt, width, height} | null>: the admin's media library dialog
+// ({type: 'ak:pick-media', reqId, accept} → {type: 'ak:pick-media:result', reqId, media}); cancelled, not allowed, timed out or unframed → null
+const picks = {};
+let pickSeq = 0;
+function pickMedia(o = {}) {
+ if (!framed()) return Promise.resolve(null);
+ const reqId = 'ak' + Date.now().toString(36) + '-' + ++pickSeq;
+ return new Promise(res => {
+  const tm = setTimeout(() => done(null), +o.timeout > 0 ? +o.timeout : 30 * 60e3), done = v => {clearTimeout(tm); delete picks[reqId]; res(v);};
+  picks[reqId] = done;
+  parent.postMessage({type: 'ak:pick-media', reqId, accept: o.accept == 'file' ? 'file' : 'image'}, '*');
+ });
+}
+window.addEventListener('message', e => {
+ const m = e.data;
+ if (e.source !== parent || !m || m.type != 'ak:pick-media:result' || !picks[m.reqId]) return;
+ const x = m.media && typeof m.media == 'object' && typeof m.media.url == 'string' ? m.media : null;
+ picks[m.reqId](x && {url: x.url, id: +x.id || 0, alt: String(x.alt || ''), width: +x.width || 0, height: +x.height || 0});
+});
 
 function init() {
  d.body.classList.add('ak');
@@ -246,6 +266,6 @@ function init() {
  window.addEventListener('load', () => height());
  height();
 }
-window.AK = {lang, t, messages: M, toast, confirm, tabs, table, sortable, pager, validate, bar, sparkline, line, open, height, init};
+window.AK = {lang, t, messages: M, toast, confirm, tabs, table, sortable, pager, validate, bar, sparkline, line, open, pickMedia, height, init};
 d.readyState == 'loading' ? d.addEventListener('DOMContentLoaded', init) : init();
 })();

@@ -15,6 +15,11 @@ installs with one click and runs sandboxed inside the CMS, like a WordPress plug
 everything — or run as a separate program. Built-in Go plugins are a mechanism for the core team only; none are
 shipped since phase 7 — the former ones (seo, forms, …) are official JS plugins, see §5.
 
+**API reference:** [plugin-api.md](plugin-api.md) lists every public joint (manifest, scopes, `site.*`, `db.*`,
+`http.*`, `mail`, `jobs`, `plugins.call`, page hooks, admin pages, the `window.AK` UI kit and the iframe messages)
+with the CMS version it appeared in, how to feature-detect it and how to set `minCore`. The core never
+special-cases a plugin: official plugins use exactly those joints.
+
 ---
 
 ## 1. Package plugins
@@ -166,7 +171,7 @@ Headers: `Content-Type: application/json`, `User-Agent: AnasakiStudio-Webhook/1.
 | `post.published` | `{id, type, title, slug, url}` |
 | `user.created` | `{id, email, name, role}` |
 | `media.uploaded` | `{id, filename, url, mime, size}` |
-| `form.submitted` | `{formId, formName, submissionId, data: {field: value}, submittedAt}` (Forms plugin) |
+| `<plugin>.<event>` or a declared alias | whatever that plugin emits — e.g. `form.submitted` from the official forms plugin (`{formId, formName, submissionId, data, submittedAt}`) |
 
 ### 1.7 Assets
 
@@ -282,8 +287,8 @@ disk), so keep state in the storage API, not in global variables. Any language t
 
 | key | meaning |
 |---|---|
-| `public` | public path prefixes the service answers (`/shop` also covers `/shop/…`); `api`, `admin`, `uploads`, `download`, `plugin-assets`, `ext-ui`, `sitemap.xml`, `robots.txt` are reserved, and so are the site's current admin path, blog base and category base (Settings → Permalinks; if a base is changed later to a plugin's path, the site wins) |
-| `events` | core events POSTed to the service (`post.published`, `user.created`, `media.uploaded`, `form.submitted`, … or `*`) |
+| `public` | public path prefixes the service answers (`/shop` also covers `/shop/…`); `api`, `admin`, `uploads`, `download`, `plugin-assets`, `ext-ui`, `sitemap.xml`, `robots.txt` are reserved, and so are the site's current admin path, blog base and category base. Since 2.0.4 the declared prefixes of installed plugins are reserved in turn: the admin path and the bases cannot be set to them (`GET /api/v1/settings/reserved-paths`, [plugin-api.md §8](plugin-api.md)) |
+| `events` | events POSTed to the service: core events (`post.published`, `post.saved`, `post.deleted`, `user.created`, `media.uploaded`), other plugins' events (e.g. `form.submitted`), or `*` |
 | `collections` | data sources for the designer's collection block (`{{item.*}}` bindings) |
 | `admin` | admin screens, shown in the sidebar while the plugin is active (`cap` defaults to `manage_options`) |
 | `api` | what the service may call on the CMS: `site`, `mail`, `content`, `users`, `events`, `storage`, `http` |
@@ -512,15 +517,17 @@ Up to phase 6 seven features were Go plugins compiled into the server. Since pha
 plugins** distributed through the Plugin Store, and **backup is a core system tool** ("Export / import
 site", §5.4). Their packages live in `plugins-official/<id>` of this repository:
 
-| id | what it does | ticked in the setup wizard |
-|---|---|---|
-| `seo` | title template, descriptions, Open Graph / Twitter, per-page overrides, `/sitemap.xml`, `/robots.txt` | ✓ |
-| `redirects` | 301/302/307/308 rules and the 404 log | ✓ |
-| `forms` | form builder, block, inbox, CSV, webhook, e-mail notification | ✓ |
-| `cookie-consent` | PDPA/GDPR consent banner | ✓ |
-| `analytics` | cookie-less server-side page views | — |
-| `maintenance` | 503 notice page with a bypass key | — |
-| `custom-code` | raw HTML in `<head>` / before `</body>` | — |
+| id | what it does |
+|---|---|
+| `seo` | title template, descriptions, Open Graph / Twitter, per-page overrides, `/sitemap.xml`, `/robots.txt` |
+| `redirects` | 301/302/307/308 rules and the 404 log |
+| `forms` | form builder, block, inbox, CSV, webhook, e-mail notification |
+| `cookie-consent` | PDPA/GDPR consent banner |
+| `analytics` | cookie-less server-side page views |
+| `maintenance` | 503 notice page with a bypass key |
+| `custom-code` | raw HTML in `<head>` / before `</body>` |
+
+Which of them the setup wizard offers (and ticks) is decided in the Plugin Store, not in the CMS (§5.2).
 
 ### 5.1 The official package format
 
@@ -558,12 +565,18 @@ STORE_URL=http://localhost:8095 STORE_PUBLISH_TOKEN=<one of STORE_PUBLISH_TOKENS
 
 ### 5.2 Fresh installs: recommended plugins
 
-The setup wizard creates the site first, then offers a **Recommended plugins** step (checklist with a short
-description and the permissions each plugin asks for; seo, redirects, forms and cookie-consent ticked).
-Ticked plugins are downloaded from the Store (`STORE_URL`), checked to be official and switched on. If the
-Store cannot be reached the wizard still finishes and says *install later from the Plugins page*.
-API: `GET /api/v1/setup/recommended` → `{storeAvailable, items: [{id, name{th,en}, description{th,en},
-icon, checked, available, version, permissions, scopes, hosts, installed}]}`; `POST
+The setup wizard creates the site first, then offers a **Recommended plugins** step: a checklist with a short
+description and the permissions each plugin asks for. The CMS hardcodes no plugin (since 2.0.4): the list is
+what the configured Plugin Store returns for `GET /api/v1/plugins?recommended=1&perPage=50` — items with
+`recommended: true` **and** `official: true`, ticked when `recommendedChecked` is true, sorted by
+`recommendedOrder` then name (store admins set these flags). Permissions come from the Store detail when the
+summary has none. Ticked plugins are downloaded from the Store, checked to be official (`author` "Anasaki
+Studio") and switched on; install accepts only ids the Store **currently** lists as recommended and official.
+If the Store cannot be reached, or recommends nothing, the wizard still finishes (*install later from the
+Plugins page*).
+API: `GET /api/v1/setup/recommended` → `{storeAvailable, items: [{id, name, description, icon, iconUrl?,
+checked, order, available, version, permissions, scopes, hosts, installed}]}` (`name` / `description` as the
+Store sends them: a string or `{th, en}`; Store down → `storeAvailable: false`, no items); `POST
 /api/v1/setup/recommended/install {ids}` → `{storeAvailable, results: [{id, ok, version?, error?}]}`
 (both `manage_options`).
 

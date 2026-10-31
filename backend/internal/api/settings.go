@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,12 +53,46 @@ var settingDefaults = map[string]string{
 	"theme":                 "", // design tokens (JSON), see site.Theme
 }
 
-// reservedPaths cannot be used as admin path or URL bases: the server's own
-// top-level routes (cmd/server/main.go, Routes) and the public site's.
-var reservedPaths = map[string]bool{
-	"api": true, "uploads": true, "download": true, "plugin-assets": true, "ext-ui": true, "shop": true, "product": true,
-	"cart": true, "checkout": true, "thank-you": true, "forms": true, "sitemap.xml": true, "robots.txt": true,
-	"favicon.ico": true, "assets": true, "static": true, "feed": true, "search": true,
+// corePaths cannot be used as admin path or URL bases: the server's own
+// top-level routes (cmd/server/main.go, Routes, site.Site). Only the core's
+// paths are listed here: the paths of plugins come from what the installed
+// packages declare (plugin.Manager.DeclaredPaths, see reservedPaths).
+var corePaths = map[string]bool{
+	"api": true, "uploads": true, "download": true, "plugin-assets": true, "ext-ui": true, "setup": true,
+	"_a": true, "_c": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
+	"assets": true, "static": true,
+}
+
+// reservedPaths returns every reserved first path segment → its owner: ""
+// for the core, else the id of the installed plugin that declares it.
+func (a *API) reservedPaths() map[string]string {
+	out := map[string]string{}
+	if a.plugins != nil {
+		for seg, id := range a.plugins.DeclaredPaths() {
+			out[seg] = id
+		}
+	}
+	for seg := range corePaths {
+		out[seg] = ""
+	}
+	return out
+}
+
+// ReservedPath is an entry of GET /api/v1/settings/reserved-paths.
+type ReservedPath struct {
+	Path   string `json:"path"`
+	Plugin string `json:"plugin,omitempty"` // "" = the core
+}
+
+// reservedPathList answers GET /api/v1/settings/reserved-paths: the first
+// path segments the admin path and the URL bases may not use (since 2.0.4).
+func (a *API) reservedPathList(w http.ResponseWriter, r *http.Request) {
+	items := []ReservedPath{}
+	for seg, id := range a.reservedPaths() {
+		items = append(items, ReservedPath{Path: seg, Plugin: id})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Path < items[j].Path })
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 var pathOptRe = regexp.MustCompile(`^[a-z0-9-]{3,32}$`)
@@ -78,13 +113,20 @@ func withDefaults(opts map[string]string) map[string]string {
 	return out
 }
 
-// validatePathOption checks an admin path / URL base value; "" = ok.
-func validatePathOption(v string) string {
+// validatePathOption checks an admin path / URL base value against the core
+// paths and reserved (segment → plugin id, may be nil); "" = ok.
+func validatePathOption(v string, reserved map[string]string) string {
 	if !pathOptRe.MatchString(v) {
 		return "ใช้ได้เฉพาะ a-z, 0-9 และ - (3-32 ตัวอักษร)"
 	}
-	if reservedPaths[v] {
+	if corePaths[v] {
 		return "คำนี้ถูกสงวนไว้โดยระบบ: " + v
+	}
+	if id, ok := reserved[v]; ok {
+		if id == "" {
+			return "คำนี้ถูกสงวนไว้โดยระบบ: " + v
+		}
+		return "คำนี้ถูกใช้โดยปลั๊กอิน " + id + ": " + v
 	}
 	return ""
 }
@@ -100,8 +142,9 @@ func intIn(s string, lo, hi int) bool {
 }
 
 // validateSettings validates the incoming values merged over current ones
-// (merged must already contain both); returns a user-facing error or "".
-func validateSettings(in, merged map[string]string) string {
+// (merged must already contain both; reserved: see validatePathOption);
+// returns a user-facing error or "".
+func validateSettings(in, merged, reserved map[string]string) string {
 	for k, v := range in {
 		if postTemplateKeyRe.MatchString(k) && v != "" && !isDigits(v) {
 			return "รหัสหน้าไม่ถูกต้อง: " + k
@@ -160,7 +203,7 @@ func validateSettings(in, merged map[string]string) string {
 				return "อีเมลผู้ส่งไม่ถูกต้อง"
 			}
 		case "admin_path", "blog_base", "category_base":
-			if msg := validatePathOption(v); msg != "" {
+			if msg := validatePathOption(v, reserved); msg != "" {
 				return msg
 			}
 		case "theme":
@@ -270,7 +313,7 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			check[k] = v
 		}
 	}
-	if msg := validateSettings(check, merged); msg != "" {
+	if msg := validateSettings(check, merged, a.reservedPaths()); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}

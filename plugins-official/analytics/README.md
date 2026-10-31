@@ -1,4 +1,4 @@
-# Analytics (`analytics`) — สถิติผู้เข้าชม
+# Analytics (`analytics`) — สถิติผู้เข้าชม · official plugin 2.0.2
 
 ## ภาษาไทย
 
@@ -18,6 +18,11 @@
 - วิดเจ็ต **ผู้เข้าชม 7 วันล่าสุด** บนแดชบอร์ดหลังบ้าน (ผู้ดูแลระบบและบรรณาธิการ)
 - export `summary(days)` → JSON เดียวกับ API เดิม `GET /api/v1/analytics/summary`
   (`plugins.call('analytics', 'summary', 30)`)
+
+**เวอร์ชัน CMS:** ใช้ได้ตั้งแต่ CMS 2.0.0 — กราฟรายวันมากับปลั๊กอินเอง (`assets/chart.js` + `assets/chart.css`)
+จึงแสดงเหมือนกันทุกรุ่น บน CMS 2.0.3 ขึ้นไปใช้กราฟ `AK.line` ของชุด UI หลังบ้านแทน และดีกว่าเล็กน้อย: ลิงก์ "ดูทั้งหมด"
+ในวิดเจ็ตเปิดหน้าสถิติในหลังบ้านเลย (`AK.open`) และกรอบวิดเจ็ตปรับความสูงตามเนื้อหาเอง — รุ่นก่อนหน้านั้นลิงก์เปิดในแท็บใหม่
+และวิดเจ็ตสูงคงที่ 340px (พอดีเมื่อการ์ดกว้าง; การ์ดแคบที่ข้อมูลเรียงลงล่างจะเลื่อนดูภายในกรอบ)
 
 **สิทธิ์ (scopes):** `db` (ตารางของตัวเอง `p_analytics_*`), `content` (ชื่อหน้าปัจจุบัน), `middleware`
 (`site.afterResponse`), `admin-pages` (หน้าสถิติและวิดเจ็ตแดชบอร์ด)
@@ -41,6 +46,12 @@ Version 2 of the built-in "Analytics" plugin as an official JS plugin (old data 
 - Admin page **Analytics** (administrators and editors): today, 7 / 30 / 90-day totals, a daily chart (or table), the
   top 10 pages (current titles) and referrers.
 - Export `summary(days)` returns the JSON of the old `GET /api/v1/analytics/summary`.
+
+**CMS version:** works on CMS 2.0.0 and later. The daily chart ships with the plugin (`assets/chart.js` +
+`assets/chart.css`), so it looks the same everywhere; CMS 2.0.3+ draws it with the admin UI kit's `AK.line` instead and
+is a little nicer: the widget's "View all" link opens the stats page inside the admin (`AK.open`) and the widget frame
+fits its content. Older CMS open the link in a new tab and keep the widget at 340px (fits a wide card; a narrow card that
+stacks its columns scrolls inside the frame).
 
 **Scopes:** `db`, `content`, `middleware`, `admin-pages`. **Legacy import:** the four `analytics_*` tables, idempotent
 (counters keep the larger value). Small differences: `../GAPS.md` (port B).

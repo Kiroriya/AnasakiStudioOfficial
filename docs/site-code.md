@@ -1005,11 +1005,19 @@ that follow light/dark (`prefers-color-scheme`, or `<html data-theme="dark|light
 `AK.sparkline(el, values)`, `AK.line(el, {labels, series: [{label, color, values}], height, locale, tableLabel,
 chartLabel, dateLabel})` (line chart: nice y ticks, area under the first series, hover tooltip, legend, chart ⇄ table),
 `AK.open(path)` (opens an admin path such as `/admin/x/code/<plugin>:<page>` in the admin — the sandboxed frame never
-navigates the top window; the admin accepts admin paths only), `AK.t(key)`; declarative `data-ak-tabs`, `data-ak-sortable`,
+navigates the top window; the admin accepts admin paths only), `AK.pickMedia({accept: 'image' | 'file', timeout})
+→ Promise<{url, id, alt, width, height} | null>` (opens the admin's own media library dialog — the one the post editor
+and the designer use, with upload — and resolves with the chosen item's public fields; `null` when the user closes it,
+may not use the media library (`upload_files`), after `timeout` ms (default 30 min) or outside the admin frame. Under
+the hood the frame posts `{type: 'ak:pick-media', reqId, accept}` to the admin, which only accepts it from its own
+iframe's window and answers that window with `{type: 'ak:pick-media:result', reqId, media}`; works in admin pages and
+dashboard widgets. Store `media.url`, e.g. in a hidden input), `AK.t(key)`; declarative `data-ak-tabs`, `data-ak-sortable`,
 `data-ak-validate`, `data-ak-bar`, `data-ak-spark`, `data-ak-line` (JSON options) and `<a href="/admin/…" data-ak-open>`
 attributes are initialised on load. The kit also reports the document height to the admin (`{type: 'ak:height'}`), which
 sizes dashboard widgets (80–2000 px; the registered `height` is the initial one) and lets admin pages grow to their
 content instead of scrolling inside the frame — see `backend/internal/sitecode/kit/kit-demo.html` for every component and its exact options.
+A plugin's admin page (`/admin/x/code/<plugin>:<page>`) is shown without the admin's own page header (the site code's
+pages keep it), so it should draw its own `<header class="ak-page-head">`.
 
 ### For the built-in plugins (phase 7)
 

@@ -998,6 +998,31 @@ func (m *Manager) VerifyServiceRequest(r *http.Request, body []byte) (string, ma
 	return id, scopes, nil
 }
 
+// DeclaredPaths returns the first path segments the installed packages
+// (active or not) declare as their public URLs — service "public" prefixes
+// and JS "code.routes" — mapped to the package id. The site's admin path and
+// URL bases may not use them.
+func (m *Manager) DeclaredPaths() map[string]string {
+	out := map[string]string{}
+	add := func(id string, prefixes []string) {
+		for _, p := range prefixes {
+			first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+			if first = strings.ToLower(first); first != "" && out[first] == "" {
+				out[first] = id
+			}
+		}
+	}
+	for _, k := range m.pkgs.all() {
+		if k.mf.Service != nil {
+			add(k.mf.ID, k.mf.Service.Public)
+		}
+		if k.mf.Code != nil {
+			add(k.mf.ID, k.mf.Code.Routes)
+		}
+	}
+	return out
+}
+
 // ServicePublicPaths returns the public path prefixes of the active service
 // plugins (Site Code refuses routes under them).
 func (m *Manager) ServicePublicPaths() []string {

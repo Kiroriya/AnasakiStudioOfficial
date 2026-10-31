@@ -35,6 +35,7 @@ import (
 
 	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/kses"
+	"github.com/anasaki/studio/backend/internal/legacy"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/store"
 )
@@ -88,10 +89,11 @@ func PublicSettings(in map[string]any) map[string]any {
 	return out
 }
 
-var secretRe = regexp.MustCompile(`(?i)secret|token|password|passwd|salt|private|api_?key|smtp|bypass|plugin_settings\.(custom-code|maintenance)`)
+var secretRe = regexp.MustCompile(`(?i)secret|token|password|passwd|salt|private|api_?key|smtp|bypass`)
 
-// SecretOption reports options that are never exported.
-func SecretOption(name string) bool { return secretRe.MatchString(name) }
+// SecretOption reports options that are never exported (secret-looking
+// names, and the stored settings of former built-ins that hold secrets).
+func SecretOption(name string) bool { return secretRe.MatchString(name) || legacy.SecretOption(name) }
 
 // Collect gathers everything to export.
 func Collect(st *store.Store) (*Data, error) {

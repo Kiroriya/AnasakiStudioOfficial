@@ -42,6 +42,7 @@ const T = {
     settingsHint: 'ค่าเดียวกับหน้า ปลั๊กอิน → SEO → ตั้งค่า · ปรับ SEO รายหน้าได้ในหน้าแก้ไขโพสต์ด้วย (แผง SEO)',
     tplHint: 'ใช้ %title% %site% %tagline%',
     titleTemplate: 'รูปแบบชื่อหน้า', defaultDescription: 'คำอธิบายเริ่มต้น', defaultImage: 'รูปแชร์เริ่มต้น (og:image)', twitterHandle: 'บัญชี X/Twitter',
+    chooseImage: 'เลือกภาพ', removeImage: 'นำออก',
   },
   en: {
     desc: 'Help search engines understand your site — set the title and description shown in results.',
@@ -53,6 +54,7 @@ const T = {
     settingsHint: 'The same values as Plugins → SEO → Settings · per-page SEO is also in the post editor (SEO panel)',
     tplHint: 'Use %title% %site% %tagline%',
     titleTemplate: 'Title template', defaultDescription: 'Default description', defaultImage: 'Default share image', twitterHandle: 'Twitter handle',
+    chooseImage: 'Choose image', removeImage: 'Remove',
   },
 };
 type Lang = keyof typeof T;
@@ -63,8 +65,45 @@ const STYLE = `<style>
 .serp-url{color:#188038;font-size:13px}.serp-title{color:#1a0dab;font-size:18px;line-height:1.3}
 .serp-desc{color:var(--ak-muted,#4d5156);font-size:13px}.serp-big{padding:12px;border:1px solid var(--ak-border,#e5e7eb);border-radius:10px;margin-bottom:16px}
 .over{color:#b91c1c}.seo-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
-@media (max-width:900px){.seo-grid{grid-template-columns:1fr}}
+@media (max-width:900px){.seo-grid{grid-template-columns:1fr}.seo-defaults{order:-1}}
+.seo-img-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.seo-thumb{display:grid;place-items:center;width:72px;height:72px;border:1px dashed var(--ak-border-strong,#d1d5db);border-radius:8px;overflow:hidden;font-size:24px;background:var(--ak-surface-2,#f8fafc)}
+.seo-thumb img{width:100%;height:100%;object-fit:cover}.seo-block{width:100%}
+.seo-img .seo-img-url{flex:1;min-width:180px;width:auto}.seo-img [hidden]{display:none!important}
 </style>`;
+
+/**
+ * An image field: thumbnail + the URL in a text input called `name` (ids: `<id>`, `<id>-preview`, `<id>-pick`,
+ * `<id>-remove`). On CMS with AK.pickMedia in the admin UI kit (the admin's media library) IMG_SCRIPT swaps the URL
+ * input for "Choose image" + "Remove"; on older CMS the URL input stays (never a dead button). The buttons are
+ * rendered hidden, so the page also works before / without the script.
+ */
+function imageField(name: string, id: string, label: string, value: string, t: any, attrs = '', hint = ''): string {
+  return `<div class="ak-field seo-img" data-seo-image><label class="ak-label" for="${id}">${label}</label>` +
+    `<div class="seo-img-row"><span class="seo-thumb" id="${id}-preview">${value ? `<img src="${esc(value)}" alt="">` : '🖼'}</span>` +
+    `<input type="text" inputmode="url" class="seo-img-url" name="${name}" id="${id}" value="${esc(value)}" maxlength="512" placeholder="https://…"${attrs}>` +
+    `<button type="button" class="ak-btn ak-btn-sm" id="${id}-pick" data-seo-pick hidden>${t.chooseImage}</button>` +
+    `<button type="button" class="ak-btn ak-btn-sm ak-btn-danger" id="${id}-remove" data-seo-remove hidden>${t.removeImage}</button></div>` +
+    (hint ? `<p class="ak-hint">${hint}</p>` : '') + `</div>`;
+}
+
+/**
+ * Wires every imageField once the kit has run (it is deferred, this inline script is not): with AK.pickMedia
+ * (CMS with the media picker) the URL input is hidden and the buttons pick / remove; without it the URL input stays
+ * and typing redraws the thumbnail. Every change fires "input" on the form (the defaults card's save button).
+ */
+const IMG_SCRIPT = `<script>(function(){function wire(){document.querySelectorAll('[data-seo-image]').forEach(function(box){
+if(box.getAttribute('data-wired'))return;box.setAttribute('data-wired','1');
+var inp=box.querySelector('.seo-img-url'),pv=box.querySelector('.seo-thumb'),pk=box.querySelector('[data-seo-pick]'),rm=box.querySelector('[data-seo-remove]'),
+pick=!!(window.AK&&typeof AK.pickMedia==='function');
+function thumb(u){pv.textContent='';if(u){var i=document.createElement('img');i.src=u;i.alt='';pv.appendChild(i)}else pv.textContent='🖼'}
+function set(u){inp.value=u;thumb(u);rm.hidden=!u;inp.dispatchEvent(new Event('input',{bubbles:true}))}
+box.setAttribute('data-seo-mode',pick?'picker':'url');
+if(!pick){inp.addEventListener('input',function(){thumb(inp.value.trim())});return}
+inp.hidden=true;pk.hidden=false;rm.hidden=!inp.value;
+pk.addEventListener('click',function(){AK.pickMedia({accept:'image'}).then(function(m){if(m&&m.url)set(m.url)})});
+rm.addEventListener('click',function(){set('')})})}
+document.readyState==='loading'?document.addEventListener('DOMContentLoaded',wire):wire()})()</script>`;
 
 const json = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 
@@ -92,11 +131,14 @@ function defaultsForm(t: any): string {
   return `<form id="seo-defaults" data-seo="defaults" onsubmit="return seoDefaults(this)">` +
     field('titleTemplate', `<input name="titleTemplate" data-seo-setting="titleTemplate" maxlength="2000" value="${esc(setting('titleTemplate'))}"><p class="ak-hint">${t.tplHint}</p>`) +
     field('defaultDescription', `<textarea name="defaultDescription" data-seo-setting="defaultDescription" rows="3" maxlength="500">${v('defaultDescription')}</textarea>`) +
-    field('defaultImage', `<input name="defaultImage" data-seo-setting="defaultImage" value="${v('defaultImage')}" placeholder="https://… /uploads/…">`) +
+    imageField('defaultImage', 'seo-default-image', t.defaultImage, String(site.settings('defaultImage') ?? ''), t, ' data-seo-setting="defaultImage"') +
     field('twitterHandle', `<input name="twitterHandle" data-seo-setting="twitterHandle" maxlength="40" value="${v('twitterHandle')}" placeholder="@yourbrand">`) +
-    `<div class="ak-form-actions"><button class="ak-btn ak-btn-primary" type="submit">${t.save}</button></div></form>` +
-    `<p class="ak-hint">${t.settingsHint}</p>` +
-    `<script>function seoDefaults(form){var f=form.elements,v={};${json(SETTING_KEYS)}.forEach(function(k){v[k]=f.namedItem(k).value});` +
+    `<button class="ak-btn ak-btn-primary seo-block" id="seo-defaults-save" type="submit" disabled>💾 ${t.save}</button></form>` +
+    `<p class="ak-hint">${t.settingsHint}</p>` + IMG_SCRIPT +
+    `<script>(function(){var f=document.getElementById('seo-defaults'),b=document.getElementById('seo-defaults-save'),k=${json(SETTING_KEYS)};` +
+    `function cur(){return JSON.stringify(k.map(function(n){return f.elements.namedItem(n).value}))}var start=cur();` +
+    `function upd(){b.disabled=cur()===start}f.addEventListener('input',upd);f.addEventListener('change',upd)})();` +
+    `function seoDefaults(form){if(document.getElementById('seo-defaults-save').disabled)return false;var f=form.elements,v={};${json(SETTING_KEYS)}.forEach(function(k){v[k]=f.namedItem(k).value});` +
     `anasaki.call('seo:saveDefaults',v).then(function(r){if(r.errors&&Object.keys(r.errors).length){var m=r.message||Object.values(r.errors).join(', ');window.AK?AK.toast(m,'error'):alert(m);return}` +
     `window.AK&&AK.toast(${json(t.saved)},'success');setTimeout(function(){location.reload()},400)},function(e){window.AK?AK.toast(e.message,'error'):alert(e.message)});return false}</script>`;
 }
@@ -124,7 +166,7 @@ function listView(ctx: any, t: any): string {
   return `<div class="seo-grid"><section class="ak-card ak-card-flush"><div class="ak-card-head" style="padding:12px 16px"><h2>${t.pages}</h2>` +
     `<span class="ak-muted ak-small">${t.pagesHint}</span></div><table class="ak-table" data-seo="list"><thead><tr><th>${t.preview}</th><th></th></tr></thead>` +
     `<tbody>${rows}</tbody></table>${pager}</section>` +
-    `<section class="ak-card"><div class="ak-card-head"><h2>⚙️ ${t.defaults}</h2></div>${defaultsForm(t)}</section></div>`;
+    `<section class="ak-card seo-defaults"><div class="ak-card-head"><h2>⚙️ ${t.defaults}</h2></div>${defaultsForm(t)}</section></div>`;
 }
 
 function editView(ctx: any, t: any, id: number): string {
@@ -142,10 +184,10 @@ function editView(ctx: any, t: any, id: number): string {
     `<input name="title" maxlength="255" value="${esc(m.title)}" placeholder="${esc(p.title)}"></label>` +
     `<label class="ak-field"><span>${t.description} <span class="ak-muted ak-small" data-count="description">${[...m.description].length}/160</span></span>` +
     `<textarea name="description" rows="3">${esc(m.description)}</textarea></label>` +
-    `<label class="ak-field"><span>${t.image}</span><input name="image" value="${esc(m.image)}" placeholder="https://… /uploads/…"><p class="ak-hint">${t.imageHint}</p></label>` +
+    imageField('image', 'seo-image', t.image, m.image, t, '', t.imageHint) +
     `<label class="ak-check"><input type="checkbox" name="noindex"${m.noindex ? ' checked' : ''}> ${t.noindex}</label>` +
     `<div class="ak-form-actions"><a class="ak-btn" href="${back}">${t.cancel}</a><button class="ak-btn ak-btn-primary" type="submit">${t.save}</button></div></form></div>` +
-    `<script>var SEO=${json(cfg)};
+    IMG_SCRIPT + `<script>var SEO=${json(cfg)};
 function seoTpl(title){var s=SEO.site;if(!title||title===s)return s||title;var tpl=(SEO.tpl||'').trim()?SEO.tpl:'%title% – %site%';
 var map={'%title%':title,'%site%':s,'%tagline%':SEO.tagline};var out=tpl.replace(/%title%|%site%|%tagline%/g,function(m){return map[m]});
 out=out.trim().replace(/^[–\\-|·]+|[–\\-|·]+$/g,'').trim();return out||title}

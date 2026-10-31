@@ -28,8 +28,8 @@ const (
 // the old rows over.
 const ImportExport = "legacyImport"
 
-// OfficialAuthor is the manifest author of official plugins.
-const OfficialAuthor = "Anasaki Studio"
+// OfficialAuthor is the manifest author of official plugins (plugin.OfficialAuthor).
+const OfficialAuthor = plugin.OfficialAuthor
 
 // ApprovedBy is recorded as the approver of the permissions of a migrated plugin.
 const ApprovedBy = "system migration"

@@ -75,27 +75,27 @@ func TestUploadRules(t *testing.T) {
 
 func TestAdminPathValidation(t *testing.T) {
 	for _, v := range []string{"admin", "backoffice", "my-panel-2"} {
-		if msg := validatePathOption(v); msg != "" {
+		if msg := validatePathOption(v, nil); msg != "" {
 			t.Errorf("%q: %s", v, msg)
 		}
 	}
 	for _, v := range []string{"ab", "Admin", "api", "uploads", "download", "plugin-assets", "a/b", "sitemap.xml", strings.Repeat("a", 33)} {
-		if validatePathOption(v) == "" {
+		if validatePathOption(v, nil) == "" {
 			t.Errorf("%q should be rejected", v)
 		}
 	}
 	merged := withDefaults(map[string]string{"admin_path": "blog"})
-	if validateSettings(map[string]string{"admin_path": "blog"}, merged) == "" {
+	if validateSettings(map[string]string{"admin_path": "blog"}, merged, nil) == "" {
 		t.Error("admin path must not equal blog base")
 	}
 	merged = withDefaults(map[string]string{"admin_path": "secret-door"})
-	if msg := validateSettings(map[string]string{"admin_path": "secret-door", "max_upload_mb": "64", "timezone": "Asia/Tokyo"}, merged); msg != "" {
+	if msg := validateSettings(map[string]string{"admin_path": "secret-door", "max_upload_mb": "64", "timezone": "Asia/Tokyo"}, merged, nil); msg != "" {
 		t.Error(msg)
 	}
-	if validateSettings(map[string]string{"max_upload_mb": "1000"}, withDefaults(nil)) == "" {
+	if validateSettings(map[string]string{"max_upload_mb": "1000"}, withDefaults(nil), nil) == "" {
 		t.Error("max_upload_mb is capped at 512")
 	}
-	if validateSettings(map[string]string{"timezone": "Mars/Base"}, withDefaults(nil)) == "" {
+	if validateSettings(map[string]string{"timezone": "Mars/Base"}, withDefaults(nil), nil) == "" {
 		t.Error("invalid timezone accepted")
 	}
 }

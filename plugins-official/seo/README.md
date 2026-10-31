@@ -1,4 +1,4 @@
-# SEO (`seo`) — official plugin 2.0.0
+# SEO (`seo`) — official plugin 2.0.1
 
 ## ภาษาไทย
 
@@ -13,11 +13,16 @@
   เหมือนเดิม) และหน้า **SEO** ในหลังบ้าน (ผู้ดูแลระบบ: ตัวอย่างผลการค้นหาของหน้า/บทความที่เผยแพร่แล้ว) — ชื่อ คำอธิบาย
   รูปแชร์ และ `noindex` (ไม่ให้ Google แสดงหน้านี้ — หน้าจะไม่อยู่ใน sitemap ด้วย) เก็บใน post meta `seo.*`
 - **ค่าเริ่มต้นทั้งเว็บ** แก้ได้ในหน้า SEO (ฟอร์มด้านขวา) หรือที่ ปลั๊กอิน → SEO → ตั้งค่า (ค่าเดียวกัน)
+  — รูปแชร์ (ทั้งค่าเริ่มต้นและรายหน้า) เลือกจากคลังสื่อด้วยปุ่ม **เลือกภาพ** (แสดงภาพย่อ, **นำออก** เพื่อล้าง) บน CMS ที่มีตัวเลือก
+  คลังสื่อ; CMS รุ่นเก่ากว่านั้นเป็นช่องกรอกลิงก์รูป (แสดงภาพย่อเช่นกัน)
 - **/sitemap.xml และ /robots.txt** อัตโนมัติ (ระบบเก็บ sitemap ไว้ใช้ซ้ำจนกว่าเนื้อหาจะเปลี่ยน; ถ้าตั้ง
   "ไม่ให้เครื่องมือค้นหาเก็บข้อมูล" robots.txt จะเป็น `Disallow: /` และ sitemap ว่าง)
 
 **การตั้งค่า** (ปลั๊กอิน → SEO → ตั้งค่า): `titleTemplate`, `defaultDescription`, `defaultImage`, `twitterHandle` —
 ชื่อเดียวกับปลั๊กอินเดิม ค่าที่ตั้งไว้จึงย้ายมาได้ทันที
+
+**เวอร์ชัน CMS:** ใช้ได้ตั้งแต่ CMS 2.0.0 · CMS รุ่นถัดจาก 2.0.3 (ชุด UI หลังบ้านมี `AK.pickMedia`) เลือกรูปแชร์จากคลังสื่อได้ —
+รุ่นก่อนหน้านั้นกรอกลิงก์รูปเอง (ปลั๊กอินตรวจเองว่ามีความสามารถนี้หรือไม่ ไม่มีปุ่มที่กดแล้วไม่ทำงาน)
 
 **สิทธิ์ (scopes):** `content` (รายการหน้า/บทความ), `content-fields` (ช่อง SEO ในหน้าแก้ไขโพสต์ = post meta `seo.*`),
 `filters-core` (`page.meta`, `sitemap.urls`), `admin-pages` · หน้า SEO ใช้ได้เฉพาะผู้ดูแลระบบ (administrator)
@@ -42,11 +47,17 @@ The official Anasaki Studio SEO plugin — replaces the former built-in SEO plug
   published pages and posts) — title, description, share image and `noindex` (noindex pages are also left out of the
   sitemap), stored as post meta `seo.*`.
 - **Site-wide defaults**: the form on the SEO page or Plugins → SEO → Settings (the same values).
+  Share images (default and per page) are picked from the media library with **Choose image** (thumbnail preview,
+  **Remove** to clear) on a CMS with the media picker; older CMS show a URL field (with a thumbnail) instead.
 - **/sitemap.xml and /robots.txt** (core reuses the sitemap until something it depends on changes; search engines
   discouraged → `Disallow: /` and an empty sitemap).
 
 **Settings** (Plugins → SEO → Settings): `titleTemplate`, `defaultDescription`, `defaultImage`, `twitterHandle` — the
 same keys as the built-in plugin, so existing values carry over.
+
+**CMS version:** works on CMS 2.0.0 and later. The CMS after 2.0.3 (admin UI kit with `AK.pickMedia`) adds the
+media-library picker for share images; earlier versions keep a URL field (the plugin feature-detects it — never a dead
+button).
 
 **Scopes:** `content`, `content-fields` (the editor's SEO fields, post meta `seo.*`), `filters-core` (`page.meta`,
 `sitemap.urls`), `admin-pages`. The SEO page is for administrators.

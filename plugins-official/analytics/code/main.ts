@@ -22,7 +22,7 @@ site.dashboardWidget('visitors', {
   label: { th: 'ผู้เข้าชม 7 วันล่าสุด', en: 'Visitors, last 7 days' },
   icon: '📊',
   access: ['editor'],
-  height: WIDGET_HEIGHT, // initial: the kit sizes the frame to the card (KPIs, chart, top pages)
+  height: WIDGET_HEIGHT, // fits the card; CMS 2.0.3+ then sizes the frame to its content (kit auto-height)
   render: (ctx) => renderWidget(ctx),
 });
 

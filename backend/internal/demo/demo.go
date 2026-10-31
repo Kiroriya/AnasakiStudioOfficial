@@ -83,7 +83,7 @@ func excluded(t string) bool {
 	case "users", "roles", "plugin_packages", "password_resets", "api_tokens", "legacy_migrations":
 		return true
 	}
-	return strings.HasPrefix(t, "demo_") || strings.HasPrefix(t, "analytics_")
+	return strings.HasPrefix(t, "demo_")
 }
 
 // New prepares demo mode: role, visitor account, baseline (taken now when

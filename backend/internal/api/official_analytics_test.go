@@ -139,10 +139,22 @@ func TestOfficialAnalytics(t *testing.T) {
 		t.Fatalf("unknown range → 7: %d", len(d))
 	}
 
+	// the daily chart works without the newer kit: the page references the plugin's own chart (assets/chart.js draws
+	// [data-ak-line] itself when the kit has no AK.line — CMS before 2.0.3 — and loads assets/chart.css)
+	const chartScript = `<script src="/plugin-assets/analytics/assets/chart.js?v=2.0.2" defer></script>`
+	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.js?v=2.0.2"}); rec.Code != 200 ||
+		!strings.Contains(rec.Body.String(), "typeof window.AK.line == 'function'") || !strings.Contains(rec.Body.String(), "data-ak-line") ||
+		!strings.Contains(rec.Body.String(), "chart.css") || !strings.Contains(rec.Body.String(), "an-lc-tip") {
+		t.Fatalf("chart.js: %d %.300s", rec.Code, rec.Body.String())
+	}
+	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.css?v=2.0.2"}); rec.Code != 200 || !strings.Contains(rec.Body.String(), ".an-lc-plot{") {
+		t.Fatalf("chart.css: %d %.300s", rec.Code, rec.Body.String())
+	}
+
 	// admin page: administrators and editors (was view_stats), English for the owner
 	html, _ := adminPage(t, e.toSample(), admin, "analytics:stats", "days=7")
 	offBContains(t, "admin page", html, "<title>Visitor statistics</title>", `data-stat="todayViews"><span>👁 Views today</span><b>5</b>`,
-		`data-path="/about"`, "About us", `data-host="google.com"`, "No cookies, no stored IPs", `id="an-chart" data-ak-line=`, `class="on" data-days="7"`)
+		`data-path="/about"`, "About us", `data-host="google.com"`, "No cookies, no stored IPs", `id="an-chart" data-ak-line=`, `class="on" data-days="7"`, chartScript)
 	ed := user("Ed", "editor")
 	if code, _ := ed.do("POST", "/api/v1/code/admin-pages/analytics:stats/ticket", map[string]any{}); code != 200 {
 		t.Fatalf("editor ticket: %d", code)
@@ -205,11 +217,15 @@ func TestOfficialAnalytics(t *testing.T) {
 		t.Fatalf("author widgets: %v", wl)
 	}
 	_, wl := ed.doAny("GET", "/api/v1/code/dashboard-widgets", nil)
-	if l := wl.([]any); len(l) != 1 || l[0].(map[string]any)["id"] != "analytics:visitors" || l[0].(map[string]any)["label"].(map[string]any)["en"] != "Visitors, last 7 days" {
+	if l := wl.([]any); len(l) != 1 || l[0].(map[string]any)["id"] != "analytics:visitors" || l[0].(map[string]any)["label"].(map[string]any)["en"] != "Visitors, last 7 days" ||
+		l[0].(map[string]any)["height"] != float64(340) {
 		t.Fatalf("widgets: %v", wl)
 	}
 	rec := e.c.send("GET", wl.([]any)[0].(map[string]any)["url"].(string), nil, nil)
-	offBContains(t, "widget", rec.Body.String(), `id="an-widget"`, `data-stat="views"`, `<b>50</b>`, `id="an-widget-chart" data-ak-line=`, `data-ak-open`, `/admin/x/code/analytics:stats`, `class="an-top"`, "/ext-ui/kit.js")
+	offBContains(t, "widget", rec.Body.String(), `id="an-widget"`, `data-stat="views"`, `<b>50</b>`, `id="an-widget-chart" data-ak-line=`,
+		// "View all": AK.open on CMS 2.0.3+, a new tab on older kits (no auto-height there: 340px fits the card)
+		`href="/admin/x/code/analytics:stats" id="an-widget-all" data-ak-open target="_blank" rel="noopener"`, `class="an-top"`, "/ext-ui/kit.js", chartScript,
+		`body.ak:has(>.ak-widget){padding:16px`)
 
 	// case-sensitive paths (utf8mb4_bin, like the built-in tables): /CaseTest and /casetest are two pages
 	publishCode(t, admin, map[string]string{"main.ts": `
