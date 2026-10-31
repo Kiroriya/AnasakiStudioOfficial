@@ -42,7 +42,10 @@ type pluginEnv struct {
 
 // newPluginAPI is newCodeAPI with the plugin manager wired to the engine
 // (JS plugins) like cmd/server.
-func newPluginAPI(t *testing.T) *pluginEnv {
+func newPluginAPI(t *testing.T) *pluginEnv { t.Helper(); return newPluginAPIWith(t, nil) }
+
+// newPluginAPIWith is newPluginAPI with the engine config tweaked (demo mode, …).
+func newPluginAPIWith(t *testing.T, tweak func(*sitecode.Config)) *pluginEnv {
 	t.Helper()
 	dsn := os.Getenv("TEST_DB_DSN")
 	if dsn == "" {
@@ -78,9 +81,13 @@ func newPluginAPI(t *testing.T) *pluginEnv {
 	web := site.New(st, pm)
 	authn := auth.New("test-secret")
 	resetCodeDB(t, conn, os.Getenv("TEST_CODE_DB_DSN"))
-	code := sitecode.New(st, sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
+	cfg := sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
 		DSN: dsn, CodeDSN: os.Getenv("TEST_CODE_DB_DSN"), Emit: pm.Emit, TypeSlugs: site.SetTypeSlugs,
-		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), Plugins: pm})
+		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), Plugins: pm}
+	if tweak != nil {
+		tweak(&cfg)
+	}
+	code := sitecode.New(st, cfg)
 	t.Cleanup(code.Close)
 	pm.SetCodeRuntime(code)
 	code.RouteTimeout, code.EventTimeout = 700*time.Millisecond, 3*time.Second

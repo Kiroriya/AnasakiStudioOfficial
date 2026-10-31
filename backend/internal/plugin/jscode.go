@@ -656,6 +656,12 @@ type CodeRuntime interface {
 // SetCodeRuntime attaches the Site Code engine (cmd/server).
 func (m *Manager) SetCodeRuntime(rt CodeRuntime) { m.code = rt }
 
+// Package sources (plugin_packages.source).
+const (
+	SourceUpload = "upload" // an uploaded zip
+	SourceStore  = "store"  // downloaded from the Store
+)
+
 // CodeUnitRef describes an installed JS plugin for the engine.
 type CodeUnitRef struct {
 	ID          string
@@ -667,11 +673,14 @@ type CodeUnitRef struct {
 	Requires    map[string]string
 	// OptionalRequires: plugins this one works with (phase 6).
 	OptionalRequires map[string]string
+	// Source is where the package came from: SourceStore or SourceUpload
+	// (demo mode runs only Store packages).
+	Source string
 }
 
 func (k *pkg) codeRef() CodeUnitRef {
 	r := CodeUnitRef{ID: k.mf.ID, Name: k.mf.Name, Version: k.version, InstalledAt: k.installedAt, Active: k.active,
-		Requires: k.mf.Requires, OptionalRequires: k.mf.OptionalRequires}
+		Requires: k.mf.Requires, OptionalRequires: k.mf.OptionalRequires, Source: k.source}
 	if k.mf.Code != nil {
 		r.Code = *k.mf.Code
 	}

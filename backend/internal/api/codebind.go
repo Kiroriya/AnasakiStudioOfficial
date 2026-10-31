@@ -176,12 +176,21 @@ func (a *API) codeBindings(w http.ResponseWriter, r *http.Request) {
 		PostTypes: []postTypeOut{}, PostFields: map[string]json.RawMessage{}, VisitorGroups: []string{}, AdminPages: []adminPageOut{}}
 	me := auth.From(r)
 	designer := me.Can(auth.CapEditPages) // others (e.g. authors of a custom type) get only the post types, groups and admin pages
-	if a.code.Demo() || a.code.EnvDisabled() {
+	if a.code.EnvDisabled() {
 		writeJSON(w, http.StatusOK, out)
 		return
 	}
+	// demo mode: Site Code is off (no draft, no live manifest, no developer
+	// tables) but the JS plugins from the Store run, so their catalog is listed
+	demo := a.code.Demo()
+	if demo && r.URL.Query().Get("draft") == "1" {
+		writeErr(w, http.StatusForbidden, msgCodeDemo)
+		return
+	}
 	var m sitecode.Manifest
-	if r.URL.Query().Get("draft") == "1" {
+	if demo {
+		m = sitecode.EmptyManifest()
+	} else if r.URL.Query().Get("draft") == "1" {
 		if !auth.From(r).Can(auth.CapEditScripts) {
 			writeErr(w, http.StatusForbidden, "ต้องมีสิทธิ์แก้ไขโค้ด (edit_scripts) จึงจะดูร่างได้")
 			return
@@ -255,6 +264,10 @@ func (a *API) codeBindings(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("draft") != "1" {
 		out.Formatters = append(out.Formatters, a.code.AliasNames(m.Formatters)...)
 	}
+	if demo {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	tables, err := a.code.DeveloperTables(ctx)
@@ -289,7 +302,9 @@ func (a *API) codePreview(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if a.code.Demo() || a.code.EnvDisabled() {
+	// demo mode: the live preview runs the Store plugins (Site Code is off
+	// there); the draft is Site Code's and stays off
+	if a.code.EnvDisabled() || (a.code.Demo() && in.Draft) {
 		writeJSON(w, http.StatusOK, map[string]any{"error": msgCodeDemo})
 		return
 	}

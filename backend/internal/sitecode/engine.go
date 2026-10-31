@@ -29,7 +29,7 @@ import (
 // Config wires the engine to the rest of the server.
 type Config struct {
 	Disabled bool       // env SITE_CODE_DISABLED=true
-	Demo     bool       // DEMO_MODE: Site Code is off on the playground
+	Demo     bool       // DEMO_MODE: Site Code (and uploaded JS plugins) are off on the playground; Store plugins run
 	Auth     *auth.Auth // to recognise an admin bearer token on public routes (ctx.user)
 	// Services returns the public path prefixes of active service plugins.
 	Services func() []string
@@ -185,9 +185,28 @@ func (e *Engine) EnvDisabled() bool { return e.cfg.Disabled }
 // Demo reports demo mode.
 func (e *Engine) Demo() bool { return e.cfg.Demo }
 
-// off: nothing runs in safe mode, with SITE_CODE_DISABLED or in demo mode.
-func (e *Engine) off(opts map[string]string) bool {
-	return e.cfg.Disabled || e.cfg.Demo || opts[OptSafeMode] == "1"
+// MsgDemoStoreOnly refuses a JS plugin that is not from the Store in demo mode.
+const MsgDemoStoreOnly = "ปิดในเว็บทดลอง — เฉพาะปลั๊กอินจาก Store (disabled on the demo site — only plugins from the Store run)"
+
+// msgDemoSite marks Site Code (the site unit) as off in demo mode.
+const msgDemoSite = "ปิดในเว็บทดลอง"
+
+// pluginsOff: no code runs at all — no JS plugin and no Site Code (safe
+// mode or SITE_CODE_DISABLED).
+func (e *Engine) pluginsOff(opts map[string]string) bool {
+	return e.cfg.Disabled || opts[OptSafeMode] == "1"
+}
+
+// siteOff: the site unit (the site's own code) does not run: pluginsOff,
+// or demo mode (JS plugins from the Store still run there).
+func (e *Engine) siteOff(opts map[string]string) bool {
+	return e.pluginsOff(opts) || e.cfg.Demo
+}
+
+// unitAllowed reports whether a JS plugin may be activated and run: in demo
+// mode only packages installed from the Store.
+func (e *Engine) unitAllowed(ref plugin.CodeUnitRef) bool {
+	return !e.cfg.Demo || ref.Source == plugin.SourceStore
 }
 
 func (e *Engine) services() []string {
@@ -208,10 +227,11 @@ func liveID(opts map[string]string) int64 {
 }
 
 // current returns the loaded live version, loading it on a change (another
-// server process may have published).
+// server process may have published). nil while the site unit is off
+// (siteOff: safe mode, SITE_CODE_DISABLED, demo mode).
 func (e *Engine) current(opts map[string]string) *liveProg {
 	id := liveID(opts)
-	if id == 0 {
+	if id == 0 || e.siteOff(opts) {
 		return nil
 	}
 	if lp := e.live.Load(); lp != nil && lp.id == id {
@@ -248,16 +268,16 @@ func (e *Engine) current(opts map[string]string) *liveProg {
 // none matches (or Site Code is off), so normal site routing continues.
 // opts are the options the site already loaded for this request.
 func (e *Engine) ServePublic(w http.ResponseWriter, r *http.Request, opts map[string]string) bool {
-	if e.off(opts) {
+	if e.pluginsOff(opts) {
 		return false
 	}
 	set := e.units()
-	if opts[OptVersion] == "" && set.empty() {
-		return false // fast path: nothing published, no JS plugin
+	if (opts[OptVersion] == "" || e.siteOff(opts)) && set.empty() {
+		return false // fast path: nothing published (or Site Code off), no JS plugin
 	}
 	e.applyLimits(opts)
 	var site *liveProg
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.mux != nil && lp.prog != nil {
 			site = lp
 		}
@@ -556,7 +576,7 @@ func (e *Engine) OnEvent(event string, payload map[string]any) { e.dispatch(even
 // dispatch delivers an event with any JSON payload (site.emit data).
 func (e *Engine) dispatch(event string, payload any) {
 	opts, err := e.st.Options()
-	if err != nil || e.off(opts) {
+	if err != nil || e.pluginsOff(opts) {
 		return
 	}
 	var targets []*liveProg
@@ -565,7 +585,7 @@ func (e *Engine) dispatch(event string, payload any) {
 			targets = append(targets, lp)
 		}
 	}
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.prog != nil && lp.prog.events[event] {
 			targets = append(targets, lp)
 		}
@@ -733,7 +753,11 @@ func (e *Engine) Units() []UnitInfo {
 		sort.Slice(rest, func(i, j int) bool { return rest[i].ID < rest[j].ID })
 		out = append(out, rest...)
 	}
-	return append([]UnitInfo{{ID: SiteUnit, Name: "Site Code", Active: true, Loaded: true}}, out...)
+	site := UnitInfo{ID: SiteUnit, Name: "Site Code", Active: true, Loaded: true}
+	if e.cfg.Demo {
+		site = UnitInfo{ID: SiteUnit, Name: "Site Code", Error: msgDemoSite}
+	}
+	return append([]UnitInfo{site}, out...)
 }
 
 // DBState is the "db" part of GET /status.
@@ -751,14 +775,12 @@ func (e *Engine) Status() (*Status, error) {
 	s := &Status{SafeMode: opts[OptSafeMode] == "1", EnvDisabled: e.cfg.Disabled, Demo: e.cfg.Demo, LastError: e.lastErr.Load(),
 		Unit: SiteUnit, Units: []UnitInfo{}}
 	s.Registered.normalize()
-	if !e.cfg.Demo {
-		s.Units = e.Units()
-	}
+	s.Units = e.Units() // demo: the Store plugins that run, Site Code off
 	if e.data != nil {
 		s.DB.Mode = e.data.Mode
 	}
 	if e.cfg.Demo {
-		return s, nil
+		return s, nil // the site unit is off: no draft, version or manifest
 	}
 	draft, err := e.DB.Draft()
 	if err != nil {
@@ -1205,7 +1227,7 @@ func (e *Engine) applyLimits(opts map[string]string) {
 // is off).
 func (e *Engine) liveProgram() (*liveProg, map[string]string) {
 	opts, err := e.st.Options()
-	if err != nil || opts[OptVersion] == "" || e.off(opts) {
+	if err != nil || opts[OptVersion] == "" || e.siteOff(opts) {
 		return nil, opts
 	}
 	lp := e.current(opts)

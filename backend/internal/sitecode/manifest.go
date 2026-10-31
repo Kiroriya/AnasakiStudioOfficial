@@ -41,6 +41,13 @@ type Manifest struct {
 	Exports []string `json:"exports"`
 }
 
+// EmptyManifest is a manifest with no registrations (empty lists, not nil).
+func EmptyManifest() Manifest {
+	var m Manifest
+	m.normalize()
+	return m
+}
+
 func (m *Manifest) normalize() {
 	if m.Routes == nil {
 		m.Routes = []RouteInfo{}

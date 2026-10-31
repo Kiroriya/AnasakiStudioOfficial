@@ -192,9 +192,10 @@ const unitTTL = 2 * time.Second
 
 // units returns the loaded plugin units, rebuilt when the installed JS
 // plugins changed (checked at most every two seconds, or right away after
-// UnitsChanged). nil without a plugin manager.
+// UnitsChanged). nil without a plugin manager. In demo mode only plugins
+// from the Store load (unitAllowed); the others are listed with an error.
 func (e *Engine) units() *unitSet {
-	if e.cfg.Plugins == nil || e.cfg.Demo {
+	if e.cfg.Plugins == nil {
 		return nil
 	}
 	fresh := func(s *unitSet) bool {
@@ -229,7 +230,7 @@ func unitFingerprint(refs []plugin.CodeUnitRef) string {
 	var parts []string
 	for _, r := range refs {
 		if r.Active {
-			parts = append(parts, r.ID+"@"+r.Version+"#"+r.InstalledAt.UTC().Format(time.RFC3339Nano))
+			parts = append(parts, r.ID+"@"+r.Version+"#"+r.InstalledAt.UTC().Format(time.RFC3339Nano)+"!"+r.Source)
 		}
 	}
 	sort.Strings(parts)
@@ -351,7 +352,11 @@ func (e *Engine) loadUnits(refs []plugin.CodeUnitRef, fp string) *unitSet {
 		set.refs[r.ID] = r
 	}
 	for _, r := range refs {
-		if r.Active {
+		switch {
+		case !r.Active:
+		case !e.unitAllowed(r):
+			set.errs[r.ID] = MsgDemoStoreOnly // demo mode: an uploaded plugin does not run
+		default:
 			active = append(active, jsOnly(r, set.refs))
 		}
 	}
@@ -457,11 +462,14 @@ func toCodeProblems(probs []Problem) []plugin.CodeProblem {
 // migrations.
 func (e *Engine) prepareUnit(ref plugin.CodeUnitRef, files map[string]string) (*liveProg, *plugin.CodePlan) {
 	plan := &plugin.CodePlan{Errors: []plugin.CodeProblem{}, Destructive: []plugin.CodeDestructive{}, Pending: []string{}}
-	set := e.units()
 	fail := func(msg string) (*liveProg, *plugin.CodePlan) {
 		plan.Errors = append(plan.Errors, plugin.CodeProblem{Message: msg})
 		return nil, plan
 	}
+	if !e.unitAllowed(ref) {
+		return fail(MsgDemoStoreOnly) // nothing of an uploaded plugin runs on the demo site
+	}
+	set := e.units()
 	// load order with this plugin active: cycles and missing dependencies
 	var refs []plugin.CodeUnitRef
 	if set != nil {
@@ -549,9 +557,6 @@ func (e *Engine) ActivateUnit(id string, confirm bool) error {
 	if e.cfg.Plugins == nil {
 		return &plugin.ActivationError{Msg: "ระบบ Site Code ไม่ได้เชื่อมกับปลั๊กอิน"}
 	}
-	if e.cfg.Demo {
-		return &plugin.ActivationError{Msg: "ปิดในเว็บทดลอง"}
-	}
 	e.pubMu.Lock()
 	defer e.pubMu.Unlock()
 	var ref *plugin.CodeUnitRef
@@ -563,6 +568,9 @@ func (e *Engine) ActivateUnit(id string, confirm bool) error {
 	}
 	if ref == nil {
 		return &plugin.ActivationError{Msg: "ไม่พบปลั๊กอิน JavaScript " + id}
+	}
+	if !e.unitAllowed(*ref) {
+		return &plugin.ActivationError{Msg: MsgDemoStoreOnly} // demo mode: Store plugins only
 	}
 	files, err := e.cfg.Plugins.CodeFiles(id)
 	if err != nil {

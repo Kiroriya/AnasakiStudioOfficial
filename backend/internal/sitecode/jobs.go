@@ -448,6 +448,18 @@ func (e *Engine) claim(ctx context.Context, jobs *jobUnits) (*claimed, error) {
 			args = append(args, n)
 		}
 	}
+	if e.cfg.Demo {
+		// demo mode: only the Store plugins' jobs run; Site Code's and uploaded
+		// plugins' jobs stay pending (not failed as "job not found")
+		loaded := jobs.set.loaded()
+		if len(loaded) == 0 {
+			return nil, nil
+		}
+		q += ` AND (name LIKE ?` + strings.Repeat(" OR name LIKE ?", len(loaded)-1) + `)`
+		for _, lp := range loaded {
+			args = append(args, likeEscape(lp.unit.ID+":")+"%")
+		}
+	}
 	q += ` ORDER BY run_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`
 	j := &claimed{}
 	err = tx.QueryRowContext(ctx, q, args...).Scan(&j.id, &j.name, &j.data, &j.attempts, &j.maxAttempts, &j.dedupe)
@@ -499,15 +511,15 @@ type jobUnits struct {
 	set  *unitSet
 }
 
-// jobUnits is nil while nothing runs (safe mode, disabled, demo, nothing
-// published and no JS plugin).
+// jobUnits is nil while nothing runs (safe mode, disabled, nothing published
+// and no JS plugin; in demo mode only Store plugins run).
 func (e *Engine) jobUnits() *jobUnits {
 	opts, err := e.st.Options()
-	if err != nil || e.off(opts) {
+	if err != nil || e.pluginsOff(opts) {
 		return nil
 	}
 	j := &jobUnits{set: e.units()}
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.prog != nil {
 			j.site = lp
 		}
@@ -944,7 +956,7 @@ func (e *Engine) CronsOf(unit string) ([]CronRow, error) {
 		return nil, err
 	}
 	list := e.ManifestFor(opts).Crons
-	if !e.off(opts) {
+	if !e.pluginsOff(opts) {
 		for _, lp := range e.units().loaded() {
 			for _, c := range lp.prog.Manifest.Crons {
 				list = append(list, CronInfo{Name: lp.unit.qualify(c.Name), Expr: c.Expr, Job: lp.unit.qualify(c.Job)})

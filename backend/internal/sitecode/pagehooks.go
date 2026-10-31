@@ -141,12 +141,12 @@ func (e *Engine) middlewareTimeout() time.Duration {
 // Middleware runs the site.middleware chain for a public request; true when
 // a middleware answered (the response is written).
 func (e *Engine) Middleware(w http.ResponseWriter, r *http.Request, opts map[string]string) bool {
-	if e.off(opts) || r.URL.Path == "/favicon.ico" || r.URL.Path == "/favicon.svg" {
+	if e.pluginsOff(opts) || r.URL.Path == "/favicon.ico" || r.URL.Path == "/favicon.svg" {
 		return false
 	}
 	set := e.units()
 	var site *liveProg
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.prog != nil {
 			site = lp
 		}
@@ -325,7 +325,7 @@ func (e *Engine) hasAfter(opts map[string]string) bool {
 			return true
 		}
 	}
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.prog != nil && lp.prog.afterN > 0 {
 			return true
 		}
@@ -336,7 +336,7 @@ func (e *Engine) hasAfter(opts map[string]string) bool {
 // AfterResponse queues the site.afterResponse handlers for a request that
 // was answered (never blocks; a full queue drops the item).
 func (e *Engine) AfterResponse(r *http.Request, status int, ctype string, dur time.Duration, title string, opts map[string]string) {
-	if e.off(opts) || !e.hasAfter(opts) {
+	if e.pluginsOff(opts) || !e.hasAfter(opts) {
 		return
 	}
 	info := ResponseInfo{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, Status: status, ContentType: ctype,
@@ -383,7 +383,7 @@ func (e *Engine) afterWorker() {
 
 func (e *Engine) runAfter(info ResponseInfo) {
 	opts, err := e.st.Options()
-	if err != nil || e.off(opts) {
+	if err != nil || e.pluginsOff(opts) {
 		return
 	}
 	var units []*liveProg
@@ -392,7 +392,7 @@ func (e *Engine) runAfter(info ResponseInfo) {
 			units = append(units, lp)
 		}
 	}
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil && lp.prog != nil && lp.prog.afterN > 0 {
 			units = append(units, lp)
 		}

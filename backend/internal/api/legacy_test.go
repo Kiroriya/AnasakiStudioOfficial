@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/anasaki/studio/backend/internal/legacy"
+	"github.com/anasaki/studio/backend/internal/sitecode"
 )
 
 // Phase 7: migration of the former built-in plugins to their official JS
@@ -149,8 +150,14 @@ type legacyEnv struct {
 // built-ins are the given ids.
 func newLegacyEnv(t *testing.T, removed ...string) *legacyEnv {
 	t.Helper()
+	return newLegacyEnvWith(t, nil, removed...)
+}
+
+// newLegacyEnvWith is newLegacyEnv with the engine config tweaked (demo mode).
+func newLegacyEnvWith(t *testing.T, tweak func(*sitecode.Config), removed ...string) *legacyEnv {
+	t.Helper()
 	fs := newFakeStore(t) // before the manager: STORE_URL
-	e := newPluginAPI(t)
+	e := newPluginAPIWith(t, tweak)
 	admin, _ := setupSite(t, e.c)
 	clean := func() {
 		for _, b := range legacy.Builtins {

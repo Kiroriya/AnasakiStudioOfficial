@@ -75,12 +75,12 @@ func (e *Engine) Session(r *http.Request, opts map[string]string) design.CodeSes
 
 // LiveSession is Session with the concrete type.
 func (e *Engine) LiveSession(r *http.Request, opts map[string]string) *Session {
-	if e.off(opts) {
+	if e.pluginsOff(opts) {
 		return nil
 	}
 	set := e.units()
 	var lp *liveProg
-	if opts[OptVersion] != "" {
+	if opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp = e.current(opts); lp != nil && lp.prog == nil {
 			lp = nil
 		}
@@ -114,7 +114,7 @@ func (e *Engine) emptyProgram() *Program {
 func (s *Session) sp() *Program {
 	if s.lazy && s.prog == nil {
 		if lp := s.e.live.Load(); lp != nil && lp.prog != nil {
-			if opts, err := s.e.st.Options(); err == nil && liveID(opts) == lp.id && !s.e.off(opts) {
+			if opts, err := s.e.st.Options(); err == nil && liveID(opts) == lp.id && !s.e.siteOff(opts) {
 				s.prog, s.lp, s.version = lp.prog, lp, lp.id
 			}
 		}

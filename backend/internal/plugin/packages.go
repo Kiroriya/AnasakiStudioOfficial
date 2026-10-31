@@ -498,7 +498,7 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 			return Installed{}, &ActivationError{Msg: "ระบบ Site Code ไม่พร้อมใช้งาน — อัปเกรดปลั๊กอิน JavaScript ไม่ได้"}
 		}
 		ref := CodeUnitRef{ID: mf.ID, Name: mf.Name, Version: mf.Version, InstalledAt: old.installedAt, Active: true,
-			Code: *mf.Code, Requires: mf.Requires, OptionalRequires: mf.OptionalRequires}
+			Code: *mf.Code, Requires: mf.Requires, OptionalRequires: mf.OptionalRequires, Source: source}
 		plan, err := m.code.PlanUnit(ref, codeFilesOf(files))
 		if err != nil {
 			return Installed{}, err

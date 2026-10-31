@@ -22,10 +22,7 @@ func (e *Engine) StatusOf(unit string) (*Status, error) {
 	if e.data != nil {
 		s.DB.Mode = e.data.Mode
 	}
-	if e.cfg.Demo {
-		return s, nil
-	}
-	s.Units = e.Units()
+	s.Units = e.Units() // demo mode: Store plugins run, uploaded ones carry MsgDemoStoreOnly
 	set := e.units()
 	if lp := set.get(unit); lp != nil {
 		s.Registered = lp.prog.Manifest
@@ -96,7 +93,7 @@ func (e *Engine) Hooks() []HookRow {
 	}
 	set := e.units()
 	var site *Program
-	if opts, err := e.st.Options(); err == nil && opts[OptVersion] != "" && !e.off(opts) {
+	if opts, err := e.st.Options(); err == nil && opts[OptVersion] != "" && !e.siteOff(opts) {
 		if lp := e.current(opts); lp != nil {
 			site = lp.prog
 		}
