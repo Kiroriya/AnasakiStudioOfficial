@@ -41,15 +41,17 @@ import { Pager } from '../shared/pager';
     </header>
 
     <div class="tabs-row">
-      <button class="tab" [class.on]="tab() === 'builtin'" (click)="setTab('builtin')">⚙️ {{ 'plugins.tab.builtin' | t }} <span class="tab-count">{{ plugins.builtins().length }}</span></button>
-      <button class="tab" [class.on]="tab() === 'installed'" (click)="setTab('installed')">📦 {{ 'plugins.tab.installed' | t }} <span class="tab-count">{{ packages().length }}</span></button>
-      <button class="tab" [class.on]="tab() === 'store'" (click)="setTab('store')">🛍 {{ 'plugins.tab.store' | t }}</button>
-      <button class="tab" [class.on]="tab() === 'upload'" (click)="setTab('upload')">⬆️ {{ 'plugins.tab.upload' | t }}</button>
+      @if (plugins.builtins().length) {
+        <button class="tab" [class.on]="view() === 'builtin'" (click)="setTab('builtin')">⚙️ {{ 'plugins.tab.builtin' | t }} <span class="tab-count">{{ plugins.builtins().length }}</span></button>
+      }
+      <button class="tab" [class.on]="view() === 'installed'" (click)="setTab('installed')">📦 {{ 'plugins.tab.installed' | t }} <span class="tab-count">{{ packages().length }}</span></button>
+      <button class="tab" [class.on]="view() === 'store'" (click)="setTab('store')">🛍 {{ 'plugins.tab.store' | t }}</button>
+      <button class="tab" [class.on]="view() === 'upload'" (click)="setTab('upload')">⬆️ {{ 'plugins.tab.upload' | t }}</button>
     </div>
     @if (error()) { <p class="alert">{{ error() }}</p> }
 
     <!-- phase 7: the former built-in plugins moved to official Store plugins -->
-    @if (legacy.summary().items.length) {
+    @if (view() === 'installed' && legacy.summary().items.length) {
       <section id="legacy" class="card pad legacy-section">
         <h3>📦 {{ 'legacy.title' | t }}</h3>
         <p class="hint">{{ 'legacy.desc' | t }}</p>
@@ -89,7 +91,7 @@ import { Pager } from '../shared/pager';
       </section>
     }
 
-    @switch (tab()) {
+    @switch (view()) {
       <!-- ============================================================ built-in -->
       @case ('builtin') {
         <p class="hint section-hint">{{ 'plugins.builtinHint' | t }}</p>
@@ -437,7 +439,9 @@ export class PluginsPage implements OnInit {
     { key: 'trending', icon: '🔥' }, { key: 'topRated', icon: '⭐' }, { key: 'topDownloads', icon: '⬇' },
   ];
 
-  readonly tab = signal<Tab>('builtin');
+  readonly tab = signal<Tab>('installed');
+  /** The tab shown: "built-in" falls back to "installed" when this build ships no Go plugins (phase 7 moved them to the Store). */
+  readonly view = computed<Tab>(() => (this.tab() === 'builtin' && !this.plugins.builtins().length ? 'installed' : this.tab()));
   readonly packages = signal<InstalledPackage[]>([]);
   readonly busy = signal<string | null>(null);
   readonly error = signal('');
@@ -500,7 +504,7 @@ export class PluginsPage implements OnInit {
     this.loadPackages();
     void this.computeUpdates(); // update badges and ★ official on the Installed tab (store unreachable → none)
     void this.legacy.load();
-    this.setTab(t && ['builtin', 'installed', 'store', 'upload'].includes(t) ? t : 'builtin', false);
+    this.setTab(t && ['builtin', 'installed', 'store', 'upload'].includes(t) ? t : 'installed', false);
   }
 
   lname(it: LegacyItem) { return legacyName(it, this.i18n.locale()); }
