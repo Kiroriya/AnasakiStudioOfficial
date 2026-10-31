@@ -1,0 +1,21 @@
+{
+  "id": "promptpay",
+  "name": "PromptPay QR",
+  "version": "1.0.0",
+  "description": "Library plugin: PromptPay payloads (Thai QR Payment / EMVCo, tag 29 and 30, CRC16) and a dependency-free QR encoder to SVG, plus a /promptpay/qr.svg route for the site's own PromptPay ID.",
+  "author": "Anasaki Studio",
+  "icon": "💸",
+  "category": "ecommerce",
+  "tags": ["promptpay", "qr", "payment", "thai"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["routes"],
+    "routes": ["/promptpay"],
+    "library": "code/lib/index.ts",
+    "exports": ["qrFor"]
+  }
+}

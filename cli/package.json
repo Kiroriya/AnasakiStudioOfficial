@@ -1,0 +1,27 @@
+{
+  "name": "anasaki-code",
+  "version": "0.1.0",
+  "description": "Sync Anasaki Studio Site Code with a local folder: pull, push, watch, publish, logs and types (VS Code friendly).",
+  "type": "module",
+  "bin": {
+    "anasaki-code": "bin/anasaki-code.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "anasaki",
+    "cms",
+    "site-code",
+    "cli"
+  ],
+  "license": "MIT"
+}

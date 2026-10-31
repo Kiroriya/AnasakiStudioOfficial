@@ -1,0 +1,43 @@
+{
+  "id": "cookie-consent",
+  "name": "Cookie consent",
+  "version": "2.0.0",
+  "description": "PDPA / GDPR cookie banner: message, buttons, policy link, colours and position. Other scripts wait for window.anasakiConsent / the anasaki:consent event. / แบนเนอร์ขอความยินยอมการใช้คุกกี้ตาม PDPA / GDPR ปรับข้อความ สี และตำแหน่งได้",
+  "author": "Anasaki Studio",
+  "icon": "🍪",
+  "category": "security",
+  "tags": ["cookie", "consent", "pdpa", "gdpr", "privacy"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "cookie-consent",
+  "permissions": ["code", "settings", "bodyEnd"],
+  "settings": [
+    { "key": "message", "type": "textarea", "maxLength": 1000,
+      "label": { "th": "ข้อความ", "en": "Message" },
+      "default": "เว็บไซต์นี้ใช้คุกกี้เพื่อมอบประสบการณ์ที่ดีที่สุดให้กับคุณ คุณสามารถยอมรับหรือปฏิเสธการใช้คุกกี้ได้" },
+    { "key": "acceptText", "type": "text", "maxLength": 60, "default": "ยอมรับ",
+      "label": { "th": "ปุ่มยอมรับ", "en": "Accept button" } },
+    { "key": "declineText", "type": "text", "maxLength": 60, "default": "ปฏิเสธ",
+      "label": { "th": "ปุ่มปฏิเสธ (เว้นว่างเพื่อซ่อน)", "en": "Decline button (empty = hidden)" } },
+    { "key": "policyUrl", "type": "url", "placeholder": "/privacy",
+      "label": { "th": "ลิงก์นโยบายความเป็นส่วนตัว", "en": "Privacy policy URL" } },
+    { "key": "policyText", "type": "text", "maxLength": 80, "default": "นโยบายความเป็นส่วนตัว",
+      "label": { "th": "ข้อความลิงก์นโยบาย", "en": "Policy link text" } },
+    { "key": "position", "type": "select", "default": "bottom",
+      "label": { "th": "ตำแหน่ง", "en": "Position" },
+      "options": [
+        { "value": "bottom", "label": { "th": "ด้านล่าง", "en": "Bottom" } },
+        { "value": "top", "label": { "th": "ด้านบน", "en": "Top" } }
+      ] },
+    { "key": "background", "type": "color", "default": "#111827", "label": { "th": "สีพื้นหลัง", "en": "Background" } },
+    { "key": "textColor", "type": "color", "default": "#f9fafb", "label": { "th": "สีตัวอักษร", "en": "Text color" } },
+    { "key": "buttonColor", "type": "color", "default": "#4f46e5", "label": { "th": "สีปุ่ม", "en": "Button color" } },
+    { "key": "buttonTextColor", "type": "color", "default": "#ffffff", "label": { "th": "สีตัวอักษรบนปุ่ม", "en": "Button text color" } }
+  ],
+  "bodyEnd": "templates/banner.html",
+  "code": {
+    "entry": "code/main.ts",
+    "exports": ["legacyImport"]
+  }
+}

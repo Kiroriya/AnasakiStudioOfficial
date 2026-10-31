@@ -1,0 +1,132 @@
+package api
+
+import (
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/anasaki/studio/backend/internal/config"
+	"github.com/anasaki/studio/backend/internal/model"
+	"github.com/anasaki/studio/backend/internal/seed"
+	"github.com/anasaki/studio/backend/internal/store"
+)
+
+// getSetup answers GET /api/v1/setup (no auth): whether the first-run
+// wizard must be shown.
+func (a *API) getSetup(w http.ResponseWriter, r *http.Request) {
+	n, err := a.st.CountUsers()
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"needsSetup": n == 0, "product": config.Product, "version": config.Version})
+}
+
+type setupInput struct {
+	SiteTitle     string `json:"siteTitle"`
+	Tagline       string `json:"tagline"`
+	Language      string `json:"language"`
+	AdminName     string `json:"adminName"`
+	AdminEmail    string `json:"adminEmail"`
+	AdminPassword string `json:"adminPassword"`
+	Locale        string `json:"locale"`
+	Demo          bool   `json:"demo"`
+}
+
+func (in *setupInput) validate() string {
+	in.SiteTitle = strings.TrimSpace(in.SiteTitle)
+	in.Tagline = strings.TrimSpace(in.Tagline)
+	in.AdminName = strings.TrimSpace(in.AdminName)
+	in.AdminEmail = strings.ToLower(strings.TrimSpace(in.AdminEmail))
+	if in.Language == "" {
+		in.Language = model.LocaleTH
+	}
+	if in.Locale == "" {
+		in.Locale = in.Language
+	}
+	switch {
+	case in.SiteTitle == "":
+		return "กรุณาใส่ชื่อเว็บไซต์"
+	case in.AdminName == "":
+		return "กรุณาใส่ชื่อผู้ดูแล"
+	case !strings.Contains(in.AdminEmail, "@"):
+		return "อีเมลไม่ถูกต้อง"
+	case len(in.AdminPassword) < 8:
+		return "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"
+	case !model.ValidLocale(in.Language) || !model.ValidLocale(in.Locale):
+		return "ภาษาต้องเป็น th หรือ en"
+	}
+	return ""
+}
+
+// runSetup answers POST /api/v1/setup (no auth, only while there is no
+// user): creates the administrator, the site options and the starter content.
+func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
+	var in setupInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	a.setupMu.Lock()
+	defer a.setupMu.Unlock()
+	n, err := a.st.CountUsers()
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	if n > 0 {
+		writeErr(w, http.StatusConflict, "ติดตั้งระบบเรียบร้อยแล้ว")
+		return
+	}
+	if msg := in.validate(); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	if err := seed.Roles(a.st); err != nil {
+		serverErr(w, err)
+		return
+	}
+	_ = a.reloadRoles()
+	// the steps below are not one transaction (the seeders use the store):
+	// on a failure everything they added is removed again, so the wizard
+	// can simply be run once more instead of finding an admin but no site
+	mark, err := a.st.MarkSetup()
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	admin, err := seed.Admin(a.st, in.AdminName, in.AdminEmail, in.AdminPassword, in.Locale)
+	if err == nil {
+		if in.Demo {
+			err = seed.Demo(a.st, a.uploadDir, admin.ID)
+		} else {
+			err = seed.Blank(a.st, admin.ID)
+		}
+	}
+	if err == nil {
+		err = a.st.SetOptions(map[string]string{"site_title": in.SiteTitle, "tagline": in.Tagline,
+			"language": in.Language, "admin_email": in.AdminEmail})
+	}
+	if err != nil {
+		a.rollbackSetup(mark)
+		serverErr(w, err)
+		return
+	}
+	a.plugins.Emit("user.created", map[string]any{"id": admin.ID, "email": admin.Email, "name": admin.Name, "role": admin.Role})
+	a.issueToken(w, admin, http.StatusCreated)
+}
+
+// rollbackSetup undoes a failed setup: its rows and uploaded files.
+func (a *API) rollbackSetup(mark store.SetupMark) {
+	urls, err := a.st.RollbackSetup(mark)
+	if err != nil {
+		log.Printf("setup: rollback: %v", err)
+		return
+	}
+	for _, u := range urls {
+		if rel, ok := strings.CutPrefix(u, "/uploads/"); ok && !strings.Contains(rel, "..") {
+			_ = os.Remove(filepath.Join(a.uploadDir, filepath.FromSlash(rel)))
+		}
+	}
+}

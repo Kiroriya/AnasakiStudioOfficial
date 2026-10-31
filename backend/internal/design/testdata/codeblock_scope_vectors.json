@@ -1,0 +1,203 @@
+{
+  "_doc": "Shared test vectors for scoping the CSS of a 'Frontend code' block (Site Code phase 5). Go (server render) and TypeScript (frontend/src/app/editor/codeblock.ts scopeCss) MUST both produce 'out' exactly. The block class is 'rea-cb-' + id with every char outside [A-Za-z0-9_-] removed; the prefix is '.' + that class. Rules: comments removed (not inside strings); whitespace in selectors and at-rule preludes collapses to one space and is trimmed; every selector of a list (split at top-level commas, not inside ()/[]/strings) becomes 'prefix + \" \" + selector', except selectors containing :root or :scope (not followed by [A-Za-z0-9_-]), where those pseudos are replaced by the prefix; style rule = 'selectors { body }' with the body trimmed, or 'selectors {}' when empty; selectors joined with ', '. @media/@supports/@container/@layer/@scope/@document/@-moz-document/@starting-style blocks recurse: 'prelude {\n' + rules joined by '\n' + '\n}', dropped when they contain no rules; other block at-rules (@keyframes, @font-face, @page, @property, ...) are kept verbatim as 'prelude { body }' (body trimmed); @import and @charset (case-insensitive) are dropped everywhere; other statement at-rules are kept as 'prelude;'. Stray '}' and declarations outside a rule are skipped; an unterminated block runs to the end. Top-level and nested rules are joined with '\n'. Finally every '</style' (any case) becomes '<\\/style'.",
+  "cases": [
+    {
+      "name": "simple rule",
+      "id": "b1",
+      "css": "p { color: red; }",
+      "out": ".rea-cb-b1 p { color: red; }"
+    },
+    {
+      "name": "selector list",
+      "id": "b1",
+      "css": "h1, h2 > a { margin: 0 }",
+      "out": ".rea-cb-b1 h1, .rea-cb-b1 h2 > a { margin: 0 }"
+    },
+    {
+      "name": ":root and :scope become the block",
+      "id": "b1",
+      "css": ":root { --c: red } :scope > p { x:y }",
+      "out": ".rea-cb-b1 { --c: red }\n.rea-cb-b1 > p { x:y }"
+    },
+    {
+      "name": ":root compound",
+      "id": "b1",
+      "css": ":root.dark .x{a:b}",
+      "out": ".rea-cb-b1.dark .x { a:b }"
+    },
+    {
+      "name": ":scope in a list",
+      "id": "b1",
+      "css": ":scope, p { m: 0 }",
+      "out": ".rea-cb-b1, .rea-cb-b1 p { m: 0 }"
+    },
+    {
+      "name": "not a :root pseudo",
+      "id": "b1",
+      "css": ".x:rootless {}",
+      "out": ".rea-cb-b1 .x:rootless {}"
+    },
+    {
+      "name": "media nested",
+      "id": "b1",
+      "css": "@media (max-width: 600px) { .a { b: c } }",
+      "out": "@media (max-width: 600px) {\n.rea-cb-b1 .a { b: c }\n}"
+    },
+    {
+      "name": "supports inside media",
+      "id": "b1",
+      "css": "@media screen{@supports (display:grid){.g{display:grid}}}",
+      "out": "@media screen {\n@supports (display:grid) {\n.rea-cb-b1 .g { display:grid }\n}\n}"
+    },
+    {
+      "name": "import and charset dropped",
+      "id": "b1",
+      "css": "@import url(\"x.css\"); @charset \"utf-8\"; .a{b:c}",
+      "out": ".rea-cb-b1 .a { b:c }"
+    },
+    {
+      "name": "import inside media dropped",
+      "id": "b1",
+      "css": "@media screen { @import \"x\"; a{b:c} }",
+      "out": "@media screen {\n.rea-cb-b1 a { b:c }\n}"
+    },
+    {
+      "name": "at-rule names are case-insensitive",
+      "id": "b1",
+      "css": "@IMPORT \"x\"; @Media screen{a{b:c}}",
+      "out": "@Media screen {\n.rea-cb-b1 a { b:c }\n}"
+    },
+    {
+      "name": "keyframes kept verbatim",
+      "id": "b1",
+      "css": "@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }",
+      "out": "@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }"
+    },
+    {
+      "name": "font-face kept verbatim",
+      "id": "b1",
+      "css": "@font-face { font-family: X; src: url(x.woff2) }",
+      "out": "@font-face { font-family: X; src: url(x.woff2) }"
+    },
+    {
+      "name": "layer statement and block",
+      "id": "b1",
+      "css": "@layer base, theme; @layer base { a { b: c } }",
+      "out": "@layer base, theme;\n@layer base {\n.rea-cb-b1 a { b: c }\n}"
+    },
+    {
+      "name": "empty group dropped",
+      "id": "b1",
+      "css": "@media print {}",
+      "out": ""
+    },
+    {
+      "name": "comments removed",
+      "id": "b1",
+      "css": "/* hi */ a /* x */ { color: red /* c */; }",
+      "out": ".rea-cb-b1 a { color: red  ; }"
+    },
+    {
+      "name": "comment markers inside strings kept",
+      "id": "b1",
+      "css": "a::before { content: \"/* no */\" }",
+      "out": ".rea-cb-b1 a::before { content: \"/* no */\" }"
+    },
+    {
+      "name": "commas inside :is()",
+      "id": "b1",
+      "css": "a:is(.x, .y), b { c: d }",
+      "out": ".rea-cb-b1 a:is(.x, .y), .rea-cb-b1 b { c: d }"
+    },
+    {
+      "name": "comma inside attribute value",
+      "id": "b1",
+      "css": "[data-x=\"a,b\"] { c: d }",
+      "out": ".rea-cb-b1 [data-x=\"a,b\"] { c: d }"
+    },
+    {
+      "name": "brace inside a string",
+      "id": "b1",
+      "css": "a::after { content: \"}\" } b { c: d }",
+      "out": ".rea-cb-b1 a::after { content: \"}\" }\n.rea-cb-b1 b { c: d }"
+    },
+    {
+      "name": "</style is escaped",
+      "id": "b1",
+      "css": "a::after { content: \"</style><script>\" }",
+      "out": ".rea-cb-b1 a::after { content: \"<\\/style><script>\" }"
+    },
+    {
+      "name": "</STYLE any case",
+      "id": "b1",
+      "css": "a{b:\"</STYLE>\"}",
+      "out": ".rea-cb-b1 a { b:\"<\\/STYLE>\" }"
+    },
+    {
+      "name": "empty body",
+      "id": "b1",
+      "css": "a {}",
+      "out": ".rea-cb-b1 a {}"
+    },
+    {
+      "name": "stray brace and garbage skipped",
+      "id": "b1",
+      "css": "} color: red; a { b: c }",
+      "out": ".rea-cb-b1 a { b: c }"
+    },
+    {
+      "name": "unterminated block runs to the end",
+      "id": "b1",
+      "css": "a { color: red",
+      "out": ".rea-cb-b1 a { color: red }"
+    },
+    {
+      "name": "leading combinator",
+      "id": "b1",
+      "css": "> li { x: y }",
+      "out": ".rea-cb-b1 > li { x: y }"
+    },
+    {
+      "name": "whitespace collapses in selectors",
+      "id": "b1",
+      "css": "ul\n   li\t> a{x:y}",
+      "out": ".rea-cb-b1 ul li > a { x:y }"
+    },
+    {
+      "name": "universal selector",
+      "id": "b1",
+      "css": "* { box-sizing: border-box }",
+      "out": ".rea-cb-b1 * { box-sizing: border-box }"
+    },
+    {
+      "name": "css nesting kept inside the body",
+      "id": "b1",
+      "css": ".card { color: red; &:hover { color: blue } }",
+      "out": ".rea-cb-b1 .card { color: red; &:hover { color: blue } }"
+    },
+    {
+      "name": "id is sanitized for the class",
+      "id": "a.b<c",
+      "css": "p{x:y}",
+      "out": ".rea-cb-abc p { x:y }"
+    },
+    {
+      "name": "two rules",
+      "id": "k9z",
+      "css": "a{b:c}\n\nd{e:f}",
+      "out": ".rea-cb-k9z a { b:c }\n.rea-cb-k9z d { e:f }"
+    },
+    {
+      "name": "empty input",
+      "id": "b1",
+      "css": "",
+      "out": ""
+    },
+    {
+      "name": "only whitespace and semicolons",
+      "id": "b1",
+      "css": " ;; \n ",
+      "out": ""
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+.rea-form{display:flex;flex-direction:column;gap:14px;width:100%}
+.rea-form-field{display:flex;flex-direction:column;gap:6px}
+label{font-size:.9em;font-weight:600}
+.rea-form-req{color:#dc2626}
+input:not([type=checkbox]),select,textarea{font:inherit;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;width:100%;box-sizing:border-box}
+textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid #6366f1;outline-offset:1px}
+.rea-form-check{flex-direction:row;align-items:center;gap:8px;font-weight:400}
+.rea-form-hp{position:absolute!important;left:-10000px;width:1px;height:1px;overflow:hidden}
+.rea-form-submit{align-self:flex-start;font:inherit;font-weight:600;padding:12px 22px;border:0;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer}
+.rea-form-submit[disabled]{opacity:.6;cursor:wait}
+.rea-form-msg{padding:12px 14px;border-radius:8px;background:#ecfdf5;color:#065f46}
+.rea-form-msg.is-error{background:#fef2f2;color:#991b1b}
+.rea-form-msg[hidden]{display:none}

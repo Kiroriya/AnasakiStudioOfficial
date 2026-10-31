@@ -1,0 +1,24 @@
+{
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ng serve",
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "npm: start",
+      "url": "http://localhost:4200/"
+    },
+    {
+      // Unit tests run in Node (Vitest + jsdom via @angular/build:unit-test), not in a browser.
+      "name": "ng test",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["test"],
+      "autoAttachChildProcesses": true,
+      "console": "integratedTerminal"
+    }
+  ]
+}

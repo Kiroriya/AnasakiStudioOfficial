@@ -1,0 +1,27 @@
+{
+  "id": "custom-code",
+  "name": "Custom code",
+  "version": "2.0.0",
+  "description": "Raw HTML / JavaScript in <head> and before </body> of every public page (analytics tags, pixels, chat widgets). Trusted code only. / แทรกโค้ด HTML/JavaScript ใน <head> และก่อน </body> ของทุกหน้า เช่น Google Analytics, Facebook Pixel, แชท",
+  "author": "Anasaki Studio",
+  "icon": "🧩",
+  "category": "utilities",
+  "tags": ["code", "head", "script", "tracking", "pixel"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "custom-code",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "headCode", "type": "textarea", "maxLength": 100000, "placeholder": "<script>…</script>",
+      "label": { "th": "โค้ดใน <head>", "en": "Code in <head>" },
+      "help": { "th": "HTML ดิบ แสดงทุกหน้า — ใส่เฉพาะโค้ดที่เชื่อถือได้", "en": "Raw HTML on every page — trusted code only" } },
+    { "key": "bodyCode", "type": "textarea", "maxLength": 100000, "placeholder": "<script>…</script>",
+      "label": { "th": "โค้ดก่อน </body>", "en": "Code before </body>" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["head-scripts"],
+    "exports": ["legacyImport"]
+  }
+}

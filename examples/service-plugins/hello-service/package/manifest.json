@@ -1,0 +1,36 @@
+{
+  "id": "hello-service",
+  "name": "Hello Service (ตัวอย่าง)",
+  "version": "1.0.0",
+  "description": "ตัวอย่างปลั๊กอินที่มีโค้ดฝั่งเซิร์ฟเวอร์ (WASM — ติดตั้งแล้วใช้ได้เลย): หน้าเว็บ /hello, บล็อกคำทักทาย, ข้อมูลคำคมสำหรับบล็อกรายการ, หน้าจัดการ และรับเหตุการณ์ / Example service plugin",
+  "author": "Anasaki",
+  "icon": "🛰",
+  "category": "utilities",
+  "tags": ["example", "service"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "permissions": ["service", "blocks", "settings"],
+  "settings": [
+    { "key": "greeting", "type": "text", "label": { "th": "คำทักทาย", "en": "Greeting" }, "default": "สวัสดี" }
+  ],
+  "blocks": [
+    {
+      "type": "greeting",
+      "name": { "th": "คำทักทาย (จากโปรแกรมปลั๊กอิน)", "en": "Greeting (from the service)" },
+      "icon": "👋",
+      "render": "service",
+      "props": [
+        { "key": "name", "type": "text", "label": { "th": "ชื่อ", "en": "Name" }, "default": "ผู้มาเยือน" }
+      ]
+    }
+  ],
+  "service": {
+    "public": ["/hello"],
+    "events": ["post.published", "user.created", "media.uploaded"],
+    "collections": [{ "source": "quotes", "label": "คำคม (ตัวอย่าง)" }],
+    "admin": [{ "path": "dashboard", "label": "Hello Service", "labelEn": "Hello Service", "icon": "🛰" }],
+    "api": ["site", "content", "events", "storage"],
+    "runtime": "wasm",
+    "module": "plugin.wasm"
+  }
+}

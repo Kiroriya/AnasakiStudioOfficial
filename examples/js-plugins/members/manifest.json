@@ -1,0 +1,24 @@
+{
+  "id": "members",
+  "name": "Members",
+  "version": "1.0.0",
+  "description": "System plugin: visitor accounts — register, email verification, login/logout with cookie sessions, password reset, the site.visitor resolver (groups member/verified), a My profile collection and an admin screen.",
+  "author": "Anasaki Studio",
+  "icon": "👥",
+  "category": "content",
+  "tags": ["members", "login", "accounts", "visitor"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "visitor", "mail", "admin-pages"],
+    "routes": ["/members"],
+    "exports": ["memberByEmail"],
+    "hooks": {
+      "filters": ["members.mail"],
+      "events": ["members.registered", "members.verified", "members.login"]
+    }
+  }
+}

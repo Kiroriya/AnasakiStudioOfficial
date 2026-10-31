@@ -1,0 +1,35 @@
+{
+  "id": "forms",
+  "name": "Forms",
+  "version": "2.0.0",
+  "description": "Form builder: contact, newsletter or quote forms placed with the designer block, an inbox with CSV export, spam protection, mail notification, webhooks and the form.submitted event. / สร้างฟอร์ม วางบนหน้าเว็บด้วยดีไซเนอร์ ดูข้อความที่ส่งเข้ามา ส่งออก CSV แจ้งเตือนทางอีเมล และ webhook",
+  "author": "Anasaki Studio",
+  "icon": "📝",
+  "category": "forms",
+  "tags": ["forms", "contact", "inbox", "csv"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "forms",
+  "permissions": ["code", "settings", "webhooks"],
+  "settings": [
+    { "key": "notifyEmail", "type": "text", "maxLength": 200, "placeholder": "owner@example.com",
+      "label": { "th": "อีเมลรับแจ้งเตือน", "en": "Notification email" },
+      "help": { "th": "ส่งอีเมลแจ้งทุกครั้งที่มีข้อความใหม่ (เว้นว่าง = อีเมลผู้ดูแลเว็บ)", "en": "Mailed on every new submission (empty = the site's admin email)" } },
+    { "key": "siteTitle", "type": "text", "maxLength": 120,
+      "label": { "th": "ชื่อเว็บในอีเมล", "en": "Site name in emails" },
+      "help": { "th": "เว้นว่าง = ชื่อเว็บ", "en": "Empty = the site title" } },
+    { "key": "webhookUrl", "type": "url",
+      "label": { "th": "Webhook URL (ทุกฟอร์ม)", "en": "Webhook URL (all forms)" },
+      "help": { "th": "POST JSON {event:\"forms.submitted\", plugin, data, sentAt} ทุกครั้งที่มีข้อความใหม่ (แต่ละฟอร์มตั้ง webhook ของตัวเองได้อีกที่หน้า แบบฟอร์ม)", "en": "POSTs JSON {event:\"forms.submitted\", plugin, data, sentAt} on every submission (each form may also have its own webhook on the Forms page)" } }
+  ],
+  "webhooks": [ { "event": "forms.submitted", "url": "{{settings.webhookUrl}}" } ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "webhooks"],
+    "routes": ["/forms"],
+    "exports": ["legacyImport"],
+    "hooks": { "events": ["forms.submitted"] },
+    "eventAliases": { "forms.submitted": "form.submitted" }
+  }
+}

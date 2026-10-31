@@ -1,0 +1,20 @@
+{
+  "id": "analytics",
+  "name": "Analytics",
+  "version": "2.0.0",
+  "description": "Privacy-friendly server-side page-view counter: no cookies, no third-party script, raw IPs never stored — popular pages, daily visitors and referrers. / นับยอดเข้าชมฝั่งเซิร์ฟเวอร์ ไม่ใช้คุกกี้ ไม่เก็บ IP — หน้ายอดนิยม ผู้เข้าชมรายวัน และแหล่งที่มา",
+  "author": "Anasaki Studio",
+  "icon": "📈",
+  "category": "analytics",
+  "tags": ["analytics", "statistics", "privacy", "page views"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "analytics",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "content", "middleware", "admin-pages"],
+    "exports": ["legacyImport", "summary"]
+  }
+}

@@ -1,0 +1,93 @@
+import { registerMessages } from '../core/messages';
+
+/** Phase 7: Export / import site (core tool), the legacy plugin migration, setup wizard recommended plugins. */
+registerMessages({
+  // menu
+  'nav.tools': { th: 'ส่งออก / นำเข้าเว็บ', en: 'Export / import site' },
+  'nav.tools.d': { th: 'สำรองทั้งเว็บเป็นไฟล์เดียว หรือย้ายไปเครื่องใหม่', en: 'Back up the whole site as one file, or move it' },
+
+  // Export / import site
+  'tools.title': { th: 'ส่งออก / นำเข้าเว็บ', en: 'Export / import site' },
+  'tools.desc': { th: 'ดาวน์โหลดทั้งเว็บเก็บไว้เป็นไฟล์เดียว หรือย้ายเว็บไปเครื่องใหม่', en: 'Download the whole site as one file, or move it to another server.' },
+  'tools.export': { th: 'ส่งออกเว็บ', en: 'Export the site' },
+  'tools.exportDesc': {
+    th: 'หน้าเว็บ บทความ หมวดหมู่ เมนู ส่วนที่ใช้ซ้ำ ไฟล์ทั้งหมด รายการปลั๊กอินที่ติดตั้ง (พร้อมการตั้งค่า ไม่รวมรหัสลับ) และโค้ดของเว็บ (Site Code ฉบับร่าง) — .zip',
+    en: 'Pages, posts, categories, menus, components, all files, the installed plugins list (with settings, no secrets) and the Site Code draft — .zip',
+  },
+  'tools.exportBtn': { th: '⬇ ดาวน์โหลด .zip', en: '⬇ Download .zip' },
+  'tools.import': { th: 'นำเข้าเว็บ', en: 'Import a site' },
+  'tools.importDesc': {
+    th: 'เลือกไฟล์ .zip ที่ส่งออกไว้ เนื้อหาจะถูกเพิ่มเข้ามา (ของเดิมไม่ถูกลบหรือเขียนทับ) ปลั๊กอินที่ยังไม่มีจะแสดงให้ติดตั้งจาก Store',
+    en: 'Choose an exported .zip. Its content is added (nothing existing is deleted or overwritten); missing plugins are listed to install from the Store.',
+  },
+  'tools.importBtn': { th: '⬆ เลือกไฟล์ .zip', en: '⬆ Choose .zip' },
+  'tools.working': { th: 'กำลังทำงาน…', en: 'Working…' },
+  'tools.confirm': { th: 'นำเข้าจากไฟล์นี้?', en: 'Import from this file?' },
+  'tools.confirmText': { th: 'เนื้อหาในไฟล์จะถูกเพิ่มเข้าเว็บนี้', en: 'Its content will be added to this site.' },
+  'tools.done': { th: 'นำเข้าเรียบร้อย', en: 'Import complete' },
+  'tools.k.posts': { th: 'หน้าและบทความ', en: 'Pages & posts' },
+  'tools.k.terms': { th: 'หมวดหมู่', en: 'Categories' },
+  'tools.k.menus': { th: 'เมนู', en: 'Menus' },
+  'tools.k.components': { th: 'ส่วนที่ใช้ซ้ำ', en: 'Components' },
+  'tools.k.media': { th: 'ไฟล์', en: 'Files' },
+  'tools.packages': { th: 'ปลั๊กอินในไฟล์', en: 'Plugins in the file' },
+  'tools.pkg.installed': { th: 'มีอยู่แล้ว (v{v})', en: 'Already installed (v{v})' },
+  'tools.pkg.missing': { th: 'ยังไม่ได้ติดตั้ง', en: 'Not installed' },
+  'tools.pkg.install': { th: 'ติดตั้งจาก Store', en: 'Install from the Store' },
+  'tools.pkg.installedNow': { th: 'ติดตั้ง {name} แล้ว (ปิดอยู่ — เปิดใช้ได้ที่หน้าปลั๊กอิน)', en: '{name} installed (off — switch it on in Plugins)' },
+  'tools.siteCode': { th: 'โค้ดของเว็บ: เพิ่ม {n} ไฟล์เข้าฉบับร่าง ข้าม {s} ไฟล์ (มีอยู่แล้ว หรือไม่มีสิทธิ์แก้โค้ด)', en: 'Site Code: {n} files added to the draft, {s} skipped (already there, or no permission to edit code)' },
+
+  // legacy migration banner + Plugins page
+  'legacy.banner': { th: 'มีปลั๊กอิน {n} ตัวรอย้ายไปเป็นปลั๊กอินทางการ', en: '{n} plugins are waiting to be moved to the official plugins' },
+  'legacy.bannerHint': {
+    th: 'ปลั๊กอินในตัวเดิมถูกย้ายไปที่ Plugin Store แล้ว ระบบจะติดตั้งตัวทางการและย้ายข้อมูลให้อัตโนมัติ — ระหว่างนี้ความสามารถนั้นจะปิดอยู่ ข้อมูลเดิมไม่ถูกลบ',
+    en: 'The former built-in plugins now come from the Plugin Store. The official ones are installed and your data is moved automatically — until then that feature is off. Your old data is not deleted.',
+  },
+  'legacy.retry': { th: 'ลองอีกครั้ง', en: 'Retry' },
+  'legacy.upload': { th: 'อัปโหลดไฟล์ zip แทน', en: 'Upload the zip instead' },
+  'legacy.uploadHint': { th: 'สำหรับเว็บที่เชื่อมต่อ Store ไม่ได้: ดาวน์โหลดไฟล์ .zip ของปลั๊กอินทางการแล้วอัปโหลดที่นี่', en: 'For sites that cannot reach the Store: download the official plugin .zip and upload it here' },
+  'legacy.details': { th: 'ดูรายละเอียด', en: 'Details' },
+  'legacy.title': { th: 'ย้ายจากปลั๊กอินในตัวเดิม', en: 'Moved from the former built-in plugins' },
+  'legacy.desc': {
+    th: 'ปลั๊กอินเหล่านี้เคยติดมากับระบบ ตอนนี้เป็นปลั๊กอินทางการจาก Store — ข้อมูลเดิมถูกคัดลอกไปแล้วและยังเก็บไว้จนกว่าคุณจะกด “ล้างข้อมูลเก่า”',
+    en: 'These plugins used to be built in; they are official Store plugins now. Your data was copied and the old copy is kept until you press “Clean up old data”.',
+  },
+  'legacy.status.pending': { th: 'รอดำเนินการ', en: 'Waiting' },
+  'legacy.status.installing': { th: 'กำลังติดตั้ง…', en: 'Installing…' },
+  'legacy.status.importing': { th: 'กำลังย้ายข้อมูล…', en: 'Moving data…' },
+  'legacy.status.done': { th: 'ย้ายเรียบร้อย', en: 'Moved' },
+  'legacy.status.failed': { th: 'ยังย้ายไม่ได้', en: 'Not moved yet' },
+  'legacy.err.store': { th: 'เชื่อมต่อ Plugin Store ไม่ได้ — ระบบจะลองใหม่เอง หรือกด “ลองอีกครั้ง” / อัปโหลดไฟล์ zip', en: 'The Plugin Store cannot be reached — it retries by itself, or press “Retry” / upload the zip' },
+  'legacy.nextAttempt': { th: 'ลองใหม่อัตโนมัติ {time}', en: 'Next automatic try {time}' },
+  'legacy.imported': { th: 'ย้ายข้อมูล {n} รายการ', en: '{n} records moved' },
+  'legacy.source.upload': { th: 'จากไฟล์ที่อัปโหลด', en: 'from an uploaded file' },
+  'legacy.source.store': { th: 'จาก Store', en: 'from the Store' },
+  'legacy.approved': { th: 'อนุมัติสิทธิ์โดย “การย้ายอัตโนมัติ” {time}', en: 'Permissions approved by “system migration” {time}' },
+  'legacy.wasOff': { th: 'เดิมปิดอยู่ — ติดตั้งไว้แต่ยังไม่เปิดใช้', en: 'It was off — installed but not switched on' },
+  'legacy.cleanup': { th: 'ล้างข้อมูลเก่า', en: 'Clean up old data' },
+  'legacy.cleaned': { th: 'ล้างข้อมูลเก่าแล้ว', en: 'Old data cleaned up' },
+  'legacy.cleanupConfirm': { th: 'ล้างข้อมูลเก่าของ {name}?', en: 'Clean up the old data of {name}?' },
+  'legacy.cleanupText': {
+    th: 'ตารางและการตั้งค่าเดิมของปลั๊กอินในตัวจะถูกลบถาวร (ข้อมูลในปลั๊กอินทางการไม่ได้รับผลกระทบ) — ทำย้อนกลับไม่ได้',
+    en: 'The old built-in tables and settings are deleted for good (the official plugin\'s data is not affected). This cannot be undone.',
+  },
+  'legacy.cleanupDone': { th: 'ล้างข้อมูลเก่าเรียบร้อย', en: 'Old data cleaned up' },
+  'legacy.uploaded': { th: 'รับไฟล์แล้ว', en: 'File received' },
+
+  // setup wizard: recommended plugins
+  'setup.step.plugins': { th: 'ปลั๊กอินแนะนำ', en: 'Recommended plugins' },
+  'setup.rec.title': { th: 'ปลั๊กอินแนะนำ', en: 'Recommended plugins' },
+  'setup.rec.sub': { th: 'เว็บพร้อมแล้ว! เลือกปลั๊กอินทางการที่อยากติดตั้งจาก Plugin Store (ติดตั้งเพิ่ม/ถอนทีหลังได้ที่หน้าปลั๊กอิน)', en: 'Your site is ready! Pick the official plugins to install from the Plugin Store (add or remove them later in Plugins).' },
+  'setup.rec.loading': { th: 'กำลังโหลดรายการจาก Store…', en: 'Loading the list from the Store…' },
+  'setup.rec.perms': { th: 'สิทธิ์ที่ขอ', en: 'Asks for' },
+  'setup.rec.notInStore': { th: 'ยังไม่มีใน Store', en: 'Not in the Store yet' },
+  'setup.rec.installed': { th: 'ติดตั้งแล้ว', en: 'Installed' },
+  'setup.rec.install': { th: 'ติดตั้งที่เลือก ({n})', en: 'Install selected ({n})' },
+  'setup.rec.installing': { th: 'กำลังติดตั้ง…', en: 'Installing…' },
+  'setup.rec.skip': { th: 'ข้าม', en: 'Skip' },
+  'setup.rec.finish': { th: 'ไปที่หน้าแดชบอร์ด →', en: 'Go to the dashboard →' },
+  'setup.rec.storeDown': { th: 'เชื่อมต่อ Plugin Store ไม่ได้ตอนนี้ — ติดตั้งภายหลังได้ที่หน้าปลั๊กอิน', en: 'The Plugin Store cannot be reached right now — install later from the Plugins page' },
+  'setup.rec.done': { th: 'ติดตั้งและเปิดใช้เรียบร้อย', en: 'Installed and switched on' },
+  'setup.rec.partial': { th: 'ติดตั้งได้บางตัว — ที่เหลือติดตั้งภายหลังได้ที่หน้าปลั๊กอิน', en: 'Some were installed — install the rest later from the Plugins page' },
+  'setup.rec.ok': { th: 'ติดตั้งแล้ว v{v}', en: 'Installed v{v}' },
+});

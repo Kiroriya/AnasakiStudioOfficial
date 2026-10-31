@@ -1,0 +1,12 @@
+<div class="anlc anlc-{{settings.position}}" style="--anlc-color: {{settings.color}}">
+  <input type="checkbox" id="anlc-toggle" class="anlc-toggle" aria-label="{{settings.label}}">
+  <div class="anlc-menu">
+    <a class="anlc-item anlc-line" data-value="{{settings.lineId}}" href="https://line.me/R/ti/p/{{settings.lineId}}" target="_blank" rel="noopener"><span>LINE</span></a>
+    <a class="anlc-item anlc-fb" data-value="{{settings.messenger}}" href="https://m.me/{{settings.messenger}}" target="_blank" rel="noopener"><span>Messenger</span></a>
+    <a class="anlc-item anlc-tel" data-value="{{settings.phone}}" href="tel:{{settings.phone}}"><span>{{settings.phone}}</span></a>
+  </div>
+  <label for="anlc-toggle" class="anlc-btn">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11c0 2.6 1.6 4.9 4 6.3V21l3.6-2.2c.8.2 1.6.2 2.4.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z"/></svg>
+    <span>{{settings.label}}</span>
+  </label>
+</div>

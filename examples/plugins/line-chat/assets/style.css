@@ -1,0 +1,19 @@
+.anlc{position:fixed;bottom:20px;z-index:9990;display:flex;flex-direction:column;gap:10px;font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif}
+.anlc-right{right:20px;align-items:flex-end}
+.anlc-left{left:20px;align-items:flex-start}
+.anlc-toggle{position:absolute;opacity:0;pointer-events:none}
+.anlc-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;cursor:pointer;color:#fff;background:var(--anlc-color,#06c755);box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .2s}
+.anlc-btn:hover{transform:translateY(-2px)}
+/* the real control is the visually hidden checkbox: show its keyboard focus on the button */
+.anlc-toggle:focus-visible ~ .anlc-btn{outline:3px solid var(--anlc-color,#06c755);outline-offset:3px;box-shadow:0 0 0 6px rgba(255,255,255,.9),0 8px 24px rgba(0,0,0,.18)}
+.anlc-menu{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(8px);pointer-events:none;visibility:hidden;transition:opacity .2s,transform .2s,visibility .2s}
+.anlc-toggle:checked ~ .anlc-menu{opacity:1;transform:none;pointer-events:auto;visibility:visible}
+.anlc-item{display:block;padding:10px 16px;border-radius:12px;background:#fff;color:#111827;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.anlc-item:hover{background:#f3f4f6}
+.anlc-item:focus-visible{outline:3px solid var(--anlc-color,#06c755);outline-offset:2px}
+.anlc-line span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:#06c755;margin-right:8px}
+.anlc-fb span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:#0866ff;margin-right:8px}
+.anlc-tel span::before{content:"☎";margin-right:8px}
+/* a channel without a value (data-value is the raw setting) is hidden */
+.anlc-item[data-value=""]{display:none}
+@media print{.anlc{display:none}}

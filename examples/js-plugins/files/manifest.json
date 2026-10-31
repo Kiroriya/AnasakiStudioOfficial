@@ -1,0 +1,20 @@
+{
+  "id": "files",
+  "name": "File exports",
+  "version": "1.0.0",
+  "description": "Library plugin: CSV (Excel-friendly UTF-8 BOM), XLSX (minimal OOXML, no dependencies, sent as a binary download) and PDF reports — Thai PDFs with the embedded Sarabun font (SIL OFL) — with download helpers for routes and admin pages.",
+  "author": "Anasaki Studio",
+  "icon": "📄",
+  "category": "utilities",
+  "tags": ["csv", "excel", "xlsx", "pdf", "export", "library", "thai"],
+  "license": "MIT AND OFL-1.1",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": [],
+    "library": "code/lib/index.ts",
+    "exports": ["renderThaiPdf"]
+  }
+}

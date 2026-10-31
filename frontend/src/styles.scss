@@ -1,0 +1,85 @@
+/* Global styles: admin UI lives in admin.scss, the designer in editor.scss. */
+
+/* ============================================================ canvas content: mirrors BaseCSS in backend/internal/site/site.go */
+.rea-canvas {
+  font-family: 'Inter', 'Noto Sans Thai', system-ui, sans-serif; color: #111827; line-height: 1.5; font-size: 16px; text-align: left;
+  -webkit-font-smoothing: antialiased;
+  *, *::before, *::after { box-sizing: border-box; }
+  img { max-width: 100%; }
+  h1, h2, h3, h4, h5, h6, p, blockquote { margin: 0; font-size: inherit; font-weight: inherit; }
+  [data-node-id] { cursor: default; }
+  .rea-menu a { color: inherit; text-decoration: none; }
+  .rea-empty { opacity: .6; }
+  .rea-img { width: 100%; height: 100%; display: block; border-radius: inherit; }
+  .rea-img-ph { width: 100%; height: 100%; min-height: 60px; display: grid; place-items: center; font-size: 28px; opacity: .5; }
+  .rea-embed { pointer-events: none; }
+  /* frontend code block (Site Code phase 5): markup only, never interactive in the editor */
+  .rea-codeblock { pointer-events: none; display: contents; }
+  .rea-codeblock-lock {
+    position: absolute; top: 2px; right: 2px; z-index: 6; pointer-events: none; font: 600 10px/1.5 Inter, system-ui, sans-serif; color: #fff;
+    background: #475569; border-radius: 4px; padding: 0 5px; white-space: nowrap;
+  }
+  .rea-missing { padding: 12px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
+  .is-ghost { opacity: .55; pointer-events: none; }
+  .muted { opacity: .5; }
+  [contenteditable] { outline: none; cursor: text; }
+  .rea-breadcrumb, &.rea-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; }
+  .rea-breadcrumb a { color: inherit; text-decoration: none; }
+  .rea-bc-sep { opacity: .5; }
+  /* Site Code nodes: mirrors SITE_CODE_BASE_CSS (design-css.ts) */
+  .rea-pagination, &.rea-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .rea-pg-item { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5em; border: 1px solid transparent; text-decoration: none; cursor: pointer; font: inherit; line-height: 1.2; }
+  .rea-pg-gap { padding: 0 .25em; opacity: .6; }
+  .rea-field, &.rea-field { display: flex; align-items: center; }
+  .rea-field-el { font: inherit; color: inherit; background: transparent; border: 0; outline: 0; width: 100%; min-width: 0; padding: 0; margin: 0; pointer-events: none; }
+  .rea-field-el::placeholder { color: inherit; opacity: .55; }
+  textarea.rea-field-el { resize: none; min-height: 4.5em; }
+  .rea-check, &.rea-check { gap: .5em; }
+  .rea-check .rea-field-el { width: auto; }
+  .rea-field-hidden { font: 11px/1.4 ui-monospace, monospace; opacity: .6; border: 1px dashed currentColor; border-radius: 4px; padding: 2px 6px; }
+  /* editor only: layers hidden by their condition (showWhen) in the current preview */
+  .is-cond-hidden { opacity: .35; outline: 1px dashed #b45309; outline-offset: -1px; }
+  .rea-cond-badge {
+    position: absolute; top: 2px; left: 2px; z-index: 6; pointer-events: none; font: 600 10px/1.5 Inter, system-ui, sans-serif; color: #fff;
+    background: #b45309; border-radius: 4px; padding: 0 5px; white-space: nowrap; opacity: 1;
+  }
+  .rea-cond-badge.err { background: #b91c1c; }
+  .rea-fmt-marker { font: 600 9px/1 Inter, system-ui, sans-serif; color: #7c3aed; margin-left: 2px; }
+  .rea-code-err { font: 11px/1.4 Inter, system-ui, sans-serif; color: #b91c1c; background: #fef2f2; border: 1px dashed #fca5a5; border-radius: 6px; padding: 6px 10px; }
+}
+.rea-exporting .rea-cond-badge, .rea-exporting .rea-fmt-marker { display: none !important; }
+
+/* ============================================================ rich content (posts): mirrors BaseCSS in backend/internal/site/site.go */
+.rea-content{line-height:1.75;overflow-wrap:break-word}
+.rea-content>*+*{margin-top:1em}
+.rea-content::after{content:"";display:block;clear:both}
+.rea-content h1{font-size:2em;font-weight:800;line-height:1.25}
+.rea-content h2{font-size:1.6em;font-weight:700;line-height:1.3;margin-top:1.4em}
+.rea-content h3{font-size:1.3em;font-weight:600;line-height:1.35;margin-top:1.2em}
+.rea-content h4{font-size:1.1em;font-weight:600;margin-top:1em}
+.rea-content a{color:#4f46e5;text-decoration:underline;text-underline-offset:2px}
+.rea-content strong,.rea-content b{font-weight:700}
+.rea-content ul,.rea-content ol{padding-left:1.5em}
+.rea-content li+li{margin-top:.35em}
+.rea-content blockquote{margin-left:0;margin-right:0;padding:.2em 0 .2em 1.1em;border-left:4px solid #c7d2fe;color:#374151;font-style:italic}
+.rea-content blockquote.callout{font-style:normal;border-left:0;padding:1em 1.2em;border-radius:12px;background:#eef2ff;color:#1e1b4b}
+.rea-content pre{background:#0f172a;color:#e2e8f0;padding:1em 1.2em;border-radius:10px;overflow-x:auto;font-size:.88em;line-height:1.6;white-space:pre}
+.rea-content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:#f1f5f9;color:#be185d;padding:.1em .35em;border-radius:5px}
+.rea-content pre code{background:none;color:inherit;padding:0}
+.rea-content mark{background:#fef08a;padding:0 .15em;border-radius:3px}
+.rea-content hr{border:0;border-top:1px solid #e5e7eb;margin:2em 0}
+.rea-content img{max-width:100%;height:auto;border-radius:8px}
+.rea-content figure{margin-left:0;margin-right:0}
+.rea-content figure img{display:block;width:100%}
+.rea-content figure.aligncenter{margin-left:auto;margin-right:auto}
+.rea-content figure.alignleft{float:left;margin:.3em 1.5em 1em 0;max-width:60%}
+.rea-content figure.alignright{float:right;margin:.3em 0 1em 1.5em;max-width:60%}
+.rea-content figcaption{margin-top:.5em;font-size:.85em;color:#6b7280;text-align:center}
+.rea-content figure.video{position:relative;aspect-ratio:16/9;width:100%}
+.rea-content figure.video iframe,.rea-content iframe{width:100%;height:100%;border:0;border-radius:10px}
+.rea-content iframe{aspect-ratio:16/9;height:auto}
+.rea-content table{width:100%;border-collapse:collapse;font-size:.95em}
+.rea-content th,.rea-content td{border:1px solid #e5e7eb;padding:.55em .75em;text-align:left;vertical-align:top}
+.rea-content th{background:#f9fafb;font-weight:600}
+.rea-content .file-download{display:inline-flex;align-items:center;gap:.4em;padding:.55em 1em;border:1px solid #e5e7eb;border-radius:10px;text-decoration:none;font-weight:600}
+@media (max-width:640px){.rea-content figure.alignleft,.rea-content figure.alignright{float:none;margin:1em 0;max-width:100%;width:100%!important}.rea-content table{display:block;overflow-x:auto}}

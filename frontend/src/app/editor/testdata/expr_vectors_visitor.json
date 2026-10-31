@@ -1,0 +1,63 @@
+{
+  "_doc": "Site Code phase 4a: `visitor` (site.visitor) and `visitor.is.<group>` in binding expressions. Go and TypeScript evaluators must agree. Each group has its own ctx; 'out' is the rendered string; 'truthy' (optional) is the showWhen result.",
+  "groups": [
+    {
+      "name": "no visitor (null)",
+      "ctx": { "visitor": null, "post": { "title": "P" } },
+      "cases": [
+        { "expr": "visitor", "out": "", "truthy": false },
+        { "expr": "!visitor", "out": "true", "truthy": true },
+        { "expr": "visitor.name", "out": "", "truthy": false },
+        { "expr": "visitor.is.gold", "out": "false", "truthy": false },
+        { "expr": "!visitor.is.gold", "out": "true", "truthy": true },
+        { "expr": "visitor ? 'in' : 'out'", "out": "out" },
+        { "expr": "visitor.is.gold ? 'G' : '-'", "out": "-" },
+        { "expr": "visitor.name ?? 'guest'", "out": "guest" }
+      ]
+    },
+    {
+      "name": "visitor key missing",
+      "ctx": { "post": { "title": "P" } },
+      "cases": [
+        { "expr": "visitor", "out": "", "truthy": false },
+        { "expr": "visitor.is.gold", "out": "false", "truthy": false }
+      ]
+    },
+    {
+      "name": "visitor in gold + member",
+      "ctx": { "visitor": { "id": 7, "name": "Ann", "groups": ["gold", "member"], "plan": "pro" } },
+      "cases": [
+        { "expr": "visitor ? 'in' : 'out'", "out": "in", "truthy": true },
+        { "expr": "visitor.is.gold", "out": "true", "truthy": true },
+        { "expr": "visitor.is.member && visitor.is.gold", "out": "true", "truthy": true },
+        { "expr": "visitor.is.silver", "out": "false", "truthy": false },
+        { "expr": "visitor.name", "out": "Ann", "truthy": true },
+        { "expr": "'Hi ' + visitor.name", "out": "Hi Ann" },
+        { "expr": "visitor.id", "out": "7" },
+        { "expr": "visitor.plan | upper", "out": "PRO" },
+        { "expr": "visitor.groups.length", "out": "2" },
+        { "expr": "visitor.groups | json", "out": "[\"gold\",\"member\"]" },
+        { "expr": "visitor.is", "out": "", "truthy": false },
+        { "expr": "visitor.is.gold.deeper", "out": "", "truthy": false },
+        { "expr": "visitor.is.__proto__", "out": "", "truthy": false }
+      ]
+    },
+    {
+      "name": "visitor in group gold only",
+      "ctx": { "visitor": { "id": "u1", "groups": ["gold"] } },
+      "cases": [
+        { "expr": "visitor.is.gold", "out": "true", "truthy": true },
+        { "expr": "visitor.is.member", "out": "false", "truthy": false },
+        { "expr": "visitor.name", "out": "", "truthy": false }
+      ]
+    },
+    {
+      "name": "groups not an array",
+      "ctx": { "visitor": { "id": 1, "groups": "gold" } },
+      "cases": [
+        { "expr": "visitor.is.gold", "out": "false", "truthy": false },
+        { "expr": "visitor", "out": "", "truthy": true }
+      ]
+    }
+  ]
+}

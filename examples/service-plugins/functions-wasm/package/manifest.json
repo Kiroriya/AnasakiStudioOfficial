@@ -1,0 +1,16 @@
+{
+  "id": "reports",
+  "name": "Reports (WASM functions)",
+  "version": "1.0.0",
+  "description": "Example WASM plugin with service.functions: plugins.call('reports', 'monthly', { sales: [...] }).",
+  "icon": "📊",
+  "category": "analytics",
+  "minCore": "1.0.0",
+  "permissions": ["service"],
+  "service": {
+    "runtime": "wasm",
+    "module": "plugin.wasm",
+    "functions": ["monthly"],
+    "events": ["shop.order.paid"]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "pricing-table",
+  "name": "Pricing Table",
+  "version": "1.0.0",
+  "description": "การ์ดแพ็กเกจราคา พร้อมรายการฟีเจอร์และปุ่ม / Pricing plan card with features and a call-to-action",
+  "author": "Anasaki",
+  "icon": "💳",
+  "category": "ecommerce",
+  "tags": ["pricing", "plan", "table", "saas"],
+  "license": "MIT",
+  "homepage": "https://github.com/anasaki/studio",
+  "minCore": "1.0.0",
+  "permissions": ["blocks"],
+  "blocks": [
+    {
+      "type": "plan",
+      "name": { "th": "แพ็กเกจราคา", "en": "Pricing plan" },
+      "icon": "💳",
+      "template": "templates/plan.html",
+      "css": "templates/plan.css",
+      "props": [
+        { "key": "plan", "type": "text", "label": { "th": "ชื่อแพ็กเกจ", "en": "Plan name" }, "default": "Pro" },
+        { "key": "badge", "type": "text", "label": { "th": "ป้าย (เช่น ยอดนิยม)", "en": "Badge (e.g. Popular)" }, "default": "ยอดนิยม" },
+        { "key": "price", "type": "text", "label": { "th": "ราคา", "en": "Price" }, "default": "฿490" },
+        { "key": "period", "type": "text", "label": { "th": "ต่อ (เช่น /เดือน)", "en": "Period (e.g. /month)" }, "default": "/เดือน" },
+        { "key": "features", "type": "textarea", "label": { "th": "ฟีเจอร์ (บรรทัดละ 1 รายการ)", "en": "Features (one per line)" }, "default": "✓ เว็บไซต์ไม่จำกัดหน้า\n✓ โดเมนของคุณเอง\n✓ ซัพพอร์ตทางอีเมล" },
+        { "key": "buttonText", "type": "text", "label": { "th": "ข้อความปุ่ม", "en": "Button text" }, "default": "เริ่มใช้งาน" },
+        { "key": "buttonUrl", "type": "url", "label": { "th": "ลิงก์ปุ่ม", "en": "Button link" }, "default": "#" },
+        { "key": "color", "type": "color", "label": { "th": "สีหลัก", "en": "Accent color" }, "default": "#4f46e5" }
+      ]
+    }
+  ]
+}

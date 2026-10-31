@@ -1,0 +1,30 @@
+{
+  "id": "countdown",
+  "name": "Countdown Timer",
+  "version": "1.0.1",
+  "description": "นาฬิกานับถอยหลังสู่วันสำคัญ / Countdown timer to a launch, sale or event",
+  "author": "Anasaki",
+  "icon": "⏳",
+  "category": "marketing",
+  "tags": ["countdown", "timer", "launch", "sale"],
+  "license": "MIT",
+  "homepage": "https://github.com/anasaki/studio",
+  "minCore": "1.0.0",
+  "permissions": ["head", "blocks"],
+  "head": ["assets/countdown.js"],
+  "blocks": [
+    {
+      "type": "timer",
+      "name": { "th": "นับถอยหลัง", "en": "Countdown" },
+      "icon": "⏳",
+      "template": "templates/timer.html",
+      "css": "templates/timer.css",
+      "props": [
+        { "key": "title", "type": "text", "label": { "th": "หัวข้อ", "en": "Title" }, "default": "เปิดตัวในอีก" },
+        { "key": "target", "type": "text", "label": { "th": "วันเวลาเป้าหมาย (YYYY-MM-DDTHH:MM)", "en": "Target date (YYYY-MM-DDTHH:MM)" }, "default": "2099-12-31T23:59", "placeholder": "2030-01-01T09:00" },
+        { "key": "doneText", "type": "text", "label": { "th": "ข้อความเมื่อถึงเวลา", "en": "Text when finished" }, "default": "เริ่มแล้ว! 🎉" },
+        { "key": "color", "type": "color", "label": { "th": "สีหลัก", "en": "Accent color" }, "default": "#4f46e5" }
+      ]
+    }
+  ]
+}

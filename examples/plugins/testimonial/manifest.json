@@ -1,0 +1,37 @@
+{
+  "id": "testimonial",
+  "name": "Testimonial",
+  "version": "1.0.0",
+  "description": "การ์ดรีวิวจากลูกค้า พร้อมรูป ชื่อ ตำแหน่ง และดาว / Customer testimonial card with avatar and stars",
+  "author": "Anasaki",
+  "icon": "⭐",
+  "category": "content",
+  "tags": ["testimonial", "review", "quote", "social proof"],
+  "license": "MIT",
+  "homepage": "https://github.com/anasaki/studio",
+  "minCore": "1.0.0",
+  "permissions": ["blocks"],
+  "blocks": [
+    {
+      "type": "card",
+      "name": { "th": "รีวิวลูกค้า", "en": "Testimonial" },
+      "icon": "⭐",
+      "template": "templates/card.html",
+      "css": "templates/card.css",
+      "props": [
+        { "key": "quote", "type": "textarea", "label": { "th": "คำรีวิว", "en": "Quote" }, "default": "บริการดีมาก ทีมงานใส่ใจทุกรายละเอียด แนะนำเลยครับ" },
+        { "key": "name", "type": "text", "label": { "th": "ชื่อ", "en": "Name" }, "default": "สมชาย ใจดี" },
+        { "key": "role", "type": "text", "label": { "th": "ตำแหน่ง / บริษัท", "en": "Role / company" }, "default": "เจ้าของร้านกาแฟ" },
+        { "key": "avatar", "type": "image", "label": { "th": "รูปโปรไฟล์", "en": "Avatar" }, "default": "" },
+        { "key": "stars", "type": "select", "label": { "th": "จำนวนดาว", "en": "Stars" }, "default": "5",
+          "options": [
+            { "value": "5", "label": { "th": "5 ดาว", "en": "5 stars" } },
+            { "value": "4", "label": { "th": "4 ดาว", "en": "4 stars" } },
+            { "value": "3", "label": { "th": "3 ดาว", "en": "3 stars" } },
+            { "value": "2", "label": { "th": "2 ดาว", "en": "2 stars" } },
+            { "value": "1", "label": { "th": "1 ดาว", "en": "1 star" } }
+          ] }
+      ]
+    }
+  ]
+}

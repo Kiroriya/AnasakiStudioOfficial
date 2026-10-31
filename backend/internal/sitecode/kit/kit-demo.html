@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anasaki admin UI kit</title>
+<!-- In a plugin admin page use the served copies: /ext-ui/kit.css and /ext-ui/kit.js -->
+<link rel="stylesheet" href="kit.css" />
+</head>
+<body class="ak">
+  <header class="ak-page-head">
+    <span class="ak-page-icon">🧰</span>
+    <div class="ak-page-head-text">
+      <h1 data-th="ชุด UI สำหรับหน้าผู้ดูแลของปลั๊กอิน" data-en="Admin UI kit for plugin pages"></h1>
+      <p data-th="ไม่มี dependency · สว่าง/มืด · ไทย/อังกฤษ" data-en="No dependencies · light/dark · Thai/English"></p>
+    </div>
+    <div class="ak-actions">
+      <button class="ak-btn ak-btn-sm" id="demo-lang">TH / EN</button>
+      <button class="ak-btn ak-btn-sm" id="demo-theme">☀ / ☾</button>
+    </div>
+  </header>
+
+  <div class="ak-grid">
+    <div class="ak-card"><div class="ak-stat"><span data-th="ยอดเข้าชมวันนี้" data-en="Views today"></span><b>1,284</b></div><span class="ak-spark" data-ak-spark="[3,5,4,8,6,9,12,10,14]"></span></div>
+    <div class="ak-card"><div class="ak-stat"><span data-th="คำสั่งซื้อ" data-en="Orders"></span><b>56</b></div><span class="ak-spark" id="demo-spark"></span></div>
+    <div class="ak-card"><div class="ak-stat"><span data-th="สถานะ" data-en="Status"></span><b><span class="ak-badge ak-badge-ok" data-th="ปกติ" data-en="Healthy"></span></b></div>
+      <div class="ak-row ak-small"><span class="ak-badge">default</span><span class="ak-badge ak-badge-info">info</span><span class="ak-badge ak-badge-warn">warn</span><span class="ak-badge ak-badge-danger">danger</span></div></div>
+  </div>
+
+  <div class="ak-card">
+    <div class="ak-card-head"><h2 data-th="ยอดขาย 14 วัน" data-en="Sales, 14 days"></h2><span class="ak-muted ak-small">AK.bar(el, data)</span></div>
+    <div id="demo-bar"></div>
+  </div>
+
+  <div class="ak-tabs" data-ak-tabs id="demo-tabs">
+    <button class="ak-tab" data-tab="table" data-th="ตาราง" data-en="Table"></button>
+    <button class="ak-tab" data-tab="form" data-th="ฟอร์ม" data-en="Form"></button>
+    <button class="ak-tab" data-tab="misc" data-th="ปุ่มและการแจ้งเตือน" data-en="Buttons &amp; feedback"></button>
+  </div>
+
+  <section data-tab-panel="table">
+    <div class="ak-card ak-card-flush">
+      <div id="demo-table"></div>
+      <div id="demo-pager"></div>
+    </div>
+    <div class="ak-card ak-card-flush">
+      <table class="ak-table" data-ak-sortable id="demo-static">
+        <thead><tr><th data-sort data-th="ชื่อ" data-en="Name"></th><th data-sort class="ak-num" data-th="จำนวน" data-en="Qty"></th></tr></thead>
+        <tbody><tr><td>Banana</td><td class="ak-num">12</td></tr><tr><td>Apple</td><td class="ak-num">7</td></tr><tr><td>Cherry</td><td class="ak-num">30</td></tr></tbody>
+      </table>
+    </div>
+    <div class="ak-card ak-card-flush"><div id="demo-empty"></div></div>
+  </section>
+
+  <section data-tab-panel="form" hidden>
+    <form class="ak-card" data-ak-validate id="demo-form">
+      <label class="ak-field"><span data-th="ชื่อ *" data-en="Name *"></span><input name="name" required /><div class="ak-error"></div></label>
+      <label class="ak-field"><span data-th="อีเมล" data-en="Email"></span><input name="email" type="email" /><p class="ak-hint" data-th="ใช้สำหรับแจ้งเตือน" data-en="Used for notifications"></p><div class="ak-error"></div></label>
+      <label class="ak-field"><span data-th="ประเภท" data-en="Type"></span><select name="type"><option>A</option><option>B</option></select></label>
+      <label class="ak-field"><span data-th="หมายเหตุ" data-en="Note"></span><textarea name="note"></textarea></label>
+      <label class="ak-check"><input type="checkbox" name="on" checked /> <span data-th="เปิดใช้งาน" data-en="Enabled"></span></label>
+      <div class="ak-form-actions"><button class="ak-btn" type="reset" data-th="ล้าง" data-en="Reset"></button><button class="ak-btn ak-btn-primary" type="submit" data-th="บันทึก" data-en="Save"></button></div>
+    </form>
+  </section>
+
+  <section data-tab-panel="misc" hidden>
+    <div class="ak-card">
+      <div class="ak-row">
+        <button class="ak-btn ak-btn-primary" id="demo-toast-ok">toast success</button>
+        <button class="ak-btn" id="demo-toast-err">toast error</button>
+        <button class="ak-btn" id="demo-toast-warn">toast warning</button>
+        <button class="ak-btn ak-btn-ghost" id="demo-toast-info">toast info</button>
+        <button class="ak-btn ak-btn-danger" id="demo-confirm">confirm()</button>
+        <button class="ak-btn ak-btn-sm" disabled>disabled</button>
+      </div>
+      <p></p>
+      <div class="ak-alert" data-th="ข้อความแจ้ง" data-en="Info alert"></div>
+      <div class="ak-alert ak-alert-ok" data-th="บันทึกแล้ว" data-en="Saved"></div>
+      <div class="ak-alert ak-alert-warn" data-th="โปรดตรวจสอบ" data-en="Please check"></div>
+      <div class="ak-alert ak-alert-danger" data-th="เกิดข้อผิดพลาด" data-en="Something went wrong"></div>
+    </div>
+  </section>
+
+<script src="kit.js"></script>
+<script>
+  const L = () => AK.lang();
+  function texts() { document.querySelectorAll('[data-th]').forEach(e => { e.textContent = e.getAttribute('data-' + L()); }); }
+  texts();
+  document.getElementById('demo-lang').onclick = () => { document.documentElement.lang = L() === 'th' ? 'en' : 'th'; texts(); render(); };
+  document.getElementById('demo-theme').onclick = () => {
+    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  };
+  AK.sparkline('#demo-spark', [9, 7, 8, 5, 6, 4, 7, 6, 8]);
+  AK.bar('#demo-bar', Array.from({ length: 14 }, (_, i) => ({ label: String(i + 1), value: Math.round(800 + 600 * Math.sin(i / 2) + i * 40) })));
+
+  const people = Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: ['Somchai', 'Ann', 'Niran', 'Ploy', 'Ben'][i % 5] + ' ' + (i + 1), orders: (i * 7) % 19, status: i % 4 ? 'active' : 'pending' }));
+  let page = 1, tbl;
+  const per = 8;
+  function render() {
+    tbl = AK.table('#demo-table', {
+      columns: [
+        { key: 'id', label: '#', sort: true, num: true },
+        { key: 'name', label: L() === 'th' ? 'ชื่อ' : 'Name', sort: true },
+        { key: 'orders', label: L() === 'th' ? 'คำสั่งซื้อ' : 'Orders', sort: true, num: true },
+        { key: 'status', label: L() === 'th' ? 'สถานะ' : 'Status', render: r => { const b = document.createElement('span'); b.className = 'ak-badge ' + (r.status === 'active' ? 'ak-badge-ok' : 'ak-badge-warn'); b.textContent = r.status; return b; } },
+        { key: 'act', label: '', render: r => { const b = document.createElement('button'); b.className = 'ak-btn ak-btn-sm ak-btn-danger'; b.textContent = L() === 'th' ? 'ลบ' : 'Delete'; b.onclick = async () => { if (await AK.confirm((L() === 'th' ? 'ลบ ' : 'Delete ') + r.name + '?', { danger: true })) AK.toast(r.name + ' ✓'); }; return b; } },
+      ],
+      rows: people.slice((page - 1) * per, page * per),
+    });
+    AK.table('#demo-empty', { columns: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }], rows: [] });
+  }
+  render();
+  AK.pager('#demo-pager', { page, pages: Math.ceil(people.length / per), onChange: p => { page = p; tbl.set(people.slice((p - 1) * per, p * per)); } });
+
+  document.getElementById('demo-form').addEventListener('submit', e => { e.preventDefault(); AK.toast(L() === 'th' ? 'บันทึกแล้ว' : 'Saved'); });
+  document.getElementById('demo-toast-ok').onclick = () => AK.toast('Success / สำเร็จ', 'success');
+  document.getElementById('demo-toast-err').onclick = () => AK.toast('Error / ผิดพลาด', 'error');
+  document.getElementById('demo-toast-warn').onclick = () => AK.toast('Warning / คำเตือน', 'warning');
+  document.getElementById('demo-toast-info').onclick = () => AK.toast('Info / ข้อมูล', 'info');
+  document.getElementById('demo-confirm').onclick = async () => AK.toast(String(await AK.confirm(L() === 'th' ? 'ยืนยันการลบ?' : 'Delete this?', { danger: true })), 'info');
+</script>
+</body>
+</html>

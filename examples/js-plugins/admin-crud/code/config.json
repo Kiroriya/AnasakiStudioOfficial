@@ -1,0 +1,43 @@
+{
+  "resources": [
+    {
+      "id": "contacts",
+      "table": "contacts",
+      "label": { "th": "รายชื่อติดต่อ", "en": "Contacts" },
+      "perPage": 20,
+      "orderBy": "-id",
+      "columns": [
+        { "name": "name", "label": { "th": "ชื่อ", "en": "Name" }, "type": "text", "required": true, "max": 100, "list": true, "search": true },
+        { "name": "email", "label": { "th": "อีเมล", "en": "Email" }, "type": "email", "list": true, "search": true },
+        { "name": "phone", "label": { "th": "โทรศัพท์", "en": "Phone" }, "type": "text", "max": 30, "list": true, "search": true },
+        { "name": "status", "label": { "th": "สถานะ", "en": "Status" }, "type": "select", "options": ["new", "contacted", "closed"], "required": true, "list": true },
+        { "name": "note", "label": { "th": "หมายเหตุ", "en": "Note" }, "type": "textarea", "search": true }
+      ]
+    },
+    {
+      "id": "faqs",
+      "table": "faqs",
+      "label": { "th": "คำถามที่พบบ่อย", "en": "FAQ" },
+      "perPage": 20,
+      "orderBy": "sort",
+      "columns": [
+        { "name": "question", "label": { "th": "คำถาม", "en": "Question" }, "type": "text", "required": true, "max": 255, "list": true, "search": true },
+        { "name": "answer", "label": { "th": "คำตอบ", "en": "Answer" }, "type": "textarea", "required": true, "search": true },
+        { "name": "sort", "label": { "th": "ลำดับ", "en": "Order" }, "type": "number", "list": true },
+        { "name": "published", "label": { "th": "เผยแพร่", "en": "Published" }, "type": "bool", "list": true }
+      ]
+    },
+    {
+      "id": "orders",
+      "label": { "th": "ออเดอร์ (ปลั๊กอิน shop)", "en": "Orders (shop plugin)" },
+      "source": { "plugin": "shop", "list": "listOrders", "get": "getOrder", "save": "saveOrder" },
+      "perPage": 20,
+      "columns": [
+        { "name": "item", "label": { "th": "สินค้า", "en": "Item" }, "type": "text", "list": true, "search": true },
+        { "name": "total", "label": { "th": "ยอด", "en": "Total" }, "type": "number", "list": true },
+        { "name": "status", "label": { "th": "สถานะ", "en": "Status" }, "type": "select", "options": ["pending", "paid", "cancelled"], "required": true, "list": true },
+        { "name": "created_at", "label": { "th": "สร้างเมื่อ", "en": "Created" }, "type": "datetime", "list": true }
+      ]
+    }
+  ]
+}

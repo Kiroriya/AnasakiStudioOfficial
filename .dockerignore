@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.angular
+**/bin
+**/*.exe
+**/uploads
+**/plugins-data
+**/store-data
+.git
+.github
+.env

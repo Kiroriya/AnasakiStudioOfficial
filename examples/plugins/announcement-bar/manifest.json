@@ -1,0 +1,24 @@
+{
+  "id": "announcement-bar",
+  "name": "Announcement Bar",
+  "version": "1.0.1",
+  "description": "แถบประกาศด้านบนเว็บ พร้อมลิงก์และปุ่มปิด / Dismissible top bar with a message and a link",
+  "author": "Anasaki",
+  "icon": "📣",
+  "category": "marketing",
+  "tags": ["banner", "announcement", "promotion", "notice"],
+  "license": "MIT",
+  "homepage": "https://github.com/anasaki/studio",
+  "minCore": "1.0.0",
+  "permissions": ["head", "bodyEnd", "settings"],
+  "settings": [
+    { "key": "message", "type": "text", "label": { "th": "ข้อความประกาศ", "en": "Message" }, "default": "🎉 โปรโมชันพิเศษ ส่งฟรีทุกออเดอร์ถึงสิ้นเดือนนี้!" },
+    { "key": "linkText", "type": "text", "label": { "th": "ข้อความลิงก์", "en": "Link text" }, "default": "ดูรายละเอียด" },
+    { "key": "linkUrl", "type": "url", "label": { "th": "ลิงก์", "en": "Link URL" }, "default": "" },
+    { "key": "background", "type": "color", "label": { "th": "สีพื้นหลัง", "en": "Background" }, "default": "#111827" },
+    { "key": "color", "type": "color", "label": { "th": "สีตัวอักษร", "en": "Text color" }, "default": "#ffffff" },
+    { "key": "dismissible", "type": "boolean", "label": { "th": "ให้ผู้ชมปิดได้", "en": "Visitors can dismiss" }, "default": true }
+  ],
+  "head": ["assets/bar.css", "assets/bar.js"],
+  "bodyEnd": "templates/bar.html"
+}

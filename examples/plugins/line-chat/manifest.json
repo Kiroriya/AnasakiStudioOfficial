@@ -1,0 +1,28 @@
+{
+  "id": "line-chat",
+  "name": "LINE Chat Button",
+  "version": "1.0.1",
+  "description": "ปุ่มลอยติดต่อผ่าน LINE, Messenger และโทรศัพท์ / Floating LINE, Messenger and phone contact button",
+  "author": "Anasaki",
+  "icon": "💬",
+  "category": "social",
+  "tags": ["line", "chat", "messenger", "contact"],
+  "license": "MIT",
+  "homepage": "https://github.com/anasaki/studio",
+  "minCore": "1.0.0",
+  "permissions": ["head", "bodyEnd", "settings"],
+  "settings": [
+    { "key": "lineId", "type": "text", "label": { "th": "LINE ID (เช่น @myshop)", "en": "LINE ID (e.g. @myshop)" }, "default": "" },
+    { "key": "messenger", "type": "text", "label": { "th": "ชื่อเพจ Facebook (m.me/…)", "en": "Facebook page username (m.me/…)" }, "default": "" },
+    { "key": "phone", "type": "text", "label": { "th": "เบอร์โทรศัพท์", "en": "Phone number" }, "default": "" },
+    { "key": "label", "type": "text", "label": { "th": "ข้อความบนปุ่ม", "en": "Button label" }, "default": "ติดต่อเรา" },
+    { "key": "position", "type": "select", "label": { "th": "ตำแหน่ง", "en": "Position" }, "default": "right",
+      "options": [
+        { "value": "right", "label": { "th": "ขวาล่าง", "en": "Bottom right" } },
+        { "value": "left", "label": { "th": "ซ้ายล่าง", "en": "Bottom left" } }
+      ] },
+    { "key": "color", "type": "color", "label": { "th": "สีปุ่ม", "en": "Button color" }, "default": "#06c755" }
+  ],
+  "head": ["assets/style.css"],
+  "bodyEnd": "templates/body.html"
+}

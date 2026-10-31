@@ -1,0 +1,32 @@
+{
+  "id": "seo",
+  "name": "SEO",
+  "version": "2.0.0",
+  "description": "Search and social meta tags (title template, description, Open Graph, Twitter cards, canonical), per-page overrides with search previews, /sitemap.xml and /robots.txt. / แท็ก meta, Open Graph, Twitter, ปรับแต่ง SEO รายหน้า, sitemap.xml และ robots.txt อัตโนมัติ",
+  "author": "Anasaki Studio",
+  "icon": "🔍",
+  "category": "seo",
+  "tags": ["seo", "sitemap", "open graph", "meta"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "seo",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "titleTemplate", "type": "text", "default": "%title% – %site%",
+      "label": { "th": "รูปแบบชื่อหน้า", "en": "Title template" },
+      "help": { "th": "ใช้ %title% %site% %tagline%", "en": "Use %title% %site% %tagline%" } },
+    { "key": "defaultDescription", "type": "textarea", "maxLength": 500,
+      "label": { "th": "คำอธิบายเริ่มต้น", "en": "Default description" } },
+    { "key": "defaultImage", "type": "image",
+      "label": { "th": "รูปแชร์เริ่มต้น (og:image)", "en": "Default share image" } },
+    { "key": "twitterHandle", "type": "text", "maxLength": 40, "placeholder": "@yourbrand",
+      "label": { "th": "บัญชี X/Twitter", "en": "Twitter handle" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "library": "code/lib.ts",
+    "scopes": ["content", "content-fields", "filters-core", "admin-pages"],
+    "exports": ["legacyImport", "metaOf"]
+  }
+}

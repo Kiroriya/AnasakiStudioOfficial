@@ -1,0 +1,14 @@
+.tm{margin:0;padding:28px;border-radius:20px;background:#fff;border:1px solid #e5e7eb;box-shadow:0 10px 30px rgba(17,24,39,.06);display:flex;flex-direction:column;gap:16px}
+.tm-stars{position:relative;display:inline-block;width:max-content;font-size:18px;letter-spacing:2px;color:#e5e7eb}
+.tm-stars::before{content:"★★★★★";position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f59e0b;width:var(--tm-w,100%)}
+.tm-stars[data-stars="4"]{--tm-w:80%}
+.tm-stars[data-stars="3"]{--tm-w:60%}
+.tm-stars[data-stars="2"]{--tm-w:40%}
+.tm-stars[data-stars="1"]{--tm-w:20%}
+.tm-quote{margin:0;font-size:17px;line-height:1.7;color:#1f2937;white-space:pre-line}
+.tm-who{display:flex;align-items:center;gap:12px}
+.tm-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;background:linear-gradient(135deg,#c7d2fe,#f5d0fe)}
+.tm-avatar[src=""]{display:none}
+.tm-meta{display:flex;flex-direction:column}
+.tm-name{font-size:15px;color:#111827}
+.tm-role{font-size:13px;color:#6b7280}

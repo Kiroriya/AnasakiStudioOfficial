@@ -1,0 +1,19 @@
+{
+  "id": "admin-crud",
+  "name": "Admin data screens",
+  "version": "1.0.0",
+  "description": "System plugin: a generic admin screen (list, search, paginate, create, edit, delete) for the plugin's own tables, configured in JSON. Ships sample Contacts and FAQ tables and a public FAQ collection.",
+  "author": "Anasaki Studio",
+  "icon": "🗂️",
+  "category": "utilities",
+  "tags": ["admin", "crud", "data"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "admin-pages"],
+    "hooks": { "events": ["admin-crud.saved", "admin-crud.deleted"] }
+  }
+}

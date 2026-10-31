@@ -1,0 +1,4 @@
+{
+  "/api": { "target": "http://localhost:8090", "secure": false },
+  "/uploads": { "target": "http://localhost:8090", "secure": false }
+}

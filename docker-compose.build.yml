@@ -1,0 +1,16 @@
+# Developer override: build the CMS from this source folder instead of pulling the image,
+# and expose MySQL on this machine only (127.0.0.1:${MYSQL_PORT:-3306}) for database tools / `go run`.
+#
+#   JWT_SECRET=dev MYSQL_PASSWORD=anasaki MYSQL_ROOT_PASSWORD=root CODE_DB_PASSWORD=anasaki_code docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Database only (then run the backend with `go run ./cmd/server`, DB_DSN user/password anasaki/anasaki):
+#   MYSQL_PASSWORD=anasaki MYSQL_ROOT_PASSWORD=root CODE_DB_PASSWORD=anasaki_code JWT_SECRET=dev docker compose -f docker-compose.yml -f docker-compose.build.yml up -d mysql
+# (or put the values in .env — see .env.example). For `go run`, also set
+#   CODE_DB_DSN="anasaki_code:anasaki_code@tcp(127.0.0.1:3306)/anasaki_code?parseTime=true&charset=utf8mb4&loc=UTC"
+services:
+  mysql:
+    ports: ["127.0.0.1:${MYSQL_PORT:-3306}:3306"]
+
+  studio:
+    build: .
+    image: anasaki-studio:local

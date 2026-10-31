@@ -1,0 +1,21 @@
+{
+  "id": "shop",
+  "name": "Shop",
+  "version": "1.0.0",
+  "description": "Example JS plugin: orders table, /shop routes, a products collection, an order action, hooks, exports (cart total, orders for admin-crud) and a cron that cancels unpaid orders. Works with thai (Thai baht text) and promptpay (QR) when they are installed.",
+  "author": "Anasaki Studio",
+  "icon": "🛒",
+  "category": "ecommerce",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "jobs"],
+    "routes": ["/shop"],
+    "exports": ["cartTotal", "listOrders", "getOrder", "saveOrder"],
+    "hooks": { "filters": ["shop.price"], "events": ["shop.order.paid", "shop.order.cancelled"] }
+  },
+  "requires": { "money": "^1.0.0" },
+  "optionalRequires": { "thai": "^1.0.0", "promptpay": "^1.0.0" }
+}

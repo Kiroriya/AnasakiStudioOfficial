@@ -1,0 +1,20 @@
+{
+  "id": "thai",
+  "name": "Thai helpers",
+  "version": "1.0.0",
+  "description": "Library plugin: bahtText (จำนวนเงินเป็นตัวหนังสือ), Thai dates (พ.ศ.), Thai digits, phone and citizen-ID validation, plus the binding formatters thai:baht / thai:bahtText / thai:thaiDate / thai:thaiNumber and exports for optional use by other plugins.",
+  "author": "Anasaki Studio",
+  "icon": "🇹🇭",
+  "category": "utilities",
+  "tags": ["thai", "baht", "formatter", "library"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": [],
+    "library": "code/lib/index.ts",
+    "exports": ["format"]
+  }
+}

@@ -1,0 +1,78 @@
+# Anasaki Studio — run it on your own server with the prebuilt image from Docker Hub.
+#
+#   cp .env.example .env    # then fill in JWT_SECRET, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD and CODE_DB_PASSWORD
+#   docker compose up -d
+#
+# or in one line (the values are only read on the first start of the database):
+#   JWT_SECRET=$(openssl rand -hex 32) MYSQL_PASSWORD=$(openssl rand -hex 16) MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16) CODE_DB_PASSWORD=$(openssl rand -hex 16) docker compose up -d
+#
+# Keep the docker/mysql-init/ folder next to this file: on the first start it creates the Site Code
+# database "anasaki_code" and its own MySQL user (no access to the CMS tables). Sites installed
+# before that: see docs/site-code.md ("Existing installs") — until then Site Code uses fallback mode.
+#
+# Then open http://localhost:8090/admin/ and follow the first-run setup.
+# Update later:  docker compose pull && docker compose up -d
+# Build from source instead (developers):  see docker-compose.build.yml
+#
+# Several sites on one server (e.g. a demo next to the real site): one folder per site, each
+# with its own .env holding a different COMPOSE_PROJECT_NAME and PORT. Containers, network and
+# volumes (database, uploads, plugins) are named after the project, so the sites never touch.
+name: ${COMPOSE_PROJECT_NAME:-anasaki-studio}
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD (e.g. openssl rand -hex 16)}
+      MYSQL_DATABASE: anasaki
+      MYSQL_USER: anasaki
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD (e.g. openssl rand -hex 16)}
+      # Site Code database user (docker/mysql-init/10-site-code.sh, first start only)
+      CODE_DB_PASSWORD: ${CODE_DB_PASSWORD:?set CODE_DB_PASSWORD (e.g. openssl rand -hex 16)}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # the password comes from the container's own environment (MYSQL_PWD), so it is
+      # neither written into the health-check command nor shown in the process list
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uanasaki --silent"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  studio:
+    # Prebuilt multi-arch image (amd64 + arm64). Pin a version for production, e.g. STUDIO_IMAGE=chichat/anasaki-studio:2.0.0 (the number in VERSION)
+    image: ${STUDIO_IMAGE:-chichat/anasaki-studio:latest}
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      DB_DSN: anasaki:${MYSQL_PASSWORD:?set MYSQL_PASSWORD}@tcp(mysql:3306)/anasaki?parseTime=true&charset=utf8mb4&loc=UTC
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (e.g. openssl rand -hex 32)}
+      # Site Code's own database (separate MySQL user, no access to the CMS tables)
+      CODE_DB_DSN: anasaki_code:${CODE_DB_PASSWORD:?set CODE_DB_PASSWORD}@tcp(mysql:3306)/anasaki_code?parseTime=true&charset=utf8mb4&loc=UTC
+      # Site Code secrets key (empty = a key file is generated on the plugins volume) and
+      # mail sink for development ("log" = write mails to the Site Code log instead of sending)
+      SITE_CODE_SECRET_KEY: ${SITE_CODE_SECRET_KEY:-}
+      SITE_CODE_MAIL_SINK: ${SITE_CODE_MAIL_SINK:-}
+      # optional — see .env.example
+      ADMIN_PATH: ${ADMIN_PATH:-}
+      SITE_URL: ${SITE_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # public demo / playground — see .env.example
+      DEMO_MODE: ${DEMO_MODE:-}
+      DEMO_EMAIL: ${DEMO_EMAIL:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      DEMO_RESET_MINUTES: ${DEMO_RESET_MINUTES:-}
+    ports: ["${PORT:-8090}:8090"]
+    volumes:
+      - uploads:/data/uploads
+      - plugins:/data/plugins
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  uploads:
+  plugins:

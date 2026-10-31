@@ -1,0 +1,32 @@
+{
+  "id": "maintenance",
+  "name": "Maintenance mode / โหมดปิดปรับปรุง",
+  "version": "2.0.0",
+  "description": "Shows a \"back soon\" page (HTTP 503 + Retry-After) to visitors while the site is being worked on; the admin keeps working and a bypass link lets testers see the real site. / แสดงหน้า \"ปิดปรับปรุงชั่วคราว\" (HTTP 503) ให้ผู้เยี่ยมชม ผู้ดูแลยังใช้หลังบ้านได้ และดูเว็บจริงได้ด้วยลิงก์ bypass",
+  "author": "Anasaki Studio",
+  "icon": "🚧",
+  "category": "utilities",
+  "tags": ["maintenance", "503", "coming soon"],
+  "license": "MIT",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "legacy": "maintenance",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false,
+      "label": { "th": "เปิดโหมดปิดปรับปรุง", "en": "Enable maintenance mode" } },
+    { "key": "title", "type": "text", "maxLength": 200, "default": "ปิดปรับปรุงชั่วคราว",
+      "label": { "th": "หัวข้อ", "en": "Title" } },
+    { "key": "message", "type": "textarea", "maxLength": 2000,
+      "default": "เว็บไซต์กำลังปรับปรุงเพื่อให้บริการได้ดียิ่งขึ้น กรุณากลับมาใหม่อีกครั้งในไม่ช้า",
+      "label": { "th": "ข้อความ", "en": "Message" } },
+    { "key": "bypassKey", "type": "text", "maxLength": 100,
+      "label": { "th": "รหัส bypass", "en": "Bypass key" },
+      "help": { "th": "ใครเปิด /?bypass=รหัสนี้ จะดูเว็บจริงได้ 7 วัน (ส่งให้ลูกค้าหรือทีมทดสอบ) — เว้นว่างได้ ระบบจะสร้างให้เอง (ดูได้ที่หน้า โหมดปิดปรับปรุง)", "en": "Anyone opening /?bypass=KEY sees the real site for 7 days (share it with testers). Leave empty to get one generated (shown on the Maintenance page)." } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "middleware", "admin-pages"],
+    "exports": ["legacyImport", "status"]
+  }
+}

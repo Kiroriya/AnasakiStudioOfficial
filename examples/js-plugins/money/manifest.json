@@ -1,0 +1,19 @@
+{
+  "id": "money",
+  "name": "Money",
+  "version": "1.0.0",
+  "description": "Library plugin: Thai baht formatting (bundled into importers) and a currency rate export that runs in this plugin.",
+  "author": "Anasaki Studio",
+  "icon": "💰",
+  "category": "utilities",
+  "minCore": "1.0.0",
+  "runtime": "js",
+  "permissions": ["code"],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": [],
+    "library": "code/lib/index.ts",
+    "exports": ["rate"],
+    "hooks": { "filters": ["money.format"] }
+  }
+}
