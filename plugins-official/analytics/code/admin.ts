@@ -79,6 +79,8 @@ const WIDGET_STYLE = `<style>
 .an-w h4{margin:0 0 4px;font-size:14px}.an-top{list-style:none;margin:0;padding:0}
 .an-top li{display:flex;align-items:center;gap:10px;min-height:40px;border-bottom:1px solid var(--ak-border);font-size:13px}.an-top li:last-child{border-bottom:0}
 .an-top .an-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.an-top b{font-variant-numeric:tabular-nums}
+.an-rank{display:inline-flex;flex-shrink:0;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--ak-surface-2);color:var(--ak-muted)}
+.an-rank.top{background:var(--ak-primary-soft);color:var(--ak-primary)}
 @media (max-width:720px){.an-w-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
 @media (max-width:420px){.an-kpis{grid-template-columns:1fr 1fr}}
 </style>`;
