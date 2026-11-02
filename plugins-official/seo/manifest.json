@@ -1,7 +1,7 @@
 {
   "id": "seo",
   "name": "SEO",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Search and social meta tags (title template, description, Open Graph, Twitter cards, canonical), per-page overrides with search previews, /sitemap.xml and /robots.txt. / แท็ก meta, Open Graph, Twitter, ปรับแต่ง SEO รายหน้า, sitemap.xml และ robots.txt อัตโนมัติ",
   "author": "Anasaki Studio",
   "icon": "🔍",
@@ -12,6 +12,14 @@
   "runtime": "js",
   "legacy": "seo",
   "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการ SEO และค่าเริ่มต้นทั้งเว็บ", "en": "Manage SEO and site-wide defaults" },
+      "description": { "th": "เปิดหน้า SEO และแก้รูปแบบชื่อหน้า คำอธิบาย และรูปแชร์เริ่มต้น", "en": "Open the SEO page and edit the title template, default description and share image" },
+      "default": ["administrator"] },
+    { "id": "edit_meta", "label": { "th": "แก้ SEO รายหน้าในหน้า SEO", "en": "Edit per-page SEO on the SEO page" },
+      "description": { "th": "แก้ชื่อ คำอธิบาย รูปแชร์ และ noindex ของแต่ละหน้า (ยังต้องมีสิทธิ์แก้ไขหน้านั้น)", "en": "Edit each page's title, description, share image and noindex (still needs the right to edit that page)" },
+      "default": ["administrator"] }
+  ],
   "settings": [
     { "key": "titleTemplate", "type": "text", "default": "%title% – %site%",
       "label": { "th": "รูปแบบชื่อหน้า", "en": "Title template" },

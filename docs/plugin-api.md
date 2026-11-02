@@ -22,6 +22,8 @@ admin, and returned by `GET /api/public/site` (`version`).
 | **2.0.0** | first release of the plugin platform (package, service, WASM and JS plugins; phases 1–7) |
 | **2.0.3** | admin UI kit `AK.line`, `AK.open`, `AK.height`, `data-ak-line`, `data-ak-open`; the `ak:height` and `ak:navigate` iframe messages; auto-height admin pages and widgets |
 | **2.0.4** | `AK.pickMedia` and the `ak:pick-media` message; reserved paths from the installed plugins' routes (`GET /api/v1/settings/reserved-paths`); setup-wizard recommendations from the Store |
+| **2.0.5** | JS plugins register post types: `site.postType` with the `post-types` scope (§3.5) |
+| **2.0.6** | plugin capabilities: manifest `capabilities`, ticked per role in Users → Roles; `cap:<capability>` access entries, `site.can`, post type `caps` (§2.1) |
 
 Versions 2.0.1 and 2.0.2 changed no plugin API.
 
@@ -84,6 +86,7 @@ if (window.AK && AK.line) AK.line(el, opts); else AK.bar(el, values);   // 2.0.3
 | `requires` | `{id: range}` | must be installed and active ([plugins.md §4.3](plugins.md)) |
 | `optionalRequires` | `{id: range}` | "works with"; never blocks |
 | `legacy` | string | reserved for the official replacements of the former built-ins (one-time data migration) |
+| `capabilities` | Capability[] | what the plugin lets roles do, ticked per role in Users → Roles (§2.1; **since 2.0.6**) |
 
 `code` (JS plugins):
 
@@ -113,6 +116,7 @@ until it is approved again (`reconsent`). All since 2.0.0.
 | `content` | `db.posts.list / get`, read-only `core_*` views |
 | `content-write` | `db.posts.create / update / delete`, `db.asSystem` |
 | `content-fields` | `site.fields`, `site.meta`, `site.setMeta` (post meta `<id>.<key>`, a panel in the post editor) |
+| `post-types` | `site.postType` — the plugin's own content types (§3.5; since 2.0.5) |
 | `mail` | `mail.send`; `site.info().adminEmail` |
 | `http` | `http.fetch` to `code.hosts` that the administrator also allows |
 | `webhooks` | `http.webhook` to any public URL |
@@ -130,7 +134,56 @@ until it is approved again (`reconsent`). All since 2.0.0.
 **Capabilities** a plugin may check with `user.can(cap)` or name in `access`: the core ones (`read`,
 `edit_own_posts`, `edit_others_posts`, `publish_posts`, `edit_pages`, `upload_files`, `manage_categories`,
 `manage_options`, `manage_users`, `unfiltered_html`, `view_stats`, and the `*_scripts` / `*_code_data` ones) —
-plus roles (`administrator`, `editor`, …), `*` (everyone) and `group:<name>` (visitor groups) in `access` lists.
+plus roles (`administrator`, `editor`, …), `*` (everyone) and `group:<name>` (visitor groups) in `access` lists —
+and, since 2.0.6, the plugin's **own** capabilities (§2.1).
+
+### 2.1 Plugin capabilities — since 2.0.6
+
+Every plugin (JS, service or WASM) can declare what it lets people do; the site owner then decides, per role,
+who may use what in **Users → Roles** (a section per installed plugin, next to the core capabilities). The core
+never knows a plugin's capabilities — they come from the manifest:
+
+```jsonc
+"capabilities": [
+  { "id": "view", "label": { "th": "ดูสถิติ", "en": "View analytics" },
+    "description": { "th": "เปิดหน้าสถิติ", "en": "Open the Analytics page" },
+    "default": ["administrator", "editor"] }
+]
+```
+
+| key | notes |
+|---|---|
+| `id` | `^[a-z][a-z0-9_]{1,30}$`, unique in the manifest; the capability is **`<plugin id>.<id>`** (`analytics.view`) |
+| `label` | `{th, en}` or a string, ≤ 80 characters — shown in the roles editor and the install dialog |
+| `description` | optional `{th, en}`, ≤ 300 characters |
+| `default` | role slugs (`administrator`, `editor`, `author`, `contributor`, `subscriber` or a custom role), ≤ 20 |
+
+At most 30 capabilities. Lifecycle:
+
+- **Install / upgrade:** a capability the site has never seen is granted to its `default` roles (that exist).
+  A capability seen before keeps what the administrator set — an upgrade never re-grants what was taken away.
+- **Upgrade dropping a capability, or uninstall:** it leaves every role (their other capabilities stay).
+  **Reinstall:** only capabilities never seen before get their defaults.
+- **The administrator always has every capability.** A capability counts only while its plugin is installed.
+- The install / consent dialog lists the capabilities a plugin adds (`GET /package-plugins` → `capabilities`).
+
+Using them (a plugin may only name **its own** capabilities `<own id>.*` and core capabilities; naming another
+plugin's capability throws at registration — or, for `can`, when called):
+
+| where | how |
+|---|---|
+| JS `access` lists — `site.route`, `site.page`, `site.collection`, `site.action`, `site.adminPage`, `site.dashboardWidget`, `site.adminNotice`, a post type's `access.edit` | `'cap:<capability>'` next to role slugs, e.g. `access: ['cap:analytics.view']` (every role holding it; the Access screen can still override) |
+| JS code | `ctx.user.can('analytics.view')`, `site.can(user, 'analytics.view')` (null user → false); `ctx.user.caps` lists the core capabilities and the plugin's own |
+| JS post types | `site.postType(id, { caps: { edit: 'docs.edit', publish: 'docs.publish' } })` — §3.5 |
+| service / WASM admin pages | `service.admin[].cap` may be `"<own id>.<id>"` |
+| service / WASM user context | the `X-Anasaki-User` header of admin screens and `plugins.call` bodies carry `user.caps`: core + the plugin's own |
+
+Feature detection (works on older CMS versions, which ignore `capabilities` and would refuse `cap:` entries):
+
+```ts
+const CAPS = typeof (site as any).can === 'function';          // 2.0.6+
+site.adminPage('stats', { label: 'Stats', access: CAPS ? ['cap:analytics.view'] : ['editor'], render });
+```
 
 ## 3. Server joints (JS plugins)
 
@@ -152,10 +205,12 @@ actions `/_a/<id>:<name>`, collections `code:<id>:<name>`, admin pages `<id>:<pa
 | `site.formatter(name, fn)` — used as `{{ v \| <id>:<name> }}` | — | 2.0.0 |
 | `site.visitor(fn)` · `site.visitorGroups(groups)` — site members | `visitor` | 2.0.0 |
 | `site.fields(type, fields)` · `site.meta(postId)` · `site.setMeta(postId, values)` | `content-fields` | 2.0.0 |
+| `site.postType(id, spec)` — a content type, §3.5 | `post-types` | 2.0.5 |
 | `site.job(name, opts?, fn)` · `site.cron(expr, target)` | `jobs` | 2.0.0 |
 | `site.adminPage(id, spec)` — §5 | `admin-pages` | 2.0.0 |
 | `site.dashboardWidget(id, spec)` — §5 | `admin-pages` | 2.0.0 |
 | `site.adminNotice(fn, {access})` — §5 | `admin-pages` | 2.0.0 |
+| `site.can(user, capability)` — §2.1 | — | 2.0.6 |
 | `site.block(type, spec)` — server-rendered designer block | — | 2.0.0 |
 | `site.middleware(fn, {priority})` · `site.afterResponse(fn)` — §4 | `middleware` | 2.0.0 |
 | `site.head(fn)` · `site.bodyEnd(fn)` — §4 | — (`head-scripts` for raw output) | 2.0.0 |
@@ -163,7 +218,7 @@ actions `/_a/<id>:<name>`, collections `code:<id>:<name>`, admin pages `<id>:<pa
 | `site.info()` → `{title, tagline, url, language, timezone, adminEmail?}` | — | 2.0.0 |
 | `site.asset(path)` → `{path, size, type, url, bytes(), text()}` — own package files | — | 2.0.0 |
 
-`site.postType` is Site Code only.
+Before 2.0.5 `site.postType` was Site Code only.
 
 Route/page/action results: a value (JSON), `{status, headers?, body?}`, bytes (`Uint8Array`, ≤ 20 MB),
 `{status, headers?, bodyBase64}`, or `{page: {title, html}, status?, headers?}` / `response.page(...)` to show
@@ -208,6 +263,54 @@ Core filters (scope `filters-core`) — 2.0.0: `post.content`, `post.beforeSave`
 `collection.items`, `action.input`, `action.result`, `mail.beforeSend`, `sitemap.urls`, `robots.txt`.
 Once any plugin filters `sitemap.urls` or `robots.txt`, the core serves `/sitemap.xml` and `/robots.txt`
 (cached sitemap). Filters run by ascending `priority`, then plugin load order, Site Code last.
+
+### 3.5 Post types — since 2.0.5
+
+```ts
+// manifest: "minCore": "2.0.5", "code": { "scopes": ["post-types", "content", "content-write", "routes"], "routes": ["/docs"] }
+site.postType('docs_doc', {
+  label: { th: 'เอกสาร', en: 'Docs' }, icon: '📘',
+  slug: 'docs', public: false,               // the plugin serves /docs/... itself
+  supports: ['title', 'content', 'excerpt'],
+  fields: { section: 'text', order: { type: 'number', min: 0 } },
+  access: { edit: ['editor'] },
+});
+```
+
+The spec is the Site Code one ([site-code.md](site-code.md) "Post types and fields"): `label`, `singular`, `icon`,
+`slug`, `public`, `supports`, `fields`, `access` and, since 2.0.6, `caps`. What differs in a plugin:
+
+- **Who edits and publishes (since 2.0.6)**: `caps: { edit: 'docs.edit', publish: 'docs.publish' }` names the
+  plugin's own capabilities (§2.1). `caps.edit` replaces the default role list (`access.edit` becomes
+  `['cap:docs.edit']`, or the entry is added to an explicit `access.edit`); `caps.publish` limits publishing —
+  without it, whoever edits may publish. `access.edit` also accepts `'cap:<capability>'` entries. The REST
+  `/api/v1/posts` endpoints (list, get, create, update, delete, revisions; a published post can only be changed
+  by someone who may publish) and `db.posts` writes enforce them; `GET /api/v1/post-types` reports `caps`,
+  `canEdit` and `canPublish` for the caller.
+
+- **Type id**: `<plugin id with "-" as "_">_<name>`, within the usual `^[a-z][a-z0-9_]{1,19}$` (≤ 20 characters):
+  plugin `docs` → `docs_doc`, plugin `my-shop` → `my_shop_item`. Anything else (also the bare plugin id) fails
+  registration — the plugin does not activate. A plugin whose id starts with a digit cannot register types.
+- **Slug** (URL prefix): default = the type id with `_` → `-` (`docs-doc`). It may be one of the plugin's own
+  `code.routes` prefixes; it is refused when the core reserves it (§8, the admin path, blog / category bases), when
+  another installed plugin declares it, or when another type (Site Code's or another plugin's) has that slug.
+  The same type id in two places is refused too: the plugin does not activate (or does not load, with the error
+  on the Plugins page), and Site Code cannot publish a type id / slug an active plugin already has.
+- **`public: false`**: the core does not route `/<slug>` (archive) or `/<slug>/<post-slug>`; the plugin serves the
+  pages (`site.route` under its `code.routes`, e.g. `{page: {title, html}}`). The core's post URL
+  (`post.url`, admin links) stays `/<slug>/<post-slug>`, so a plugin with `slug: 'docs'` should answer
+  `/docs/<post-slug>` (or redirect it). Default `true`: the core routes it like a Site Code type.
+- **Fields**: `fields` of the spec are stored with plain keys (`meta.order`, filterable with
+  `db.posts.list({where: {'meta.order': …}})`); `site.fields(type, …)` keeps the `<id>.<key>` namespace.
+- **Content**: the owning plugin writes its types with `db.posts.create / update / delete` (`content-write`) and
+  reads them with `db.posts.list / get` (`content`); Site Code and other plugins may read a plugin's types (not
+  write them).
+- **Admin**: the type gets a sidebar entry and the list / editor screens (`/content/<type>`), with the fields;
+  `GET /api/v1/post-types` and `GET /api/v1/code/bindings` list it with `plugin` (id) and `pluginName`; the REST
+  `/api/v1/posts?type=<type>` endpoints, the designer's post list (type picker) and export / import work as for
+  Site Code types.
+- **Deactivate / uninstall**: the posts stay in the database (also with "delete data"), hidden from the admin
+  (the API answers 400 for the type) until the plugin is active again.
 
 ## 4. Page hooks (public site) — since 2.0.0
 
@@ -318,6 +421,8 @@ absent = the core). Before 2.0.4 a fixed list was used instead.
   Store, or one that recommends nothing, just ends the wizard.
 - **Official** means the Store's `official` flag plus `"author": "Anasaki Studio"` in the package; it grants no
   extra API.
+- **Capabilities** (since 2.0.6): the Store (1.2.2+) validates `capabilities` with the same rules (§2.1) and shows
+  them on the plugin page and in the reviewer report.
 
 ---
 

@@ -31,6 +31,8 @@
 `analytics_referrers` ถูกนำเข้าด้วย `legacyImport` (ทำซ้ำได้ ไม่นับซ้ำ) ตารางเดิมไม่ถูกลบจนกว่าผู้ดูแลจะกด
 "ล้างข้อมูลเก่า" ข้อแตกต่างเล็กน้อยจากเดิมดู `../GAPS.md` (ส่วน port B)
 
+**สิทธิ์ (CMS 2.0.6+):** `analytics.view` — ดูหน้าสถิติและการ์ดบนแดชบอร์ด (ค่าเริ่มต้น: ผู้ดูแลระบบ, บรรณาธิการ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
 ## English
 
 Server-side, privacy-friendly page-view counter — **no cookies, no third-party script, raw IPs are never stored**.
@@ -55,3 +57,5 @@ stacks its columns scrolls inside the frame).
 
 **Scopes:** `db`, `content`, `middleware`, `admin-pages`. **Legacy import:** the four `analytics_*` tables, idempotent
 (counters keep the larger value). Small differences: `../GAPS.md` (port B).
+
+**Permissions (CMS 2.0.6+):** `analytics.view` — the Analytics page and the dashboard card (default: administrators, editors) — change them in Users → Roles · older CMS versions keep the former role list

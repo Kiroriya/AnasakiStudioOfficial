@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/store"
 )
@@ -92,6 +93,8 @@ func NewManager(st *store.Store, uploadDir string, plugins ...Plugin) (*Manager,
 		return nil, err
 	}
 	m.pkgs = pk
+	m.syncAllCaps()
+	auth.SetPluginCapSource(pk.capCatalog)
 	m.applyDefaults()
 	go pk.warmUp()
 	return m, nil

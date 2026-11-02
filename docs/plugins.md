@@ -220,6 +220,13 @@ Every site talks to the official Anasaki Plugin Store (compiled in; developers c
 another store with env `STORE_URL`). Sites install with `POST /api/v1/package-plugins/install {id, version?}`
 and see `updateAvailable` when the store has a newer version.
 
+**Publisher binding (since 2.0.7):** the Store sends a stable publisher id with every plugin (`publisher` in the
+catalogue, `X-Anasaki-Publisher` on downloads: `anasaki` for official plugins, `store` for the operator's,
+`dev-<n>` for a developer account). The first install from the Store binds the plugin to it (`publisher` in the
+installed list); an update from another publisher is refused (409) and the Store screens show
+`publisherChanged` instead of an update, so a plugin id that changed hands can't push code to the site. Installs
+made before 2.0.7 are bound by their next update. A manual zip upload keeps the binding.
+
 ---
 
 ## 2. Service plugins
@@ -442,7 +449,7 @@ are typed `any`. Developers working locally use the `anasaki-code` CLI ([docs/cl
   active plugin; destructive ones need the administrator's confirmation (`confirmDestructive`; tables are
   backed up first). They are recorded as `<id>/<file>`.
 - Scopes: `db content content-write mail http visitor admin-pages jobs routes filters-core middleware
-  head-scripts content-fields webhooks` (phase 6: `middleware` = `site.middleware` / `site.afterResponse`;
+  head-scripts content-fields webhooks post-types` (2.0.5: `post-types` = `site.postType`, type ids `<id>_<name>`, see `docs/plugin-api.md` §3.5; phase 6: `middleware` = `site.middleware` / `site.afterResponse`;
   `head-scripts` = `site.head` / `site.bodyEnd` / `site.block` output inserted unsanitised — treat it like
   `unfiltered_html`; phase 7: `content-fields` = `site.fields` / `site.meta` / `site.setMeta` (post meta
   `<id>.<key>`, a panel in the post editor), `webhooks` = `http.webhook` to any public URL; `admin-pages` also
@@ -496,7 +503,7 @@ missing target throws `PluginUnavailable`, `e.code === 'unavailable'`). Static `
 | call | |
 |---|---|
 | `POST /api/v1/package-plugins/upload?confirmDestructive=1` (or form field `confirmDestructive=1`) | install/upgrade; `400 {error, destructive:[{migration, op, table, column}]}` without confirmation; `400 {error, activationError, errors:[{file,line,column,message}]}` when an active plugin's new code does not build (nothing changes) |
-| `POST /api/v1/package-plugins/install {id, version?, confirmDestructive?}` | from the store, same errors |
+| `POST /api/v1/package-plugins/install {id, version?, confirmDestructive?, acceptPublisher?}` | from the store, same errors; 409 `{error, publisherChanged:true, installedPublisher, offeredPublisher}` when the update comes from another Store publisher than the installed plugin is bound to (`acceptPublisher:true` installs it anyway) |
 | `POST /api/v1/package-plugins/{id}/activate?confirmDestructive=1` (or body `{confirmDestructive:true}`) | builds, migrates and registers; failure → `400 {error, activationError, errors}`, the plugin stays off and lists `activationError` |
 | `POST /api/v1/package-plugins/{id}/deactivate?force=1` | `409 {error, dependents}` without force |
 | `DELETE /api/v1/package-plugins/{id}?force=1&deleteData=1` | `deleteData`: back up (7 days) and drop the `p_<id>_*` tables, delete its settings, access rows, jobs, cron and migration records |

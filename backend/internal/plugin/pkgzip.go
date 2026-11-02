@@ -105,6 +105,20 @@ type Manifest struct {
 	// takes over on upgrade (official plugins, phase 7): its old tables are
 	// streamed to the package's code.exports "legacyImport". Must equal id.
 	Legacy string `json:"legacy,omitempty"`
+	// Capabilities are what the plugin lets roles do (since 2.0.6): the core
+	// registers each as "<id>.<capability id>" and the administrator ticks
+	// which role holds it in Users → Roles. See capabilities.go.
+	Capabilities []ManifestCapability `json:"capabilities,omitempty"`
+}
+
+// ManifestCapability is one capability a plugin declares (since 2.0.6).
+type ManifestCapability struct {
+	ID          string `json:"id"`
+	Label       I18n   `json:"label"`
+	Description *I18n  `json:"description,omitempty"`
+	// Default lists the roles granted the capability when it first appears
+	// (install or upgrade); later changes are the administrator's.
+	Default []string `json:"default,omitempty"`
 }
 
 // ManifestBlock declares a designer block of a package.
@@ -450,6 +464,9 @@ func (mf *Manifest) Validate(files map[string][]byte) error {
 		return pkgErr("manifest: the \"service\" permission needs a \"service\" section")
 	}
 	if err := mf.validateCode(files); err != nil {
+		return err
+	}
+	if err := mf.validateCapabilities(); err != nil {
 		return err
 	}
 	return mf.validateRequires()

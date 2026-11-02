@@ -5,8 +5,8 @@ import { Api, errorMessage } from '../core/api';
 import { Auth } from '../core/auth';
 import { Dialog } from '../core/dialog';
 import { I18n, LOCALES, Locale, TPipe } from '../core/i18n';
-import { Media, RoleInfo, User } from '../core/models';
-import { BUILTIN_ROLE_NAMES, capLabel, roleName } from '../core/roles';
+import { CapInfo, Media, RoleInfo, User } from '../core/models';
+import { BUILTIN_ROLE_NAMES, capInfoLabel, capLabel, capSections, i18nText, roleName } from '../core/roles';
 import { MediaPicker } from '../shared/media-picker';
 import { randomPassword } from '../shared/password';
 import './messages-admin';
@@ -382,20 +382,40 @@ export class Users implements OnInit {
           @if (r.slug !== 'administrator') {
             <label>{{ 'roles.displayName' | t }} <input [ngModel]="name()" (ngModelChange)="name.set($event)" [placeholder]="label(r)" /></label>
           }
-          <div class="cap-groups">
-            @for (g of groups(); track g.group) {
-              <fieldset class="cap-group">
+          <div class="cap-groups" id="role-core-caps">
+            @for (g of coreSections(); track g.id) {
+              <fieldset class="cap-group" [attr.data-group]="g.id">
                 <legend>{{ groupLabel(g.group) }}</legend>
-                @for (c of g.caps; track c) {
+                @for (c of g.caps; track c.key) {
                   <label class="check">
-                    <input type="checkbox" [checked]="caps().has(c)" [disabled]="r.slug === 'administrator'" (change)="toggleCap(c)" />
-                    <span>{{ capLabel(c) }} <span class="muted small mono">{{ c }}</span>
-                      @if (c === 'publish_scripts') { <span class="cap-warn" id="cap-warn-publish-scripts">⚠️ {{ 'roles.publishScriptsWarn' | t }}</span> }</span>
+                    <input type="checkbox" [attr.data-cap]="c.key" [checked]="caps().has(c.key)" [disabled]="r.slug === 'administrator'" (change)="toggleCap(c.key)" />
+                    <span>{{ capText(c) }} <span class="muted small mono">{{ c.key }}</span>
+                      @if (c.key === 'publish_scripts') { <span class="cap-warn" id="cap-warn-publish-scripts">⚠️ {{ 'roles.publishScriptsWarn' | t }}</span> }</span>
                   </label>
                 }
               </fieldset>
             }
           </div>
+          @if (pluginSections().length) {
+            <div class="role-plugin-caps" id="role-plugin-caps">
+              <h3 class="role-plugin-caps-title">🔌 {{ 'roles.pluginCaps' | t }}</h3>
+              <p class="muted small">{{ 'roles.pluginCapsHint' | t }}</p>
+              <div class="cap-groups">
+                @for (g of pluginSections(); track g.id) {
+                  <fieldset class="cap-group cap-group-plugin" [attr.data-group]="g.id" [attr.data-plugin]="g.plugin">
+                    <legend>@if (g.pluginIcon) { <span class="cap-plugin-icon">{{ g.pluginIcon }}</span> }{{ g.pluginName }}</legend>
+                    @for (c of g.caps; track c.key) {
+                      <label class="check plugin-cap" [title]="capDesc(c)">
+                        <input type="checkbox" [attr.data-cap]="c.key" [checked]="caps().has(c.key)" [disabled]="r.slug === 'administrator'" (change)="toggleCap(c.key)" />
+                        <span>{{ capText(c) }} <span class="muted small mono">{{ c.key }}</span>
+                          @if (capDesc(c)) { <span class="muted small cap-desc">{{ capDesc(c) }}</span> }</span>
+                      </label>
+                    }
+                  </fieldset>
+                }
+              </div>
+            </div>
+          }
           @if (r.slug !== 'administrator') {
             <div class="form-foot">
               <button class="btn" (click)="select(r)">{{ 'roles.reset' | t }}</button>
@@ -412,21 +432,16 @@ export class Roles implements OnInit {
   private auth = inject(Auth);
   private i18n = inject(I18n);
   readonly roles = signal<RoleInfo[]>([]);
-  readonly allCaps = signal<{ key: string; group: string }[]>([]);
+  readonly allCaps = signal<CapInfo[]>([]);
   readonly sel = signal<RoleInfo | null>(null);
   readonly caps = signal(new Set<string>());
   readonly name = signal('');
   readonly busy = signal(false);
   readonly error = signal('');
-  readonly groups = computed(() => {
-    const out: { group: string; caps: string[] }[] = [];
-    for (const c of this.allCaps()) {
-      let g = out.find(x => x.group === c.group);
-      if (!g) out.push((g = { group: c.group, caps: [] }));
-      g.caps.push(c.key);
-    }
-    return out;
-  });
+  /** Core groups, then one section per installed plugin (its manifest capabilities, CMS 2.0.6). */
+  readonly sections = computed(() => capSections(this.allCaps()));
+  readonly coreSections = computed(() => this.sections().filter(s => !s.plugin));
+  readonly pluginSections = computed(() => this.sections().filter(s => !!s.plugin));
 
   ngOnInit() { this.load(); }
 
@@ -442,7 +457,8 @@ export class Roles implements OnInit {
   }
 
   label(r: RoleInfo) { return roleName(r.slug, this.roles()); }
-  capLabel(c: string) { return capLabel(c); }
+  capText(c: CapInfo) { return capInfoLabel(c, this.i18n.locale()); }
+  capDesc(c: CapInfo) { return i18nText(c.description, this.i18n.locale()); }
   groupLabel(g: string) {
     const t = this.i18n.t(`capgroup.${g}`);
     return t !== `capgroup.${g}` ? t : g;

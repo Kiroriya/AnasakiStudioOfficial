@@ -648,6 +648,11 @@ label.btn.disabled { opacity: .5; pointer-events: none; }
 .page:has(> .code-page) { max-width: none; padding: 20px 24px 24px; }
 .code-page { display: block; }
 .code-page .page-head { margin-bottom: 12px; }
+/* plugin capabilities in the roles editor (CMS 2.0.6) */
+.role-plugin-caps { margin-top: 20px; }
+.role-plugin-caps-title { margin: 0 0 4px; font-size: 15px; }
+.cap-plugin-icon { margin-right: 6px; }
+.cap-desc { display: block; margin-top: 2px; line-height: 1.4; }
 .cap-warn { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 500; line-height: 1.4; }
 .code-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
 .code-tab { padding: 8px 14px; font-weight: 600; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;

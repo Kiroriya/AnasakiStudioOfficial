@@ -19,6 +19,8 @@
 **ย้ายข้อมูลจากปลั๊กอินเดิม:** ตาราง `redirects_rules` และ `redirects_404` ถูกย้ายอัตโนมัติผ่าน export `legacyImport`
 (รันซ้ำได้: กฎจับคู่ด้วยเส้นทางต้นทาง, 404 จับคู่ด้วยเส้นทาง — จำนวนครั้งไม่ถูกนับซ้ำ) ตารางเดิมไม่ถูกลบอัตโนมัติ
 
+**สิทธิ์ (CMS 2.0.6+):** `redirects.manage` — หน้าเปลี่ยนเส้นทางและรายการ 404 (ค่าเริ่มต้น: ผู้ดูแลระบบ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
 ## English
 
 The official redirects plugin — replaces the former built-in Redirects plugin with the same behaviour.
@@ -37,3 +39,5 @@ The official redirects plugin — replaces the former built-in Redirects plugin 
 **Migration from the built-in plugin:** `redirects_rules` and `redirects_404` rows are imported automatically through
 the `legacyImport` export (idempotent: rules by source path, 404s by path without doubling counts). The old tables are
 never deleted automatically.
+
+**Permissions (CMS 2.0.6+):** `redirects.manage` — the Redirects page and the 404 log (default: administrators) — change them in Users → Roles · older CMS versions keep the former role list

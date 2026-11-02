@@ -11,6 +11,7 @@ import (
 
 	"github.com/dop251/goja"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/plugin"
 )
 
@@ -282,7 +283,8 @@ func (v *vm) pluginsCall(c goja.FunctionCall) goja.Value {
 	}
 	var user any
 	if v.user != nil {
-		user = map[string]any{"id": v.user.ID, "name": v.user.Name, "email": v.user.Email, "role": v.user.Role}
+		user = map[string]any{"id": v.user.ID, "name": v.user.Name, "email": v.user.Email, "role": v.user.Role,
+			"caps": auth.CapsFor(v.user.Role, id)} // core + the called plugin's own capabilities (2.0.6)
 	}
 	var visitor any
 	if vis := v.resolveVisitor(); vis != nil {

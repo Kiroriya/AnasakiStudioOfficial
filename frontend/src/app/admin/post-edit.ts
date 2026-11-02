@@ -147,7 +147,9 @@ import './messages-content-types';
 export class PostEdit implements OnInit {
   readonly auth = inject(Auth);
   /** A published post can only be changed by someone who may publish (the server refuses otherwise). */
-  readonly locked = computed(() => this.post()?.status === 'publish' && !this.auth.can('publish_posts'));
+  /** Publishing: a custom type's own rule (canPublish, CMS 2.0.6), else publish_posts (the server decides too). */
+  readonly mayPublish = computed(() => this.pt()?.canPublish ?? this.auth.can('publish_posts'));
+  readonly locked = computed(() => this.post()?.status === 'publish' && !this.mayPublish());
   readonly i18n = inject(I18n);
   readonly plugins = inject(Plugins);
   private postTypes = inject(PostTypes);

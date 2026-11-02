@@ -571,12 +571,12 @@ func (m *Migrator) ensureInstalled(r *row) (plugin.Installed, error) {
 		}
 		return inst, m.noteSource(r.id, inst.Source, inst.Version)
 	}
-	source := "upload"
+	source, publisher := "upload", ""
 	inbox := m.inboxPath(r.id)
 	data, err := os.ReadFile(inbox)
 	if err != nil {
 		source = "store"
-		if data, err = m.pm.DownloadFromStore(r.id, ""); err != nil {
+		if data, publisher, err = m.pm.DownloadFromStoreMeta(r.id, ""); err != nil {
 			return plugin.Installed{}, err
 		}
 	}
@@ -586,7 +586,7 @@ func (m *Migrator) ensureInstalled(r *row) (plugin.Installed, error) {
 		}
 		return plugin.Installed{}, err
 	}
-	inst, err := m.pm.InstallPackage(data, source, r.id)
+	inst, err := m.pm.InstallPackageWith(data, source, r.id, plugin.InstallOptions{Publisher: publisher})
 	if err != nil {
 		return inst, err
 	}

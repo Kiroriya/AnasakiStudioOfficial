@@ -67,10 +67,11 @@ func (v *vm) siteAdminPage(c goja.FunctionCall) goja.Value {
 			v.throw("%s: access ต้องเป็น array ของ role เช่น ['editor']", what)
 		}
 		for _, r := range list {
-			if !accessRe.MatchString(r) {
-				v.throw("%s: access: %q ไม่ใช่ role ที่ถูกต้อง (หน้าแอดมินใช้ได้เฉพาะ role ของผู้ดูแล)", what, r)
+			if !adminEntry(r) {
+				v.throw("%s: access: %q ไม่ใช่ role ที่ถูกต้อง (หน้าแอดมินใช้ได้เฉพาะ role ของผู้ดูแล หรือ 'cap:<สิทธิ์>')", what, r)
 			}
 		}
+		v.vetCaps(list, what)
 		info.Access = list
 	}
 	fn := v.fnOpt(o, "render", what)

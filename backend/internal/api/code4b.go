@@ -52,7 +52,11 @@ func packageErr(w http.ResponseWriter, err error) bool {
 	var de *plugin.DependentsError
 	var dx *plugin.DestructiveError
 	var ae *plugin.ActivationError
+	var pe *plugin.PublisherError
 	switch {
+	case errors.As(err, &pe):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": pe.Error(), "publisherChanged": true,
+			"installedPublisher": pe.Installed, "offeredPublisher": pe.Offered})
 	case errors.As(err, &re):
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": re.Error(), "missing": re.Missing})
 	case errors.As(err, &de):

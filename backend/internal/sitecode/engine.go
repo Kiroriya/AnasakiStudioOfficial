@@ -110,14 +110,14 @@ type Engine struct {
 	logN    atomic.Int64
 	events  sync.WaitGroup // running event handlers (tests wait on it)
 
-	mailLimit   *rateLimiter // mail.send per hour (setting)
-	routeLimit  *rateLimiter // public routes per IP per minute (setting)
-	secrets     secretBox
-	settings    atomic.Pointer[settingsCache]
-	manifests   sync.Map // version id → Manifest (post types for the admin / site)
-	worker      *worker
-	fetchHook   *fetchHook   // tests: dial override for http.fetch
-	typeSlugsID atomic.Int64 // version whose post type slugs were pushed (-1 = none)
+	mailLimit    *rateLimiter // mail.send per hour (setting)
+	routeLimit   *rateLimiter // public routes per IP per minute (setting)
+	secrets      secretBox
+	settings     atomic.Pointer[settingsCache]
+	manifests    sync.Map // version id → Manifest (post types for the admin / site)
+	worker       *worker
+	fetchHook    *fetchHook             // tests: dial override for http.fetch
+	typeSlugsKey atomic.Pointer[string] // version + unit set whose post type slugs were pushed
 
 	// phase 4b: code units
 	siteU      *unitInfo // Site Code
@@ -166,7 +166,6 @@ func New(st *store.Store, cfg Config) *Engine {
 		limiter: newRateLimiter(30, time.Minute), mailLimit: newRateLimiter(100, time.Hour), routeLimit: newRateLimiter(120, time.Minute),
 		FilterTimeout: 2 * time.Second, FilterRenderTimeout: 50 * time.Millisecond, JobPoll: time.Second, JobBackoff: 30 * time.Second,
 		JobWorkers: 2, CronEvery: time.Minute, Now: time.Now}
-	e.typeSlugsID.Store(-1)
 	e.data = OpenData(st.DB, cfg.DSN, cfg.CodeDSN)
 	e.h = &host{cache: e.cache, posts: st, postURL: cfg.PostURL, data: e.data, e: e}
 	e.siteU = &unitInfo{ID: SiteUnit, n: e.data.N}
@@ -531,8 +530,8 @@ func (e *Engine) userFrom(r *http.Request) *User {
 	if err != nil {
 		return nil
 	}
-	u, hash, err := e.st.SessionUser(p.ID)
-	if err != nil || !e.cfg.Auth.Current(p, hash) || u.Status == model.UserSuspended {
+	u, hash, revoked, err := e.st.SessionCheck(p.ID, p.JTI)
+	if err != nil || revoked || !e.cfg.Auth.Current(p, hash) || u.Status == model.UserSuspended {
 		return nil
 	}
 	return &User{ID: u.ID, Name: u.Name, Email: u.Email, Role: u.Role}
@@ -864,6 +863,9 @@ func (e *Engine) BuildFiles(files map[string]string) (*BuildOutcome, error) {
 		return out, nil
 	}
 	prog, probs := RegisterUnit(res.Bundle, e.reserved(opts), e.h, e.RouteTimeout, e.siteU)
+	if len(probs) == 0 {
+		probs = siteTypeConflicts(prog.Manifest, set.loaded())
+	}
 	if len(probs) == 0 && prog.hasVisitor {
 		for _, lp := range set.loaded() {
 			if lp.prog.hasVisitor {
@@ -987,6 +989,9 @@ func (e *Engine) Restore(id int64, alsoDraft bool, userID int64) (*Version, erro
 		return nil, err
 	}
 	prog, probs := RegisterUnit(row.Bundle, e.reserved(opts), e.h, e.RouteTimeout, e.siteU)
+	if len(probs) == 0 {
+		probs = siteTypeConflicts(prog.Manifest, e.units().loaded())
+	}
 	if len(probs) > 0 {
 		return nil, &BuildFailed{Errors: probs}
 	}
@@ -1262,21 +1267,32 @@ func (e *Engine) ManifestFor(opts map[string]string) Manifest {
 	return m
 }
 
+// pushTypeSlugs hands the URL prefixes of the custom post types (Site
+// Code's live types and the loaded plugins' types) to the site (PostURL)
+// when the live version or the set of plugin units changed. It reads the
+// current unit set without reloading it (ManifestFor runs while the units
+// load).
 func (e *Engine) pushTypeSlugs(id int64, m Manifest) {
 	if e.cfg.TypeSlugs == nil {
 		return
 	}
-	if e.typeSlugsID.Swap(id) == id {
+	set := e.unitSetP.Load()
+	key := strconv.FormatInt(id, 10)
+	if set != nil {
+		key += "|" + set.fp
+	}
+	if old := e.typeSlugsKey.Swap(&key); old != nil && *old == key {
 		return
 	}
 	slugs := map[string]string{}
-	for _, t := range m.PostTypes {
+	for _, t := range withUnits(m, set.loaded()).PostTypes {
 		slugs[t.Type] = t.Slug
 	}
 	e.cfg.TypeSlugs(slugs)
 }
 
-// PostTypes returns the custom post types of the live version.
+// PostTypes returns the custom post types of the live version and the
+// running JS plugins, with every custom field (site.fields).
 func (e *Engine) PostTypes() Manifest {
 	opts, err := e.st.Options()
 	if err != nil {
@@ -1284,6 +1300,12 @@ func (e *Engine) PostTypes() Manifest {
 		m.normalize()
 		return m
 	}
+	return e.ContentFor(opts)
+}
+
+// ContentFor is ManifestFor(opts) with the post types and custom fields of
+// the running JS plugins (WithUnitFields).
+func (e *Engine) ContentFor(opts map[string]string) Manifest {
 	return e.WithUnitFields(e.ManifestFor(opts))
 }
 

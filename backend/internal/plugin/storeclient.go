@@ -143,6 +143,15 @@ func (m *Manager) augment(v any) {
 	o["installed"] = inst != ""
 	o["installedVersion"] = inst
 	o["updateAvailable"] = inst != "" && latest != "" && CompareVersions(inst, latest) < 0
+	// audit H-2: the store's publisher differs from the one the installed
+	// plugin is bound to — the id may have changed hands; no update offered
+	if bound := m.InstalledPublisher(id); inst != "" && bound != "" {
+		if pub, _ := o["publisher"].(string); pub != bound {
+			o["publisherChanged"] = true
+			o["installedPublisher"] = bound
+			o["updateAvailable"] = false
+		}
+	}
 	base := m.StoreURL()
 	for _, k := range []string{"iconUrl"} {
 		if s, ok := o[k].(string); ok && strings.HasPrefix(s, "/") {
@@ -218,31 +227,40 @@ func (m *Manager) resolveFromStore(re *RequiresError) {
 }
 
 func (m *Manager) installFromStore(id, version string, opts InstallOptions) (Installed, error) {
-	b, err := m.DownloadFromStore(id, version)
+	b, pub, err := m.DownloadFromStoreMeta(id, version)
 	if err != nil {
 		return Installed{}, err
 	}
+	opts.Publisher = pub
 	return m.InstallPackageWith(b, "store", id, opts)
 }
 
 // DownloadFromStore fetches the zip of id (optionally at version) from the
 // store without installing it (the caller validates and installs it).
 func (m *Manager) DownloadFromStore(id, version string) ([]byte, error) {
+	b, _, err := m.DownloadFromStoreMeta(id, version)
+	return b, err
+}
+
+// DownloadFromStoreMeta is DownloadFromStore that also returns the store's
+// publisher id of the plugin (X-Anasaki-Publisher; "" from an older store),
+// for InstallOptions.Publisher.
+func (m *Manager) DownloadFromStoreMeta(id, version string) ([]byte, string, error) {
 	if !pkgIDRe.MatchString(id) {
-		return nil, pkgErr("invalid plugin id")
+		return nil, "", pkgErr("invalid plugin id")
 	}
 	q := url.Values{}
 	if version != "" {
 		q.Set("version", version)
 	}
-	b, _, err := m.storeDo(http.MethodGet, "/api/v1/plugins/"+url.PathEscape(id)+"/download", q, nil,
+	b, hdr, err := m.storeDo(http.MethodGet, "/api/v1/plugins/"+url.PathEscape(id)+"/download", q, nil,
 		http.Header{"Accept": {"application/zip"}}, MaxPackageSize)
 	if err != nil {
 		var pe *PackageError
 		if errors.As(err, &pe) {
-			return nil, pkgErr("package is larger than %d MB", MaxPackageSize>>20)
+			return nil, "", pkgErr("package is larger than %d MB", MaxPackageSize>>20)
 		}
-		return nil, err
+		return nil, "", err
 	}
-	return b, nil
+	return b, strings.TrimSpace(hdr.Get("X-Anasaki-Publisher")), nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/demo"
+	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/site"
 )
 
@@ -326,7 +327,9 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // publicSite answers GET /api/public/site (no auth): what the login screen
-// and the setup wizard need to brand themselves.
+// and the setup wizard need to brand themselves. It never tells the admin
+// path (the admin knows it from its own URL — a hidden login page stays
+// hidden) and tells the version only to a signed-in session (audit L-4).
 func (a *API) publicSite(w http.ResponseWriter, r *http.Request) {
 	opts, err := a.st.Options()
 	if err != nil {
@@ -334,11 +337,29 @@ func (a *API) publicSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	o := withDefaults(opts)
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"demo":      a.demo.Status(),
 		"siteTitle": o["site_title"], "tagline": o["tagline"], "siteIcon": o["site_icon"], "siteLogo": o["site_logo"],
-		"adminPath": o["admin_path"], "product": config.Product, "version": config.Version,
-	})
+		"product": config.Product,
+	}
+	if a.signedIn(r) {
+		out["version"] = config.Version
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// signedIn reports whether r carries a valid, current session token.
+func (a *API) signedIn(r *http.Request) bool {
+	tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok {
+		return false
+	}
+	p, err := a.auth.Parse(tok)
+	if err != nil {
+		return false
+	}
+	u, hash, revoked, err := a.st.SessionCheck(p.ID, p.JTI)
+	return err == nil && !revoked && a.auth.Current(p, hash) && u.Status != model.UserSuspended
 }
 
 // pathCache caches the admin_path option for a few seconds, since it is

@@ -6,11 +6,14 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dop251/goja"
+
+	"github.com/anasaki/studio/backend/internal/auth"
 )
 
 // Phase 4a: custom post types (site.postType) and custom fields
@@ -37,9 +40,18 @@ type FieldInfo struct {
 	PluginName string `json:"pluginName,omitempty"`
 }
 
-// PostTypeAccess lists the roles that edit a post type.
+// PostTypeAccess lists who edits a post type: role slugs and, since 2.0.6,
+// "cap:<capability>" entries.
 type PostTypeAccess struct {
 	Edit []string `json:"edit"`
+}
+
+// PostTypeCaps are the capabilities that edit / publish a post type (since
+// 2.0.6; a JS plugin names its own, e.g. {edit: "docs.edit", publish:
+// "docs.publish"}). Empty = the access list decides (publish = edit).
+type PostTypeCaps struct {
+	Edit    string `json:"edit,omitempty"`
+	Publish string `json:"publish,omitempty"`
 }
 
 // PostTypeInfo is a registered site.postType.
@@ -53,6 +65,11 @@ type PostTypeInfo struct {
 	Supports []string          `json:"supports"`
 	Fields   []FieldInfo       `json:"fields"`
 	Access   PostTypeAccess    `json:"access"`
+	Caps     PostTypeCaps      `json:"caps"`
+	// Plugin / PluginName: the JS plugin that registered the type (since
+	// 2.0.5, scope "post-types"); "" for Site Code.
+	Plugin     string `json:"plugin,omitempty"`
+	PluginName string `json:"pluginName,omitempty"`
 }
 
 type regPostType struct {
@@ -196,13 +213,16 @@ func (v *vm) fieldMap(x goja.Value, what string) []FieldInfo {
 
 func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
 	if v.u.plugin() {
-		v.throw("site.postType ใช้ได้เฉพาะ Site Code (ปลั๊กอิน JavaScript ยังลงทะเบียนประเภทเนื้อหาไม่ได้)")
+		v.need("post-types", "site.postType")
 	}
 	if v.mode == modeHandler {
 		v.throw("site.postType ต้องเรียกตอนเริ่มต้นของโค้ด ไม่ใช่ภายใน handler")
 	}
 	id, _ := c.Argument(0).Export().(string)
 	what := fmt.Sprintf("site.postType(%q)", id)
+	if v.u.plugin() {
+		v.pluginTypeID(id, what)
+	}
 	if !postTypeRe.MatchString(id) {
 		v.throw("%s: ชื่อประเภทต้องเป็น a-z ตัวแรก ตามด้วย a-z 0-9 _ (2-20 ตัว)", what)
 	}
@@ -216,6 +236,10 @@ func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
 	info := PostTypeInfo{Type: id, Slug: id, Public: true, Supports: []string{"title", "content", "excerpt", "image"},
 		Access: PostTypeAccess{Edit: []string{"editor", "administrator"}}}
 	info.Label = map[string]string{"th": id, "en": id}
+	if v.u.plugin() { // slugs have no "_": docs_doc → /docs-doc
+		info.Slug = strings.ReplaceAll(id, "_", "-")
+		info.Plugin, info.PluginName = v.u.ID, orStr(v.u.Name, v.u.ID)
+	}
 	if o != nil {
 		info.Label = v.i18nLabel(o.Get("label"), id, what)
 		info.Singular = v.i18nLabel(o.Get("singular"), info.Label["en"], what)
@@ -245,6 +269,7 @@ func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
 			}
 		}
 		info.Fields = v.fieldMap(o.Get("fields"), what)
+		explicit := false
 		if a := optObject(v.rt, o.Get("access")); a != nil {
 			if e := a.Get("edit"); e != nil && !goja.IsUndefined(e) && !goja.IsNull(e) {
 				var list []string
@@ -252,11 +277,31 @@ func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
 					v.throw("%s: access.edit ต้องเป็น array ของ role เช่น ['editor']", what)
 				}
 				for _, r := range list {
-					if !accessRe.MatchString(r) {
-						v.throw("%s: access.edit: %q ไม่ใช่ role ที่ถูกต้อง", what, r)
+					if !adminEntry(r) {
+						v.throw("%s: access.edit: %q ไม่ใช่ role ที่ถูกต้อง (หรือ 'cap:<สิทธิ์>')", what, r)
 					}
 				}
+				v.vetCaps(list, what+": access.edit")
 				info.Access.Edit = list
+				explicit = true
+			}
+		}
+		// caps: {edit, publish} (2.0.6): the capabilities that edit / publish the type
+		if cs := optObject(v.rt, o.Get("caps")); cs != nil {
+			for _, k := range cs.Keys() {
+				if k != "edit" && k != "publish" {
+					v.throw("%s: caps.%s ไม่รองรับ (ใช้ edit, publish)", what, k)
+				}
+			}
+			info.Caps.Edit = v.capOpt(cs, "edit", what)
+			info.Caps.Publish = v.capOpt(cs, "publish", what)
+			if info.Caps.Edit != "" {
+				entry := CapPrefix + info.Caps.Edit
+				if !explicit {
+					info.Access.Edit = []string{entry} // the roles holding the capability, not a fixed list
+				} else if !slices.Contains(info.Access.Edit, entry) {
+					info.Access.Edit = append(info.Access.Edit, entry)
+				}
 			}
 		}
 	}
@@ -271,6 +316,28 @@ func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
 	}
 	v.ptypes = append(v.ptypes, &regPostType{info: info, at: v.caller()})
 	return goja.Undefined()
+}
+
+// PluginTypePrefix is what a JS plugin's post type ids start with: the
+// plugin id with "-" as "_", then "_" (plugin "my-shop" → "my_shop_").
+func PluginTypePrefix(pluginID string) string {
+	return strings.ReplaceAll(pluginID, "-", "_") + "_"
+}
+
+// pluginTypeID enforces the type id rule of JS plugins: "<id>_<name>"
+// within the 20 characters of a type id.
+func (v *vm) pluginTypeID(id, what string) {
+	pre := PluginTypePrefix(v.u.ID)
+	switch {
+	case pre[0] < 'a' || pre[0] > 'z':
+		v.throw("%s: ปลั๊กอินที่รหัสขึ้นต้นด้วยตัวเลข (%s) ลงทะเบียนประเภทเนื้อหาไม่ได้ — ชื่อประเภทต้องขึ้นต้นด้วย a-z", what, v.u.ID)
+	case len(pre)+1 > 20:
+		v.throw("%s: รหัสปลั๊กอิน %q ยาวเกินไปสำหรับชื่อประเภท (ต้องเป็น %s<ชื่อ> รวมไม่เกิน 20 ตัว)", what, v.u.ID, pre)
+	case !strings.HasPrefix(id, pre) || len(id) == len(pre):
+		v.throw("%s: ชื่อประเภทของปลั๊กอินต้องขึ้นต้นด้วย %q ตามด้วยชื่อ เช่น %s", what, pre, pre+"item")
+	case len(id) > 20:
+		v.throw("%s: ชื่อประเภทยาวเกิน 20 ตัว (%s + ชื่อ รวมไม่เกิน 20 ตัว)", what, pre)
+	}
 }
 
 func labelOf(o *goja.Object, key, lang string) string {
@@ -406,17 +473,33 @@ func (m Manifest) FieldsFor(typ string) []FieldInfo {
 	return append(out, m.Fields[typ]...)
 }
 
-// CanEditType reports whether role may edit posts of a custom type.
+// CanEditType reports whether role may edit posts of a custom type: a role
+// listed in access.edit, or one holding a "cap:" entry's capability (2.0.6).
 func (t *PostTypeInfo) CanEditType(role string) bool {
 	if role == "administrator" {
 		return true
 	}
-	for _, r := range t.Access.Edit {
-		if r == role {
+	if role == "" {
+		return false
+	}
+	for _, a := range t.Access.Edit {
+		if a == role {
+			return true
+		}
+		if c, ok := capEntry(a); ok && auth.RoleHas(role, c) {
 			return true
 		}
 	}
 	return false
+}
+
+// CanPublishType reports whether role may publish posts of a custom type:
+// the holders of caps.publish when set (2.0.6), else whoever edits it.
+func (t *PostTypeInfo) CanPublishType(role string) bool {
+	if t.Caps.Publish == "" {
+		return t.CanEditType(role)
+	}
+	return role == "administrator" || (role != "" && auth.RoleHas(role, t.Caps.Publish))
 }
 
 // ---------------------------------------------------------------- validation

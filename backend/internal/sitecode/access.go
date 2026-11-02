@@ -143,7 +143,7 @@ func (e *Engine) SetAccess(kind, name string, roles []string, userID int64) erro
 	clean := []string{}
 	if kind == KindAdminPage {
 		for _, r := range roles {
-			if !accessRe.MatchString(r) {
+			if !adminEntry(r) {
 				return &ErrBadAccess{Msg: fmt.Sprintf("หน้าแอดมินกำหนดได้เฉพาะ role ของผู้ดูแล (เช่น 'editor') — %q ใช้ไม่ได้", r)}
 			}
 		}

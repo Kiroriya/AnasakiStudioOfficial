@@ -39,9 +39,13 @@ export class Api {
   // auth
   login(email: string, password: string) { return this.post<{ token: string; user: User }>('/auth/login', { email, password }); }
   me() { return this.get<User>('/auth/me'); }
+  /** Revokes this session on the server; `all` signs the account out everywhere. */
+  logout(all = false) { return this.post<void>('/auth/logout', all ? { all: true } : {}); }
+  /** A fresh session token (sliding expiry while the admin is open). */
+  refreshSession() { return this.post<{ token: string; user: User }>('/auth/refresh', {}); }
   updateMe(data: Partial<User> & { password?: string; currentPassword?: string }) { return this.put<User & { token?: string }>('/auth/me', data); }
   setupStatus() { return this.get<SetupStatus>('/setup'); }
-  runSetup(d: { siteTitle: string; tagline: string; language: string; adminName: string; adminEmail: string; adminPassword: string; locale: string; demo: boolean }) {
+  runSetup(d: { siteTitle: string; tagline: string; language: string; adminName: string; adminEmail: string; adminPassword: string; locale: string; demo: boolean; setupToken?: string }) {
     return this.post<{ token: string; user: User }>('/setup', d);
   }
   forgotPassword(email: string) { return this.post<{ message: string }>('/auth/forgot', { email }); }
@@ -150,8 +154,10 @@ export class Api {
     return firstValueFrom(this.http.post<InstalledPackage>(BASE + '/package-plugins/upload', fd, { params: p }));
   }
   /** A 400 `{error, missing:[…]}` lists dependencies to install first; `{error, destructive:[…]}` asks for confirmDestructive. */
-  installPackage(id: string, version?: string, opts: { confirmDestructive?: boolean } = {}) {
-    return this.post<InstalledPackage>('/package-plugins/install', { id, version, ...(opts.confirmDestructive ? { confirmDestructive: true } : {}) });
+  /** 409 `{error, publisherChanged}`: the update comes from another Store publisher; `acceptPublisher` installs it anyway. */
+  installPackage(id: string, version?: string, opts: { confirmDestructive?: boolean; acceptPublisher?: boolean } = {}) {
+    return this.post<InstalledPackage>('/package-plugins/install', { id, version, ...(opts.confirmDestructive ? { confirmDestructive: true } : {}),
+      ...(opts.acceptPublisher ? { acceptPublisher: true } : {}) });
   }
   /** `force` also deactivates plugins that require this one (else 409 `{error, dependents}`). */
   setPackageActive(id: string, active: boolean, opts: { force?: boolean; confirmDestructive?: boolean } = {}) {

@@ -72,6 +72,7 @@ var (
 		{regexp.MustCompile(`\bsite\.(middleware|afterResponse)\s*\(`), "middleware"},
 		{regexp.MustCompile(`\bsite\.(head|bodyEnd)\s*\(`), "head-scripts"},
 		{regexp.MustCompile(`\bsite\.(fields|meta|setMeta)\s*\(`), "content-fields"},
+		{regexp.MustCompile(`\bsite\.postType\s*\(`), "post-types"},
 		{regexp.MustCompile(`\bhttp\.webhook\s*\(`), "webhooks"},
 		{regexp.MustCompile(`\bsite\.(adminNotice|dashboardWidget)\s*\(`), "admin-pages"},
 	}
@@ -173,7 +174,7 @@ func (e *Engine) ExportPackage(in PackageRequest, dryRun bool) (*PackageResult, 
 		}
 	}
 	if len(m.PostTypes) > 0 {
-		warn("", 0, "site.postType ใช้ไม่ได้ในปลั๊กอิน — ต้องย้ายไปไว้ใน Site Code")
+		warn("", 0, "site.postType ในปลั๊กอินต้องใช้ชื่อประเภท %s<ชื่อ> (scope post-types, CMS 2.0.5) — เปลี่ยนชื่อประเภทในโค้ด โพสต์เดิมของประเภท %s ไม่ย้ายตาม", PluginTypePrefix(in.ID), m.PostTypes[0].Type)
 	}
 	if len(m.Fields) > 0 {
 		warn("", 0, "site.fields ในปลั๊กอินเก็บค่าเป็น <id>.<ชื่อฟิลด์> ใน post meta (ค่าเดิมของ Site Code ไม่ย้ายตาม)")

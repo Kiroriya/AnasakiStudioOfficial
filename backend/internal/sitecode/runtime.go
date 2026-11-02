@@ -285,6 +285,8 @@ func (v *vm) install() {
 		"adminNotice":     v.siteAdminNotice,
 		"dashboardWidget": v.siteDashboardWidget,
 		"block":           v.siteBlock,
+		// 2.0.6: plugin capabilities
+		"can": v.siteCan,
 	}))
 	_ = rt.Set("plugins", obj(map[string]func(goja.FunctionCall) goja.Value{"call": v.pluginsCall, "has": v.pluginsHas, "version": v.pluginsVersion}))
 	_ = rt.Set("__anasaki_export", v.exportProxy)
@@ -404,6 +406,7 @@ func (v *vm) siteRoute(c goja.FunctionCall) goja.Value {
 	if err != nil {
 		v.throw("site.route(%q): %s", spec.String(), err.Error())
 	}
+	v.vetCaps(acc, fmt.Sprintf("site.route(%q)", spec.String()))
 	v.routes = append(v.routes, &regRoute{spec: rs, access: acc, fn: fn, at: v.caller(), rawBody: rawBody, maxBody: maxB})
 	return goja.Undefined()
 }
@@ -622,10 +625,23 @@ func (v *vm) canSeeDrafts(typ string) bool {
 	case model.TypePost:
 		return v.user.Can(auth.CapEditOthersPosts)
 	}
-	if t := v.customType(typ); t != nil && v.user != nil {
+	if t := v.readableType(typ); t != nil && v.user != nil {
 		return t.CanEditType(v.user.Role)
 	}
 	return false
+}
+
+// readableType is a custom type db.posts.list / get may read: the running
+// code's own, or one another unit registered (Site Code's types, a JS
+// plugin's types — since 2.0.5). Writes stay limited to knownType.
+func (v *vm) readableType(typ string) *PostTypeInfo {
+	if t := v.customType(typ); t != nil {
+		return t
+	}
+	if v.h.e == nil || typ == model.TypePost || typ == model.TypePage {
+		return nil
+	}
+	return v.h.e.PostTypes().PostType(typ)
 }
 
 func (v *vm) postType(o *goja.Object) string {
@@ -635,7 +651,7 @@ func (v *vm) postType(o *goja.Object) string {
 			typ = t.String()
 		}
 	}
-	if !v.knownType(typ) {
+	if !v.knownType(typ) && v.readableType(typ) == nil {
 		v.throw("db.posts: type ต้องเป็น 'post', 'page' หรือประเภทที่ลงทะเบียนด้วย site.postType (ไม่ใช่ %q)", typ)
 	}
 	return typ
@@ -937,10 +953,12 @@ func (v *vm) userValue() goja.Value {
 		return goja.Null()
 	}
 	u := v.toJS(map[string]any{"id": v.user.ID, "name": v.user.Name, "email": v.user.Email, "role": v.user.Role,
-		"caps": auth.Caps(v.user.Role)}).ToObject(v.rt)
+		"caps": v.userCaps(v.user.Role)}).ToObject(v.rt)
 	role := v.user.Role
 	_ = u.Set("can", func(c goja.FunctionCall) goja.Value {
-		return v.rt.ToValue(auth.RoleHas(role, c.Argument(0).String()))
+		name := c.Argument(0).String()
+		v.checkCanArg(name, "ctx.user.can") // a plugin: only its own capabilities (2.0.6)
+		return v.rt.ToValue(auth.RoleHas(role, name))
 	})
 	return u
 }

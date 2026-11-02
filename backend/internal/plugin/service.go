@@ -48,6 +48,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
 )
 
@@ -105,7 +106,7 @@ type ServiceAdminPage struct {
 	Label   string `json:"label"`
 	LabelEn string `json:"labelEn"`
 	Icon    string `json:"icon"`
-	Cap     string `json:"cap"` // who may open it ("" = manage_options)
+	Cap     string `json:"cap"` // who may open it ("" = manage_options; "<own id>.<capability>" since 2.0.6)
 }
 
 var (
@@ -144,7 +145,7 @@ func (s *ManifestService) validate() error {
 		if !adminPageRe.MatchString(a.Path) || strings.TrimSpace(a.Label) == "" || len(a.Label) > 60 {
 			return pkgErr("manifest: service: admin page %q needs a valid path and a label", a.Path)
 		}
-		if a.Cap != "" && !capNameRe.MatchString(a.Cap) {
+		if a.Cap != "" && !capNameRe.MatchString(a.Cap) && !auth.IsPluginCap(a.Cap) {
 			return pkgErr("manifest: service: admin page %q: invalid cap", a.Path)
 		}
 	}
@@ -353,6 +354,8 @@ func migrateService(db *sql.DB) error {
 		{"service_secret", "VARCHAR(100) NOT NULL DEFAULT ''"},
 		{"consent_pending", "TEXT NULL"},
 		{"code_error", "TEXT NULL"},
+		// the Store publisher an installed package is bound to (audit H-2)
+		{"publisher", "VARCHAR(64) NOT NULL DEFAULT ''"},
 	} {
 		var n int
 		if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS

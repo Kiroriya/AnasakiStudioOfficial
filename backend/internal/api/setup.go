@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"log"
 	"net/http"
 	"os"
@@ -9,19 +10,29 @@ import (
 
 	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/model"
+	"github.com/anasaki/studio/backend/internal/plugin"
 	"github.com/anasaki/studio/backend/internal/seed"
 	"github.com/anasaki/studio/backend/internal/store"
 )
 
+// SetSetupToken makes POST /setup require token (SETUP_TOKEN; "" = none).
+func (a *API) SetSetupToken(token string) { a.setupToken = strings.TrimSpace(token) }
+
 // getSetup answers GET /api/v1/setup (no auth): whether the first-run
-// wizard must be shown.
+// wizard must be shown and whether it needs the setup token. The version is
+// only told while the site is not set up yet (audit L-4).
 func (a *API) getSetup(w http.ResponseWriter, r *http.Request) {
 	n, err := a.st.CountUsers()
 	if err != nil {
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"needsSetup": n == 0, "product": config.Product, "version": config.Version})
+	out := map[string]any{"needsSetup": n == 0, "product": config.Product}
+	if n == 0 {
+		out["version"] = config.Version
+		out["tokenRequired"] = a.setupToken != ""
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type setupInput struct {
@@ -33,6 +44,8 @@ type setupInput struct {
 	AdminPassword string `json:"adminPassword"`
 	Locale        string `json:"locale"`
 	Demo          bool   `json:"demo"`
+	// SetupToken must match SETUP_TOKEN when the server sets one (audit M-5).
+	SetupToken string `json:"setupToken"`
 }
 
 func (in *setupInput) validate() string {
@@ -78,6 +91,18 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 	if n > 0 {
 		writeErr(w, http.StatusConflict, "ติดตั้งระบบเรียบร้อยแล้ว")
 		return
+	}
+	if a.setupToken != "" {
+		key := "setup:" + limiterIP(plugin.ClientIP(r))
+		if !loginFails.allow(key) {
+			writeErr(w, http.StatusTooManyRequests, "ใส่ setup token ผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่")
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(in.SetupToken)), []byte(a.setupToken)) != 1 {
+			loginFails.fail(key)
+			writeJSON(w, http.StatusForbidden, map[string]any{"error": "setup token ไม่ถูกต้อง — ดูค่า SETUP_TOKEN ที่ตั้งไว้ตอนเปิดเซิร์ฟเวอร์ / Wrong setup token (the SETUP_TOKEN the server was started with)", "setupToken": true})
+			return
+		}
 	}
 	if msg := in.validate(); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)

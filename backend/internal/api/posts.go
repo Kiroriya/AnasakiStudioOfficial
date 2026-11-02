@@ -53,10 +53,11 @@ func (a *API) canEdit(p *auth.Principal, post *model.Post) bool {
 	return p.Can(auth.CapEditOthersPosts)
 }
 
-// canPublish: publish_posts, or for a custom type its editors.
+// canPublish: publish_posts, or for a custom type its caps.publish (2.0.6)
+// or else its editors.
 func (a *API) canPublish(p *auth.Principal, typ string) bool {
 	if pt := a.postType(typ); pt != nil {
-		return pt.CanEditType(p.Role)
+		return pt.CanPublishType(p.Role)
 	}
 	return p.Can(auth.CapPublishPosts)
 }

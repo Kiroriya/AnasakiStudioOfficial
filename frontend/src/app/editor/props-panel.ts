@@ -26,6 +26,9 @@ import { SelectValue } from '../shared/select-value';
 import { BindingInput } from './binding-input';
 import { CollectionPanel, ConditionsPanel, InputPanel, PaginationPanel } from './code-panels';
 import { CodeBlockPanel } from './codeblock-panel';
+import { PostTypes } from '../core/post-types';
+import { CodePostType } from '../core/code-models';
+import '../admin/messages-content-types';
 
 
 /** Figma's names for layer types (Figma users recognise these). */
@@ -516,6 +519,11 @@ const OVR_LABEL: Record<string, string> = {
                 <label>{{ 'ed.pp.show' | t }}
                   <select [value]="n.props?.query?.postType || 'post'" (change)="query(n, { postType: val($event) })">
                     <option value="post">{{ 'ed.pp.posts' | t }}</option><option value="page">{{ 'ed.pp.pages' | t }}</option>
+                    @if (postTypes.list().length) {
+                      <optgroup [label]="'ed.pp.customTypes' | t">
+                        @for (pt of postTypes.list(); track pt.type) { <option [value]="pt.type">{{ pt.icon || '📦' }} {{ typeName(pt) }}</option> }
+                      </optgroup>
+                    }
                   </select>
                 </label>
                 <label>{{ 'ed.pp.category' | t }}
@@ -681,6 +689,8 @@ const OVR_LABEL: Record<string, string> = {
 export class PropsPanel {
   readonly store = inject(EditorStore);
   readonly i18n = inject(I18n);
+  /** Custom post types (site code and JS plugins) for the post list's type picker. */
+  readonly postTypes = inject(PostTypes);
   readonly editComponent = output<number>();
   readonly showShortcuts = output<void>();
   /** "Run in preview" of a frontend code block (the editor opens the page preview). */
@@ -807,6 +817,7 @@ export class PropsPanel {
   }
 
   constructor() {
+    void this.postTypes.ensureLoaded();
     // content-only layers open on the Content tab — when a layer gets selected (not on every
     // edit), and only until the user has picked a tab themselves
     effect(() => {
@@ -824,6 +835,7 @@ export class PropsPanel {
   /** Selects the card template of a post list (edited like any frame). */
   editCard(n: DNode) { firstCard(this.store, n); this.tab.set('design'); }
 
+  typeName(pt: CodePostType) { this.i18n.locale(); return localized(pt.label) || pt.type; }
   hasLayout(n: DNode) { return ['frame', 'postList', 'menu', 'button', 'input', 'pagination'].includes(n.type); }
   /** Layers whose layout section is padding only (no auto layout direction / gap). */
   padOnly(n: DNode) { return n.type === 'button' || n.type === 'input'; }

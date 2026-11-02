@@ -130,6 +130,7 @@ func (v *vm) accessOpt(o *goja.Object, what string, def []string) []string {
 	if err != nil {
 		v.throw("%s: %s", what, err.Error())
 	}
+	v.vetCaps(acc, what)
 	return acc
 }
 

@@ -18,6 +18,8 @@ registerMessages({
   'apitok.lastUsed': { th: 'ใช้ล่าสุด', en: 'Last used' },
   'apitok.expires': { th: 'หมดอายุ', en: 'Expires' },
   'apitok.expiry': { th: 'อายุโทเค็น', en: 'Expiry' },
+  'apitok.password': { th: 'รหัสผ่านปัจจุบันของคุณ', en: 'Your current password' },
+  'apitok.err.password': { th: 'กรุณาใส่รหัสผ่านปัจจุบันเพื่อยืนยัน', en: 'Enter your current password to confirm' },
   'apitok.days': { th: '{n} วัน', en: '{n} days' },
   'apitok.year': { th: '1 ปี', en: '1 year' },
   'apitok.never': { th: 'ไม่หมดอายุ', en: 'Never' },

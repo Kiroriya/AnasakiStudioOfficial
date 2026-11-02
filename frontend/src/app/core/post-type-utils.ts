@@ -217,6 +217,14 @@ export function supportsOf(pt: CodePostType | null | undefined, type = pt?.type)
   return new Set(pt?.supports?.length ? pt.supports : DEFAULT_SUPPORTS);
 }
 
+/** Name of the JS plugin that registered a type ('' = the site code). */
+export function typeSource(pt: Pick<CodePostType, 'plugin' | 'pluginName'> | null | undefined): string {
+  return pt?.plugin ? pt.pluginName || pt.plugin : '';
+}
+
+/** Types the site routes itself at /<slug>/… (public unless it says false). */
+export const routedTypes = <T extends Pick<CodePostType, 'public'>>(list: T[]): T[] => list.filter(p => p.public !== false);
+
 /** Public URL prefix of a type ('events' for slug 'events', else the type id). */
 export function typePrefix(pt: Pick<CodePostType, 'type' | 'slug'>): string {
   return (pt.slug || pt.type).replace(/^\/+|\/+$/g, '');

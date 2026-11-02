@@ -1,10 +1,21 @@
 // The SEO admin page (was the Angular page /seo): search-result previews of published pages and posts, the
 // per-page editor (post meta "seo.*", also editable in the post editor's SEO panel) and the site-wide defaults
-// (saved with site.saveSettings — the same values as Plugins → SEO → Settings). Administrators only.
+// (saved with site.saveSettings — the same values as Plugins → SEO → Settings). Administrators by default; on
+// CMS 2.0.6+ the roles holding seo.manage / seo.edit_meta (Users → Roles).
 import { applyTemplate, byteLen, esc, one, safeURL } from './lib';
 import { EMPTY, Meta, SETTING_KEYS, SettingKey, metaFrom, metaOfPost, saveMeta, setting, siteInfo } from './meta';
 
 const PER_PAGE = 15;
+
+// Who may use the SEO page. CMS 2.0.6+: the plugin's own capabilities (manifest "capabilities"), ticked per
+// role in Users → Roles — seo.manage (the page and the site-wide defaults) and seo.edit_meta (per-page
+// overrides); both default to administrators. Older CMS versions keep the former role list.
+const CAPS = typeof (site as any).can === 'function';
+const PAGE_ACCESS = CAPS ? ['cap:seo.manage', 'cap:seo.edit_meta'] : ['administrator'];
+const MANAGE_ACCESS = CAPS ? ['cap:seo.manage'] : ['administrator'];
+const EDIT_META_ACCESS = CAPS ? ['cap:seo.edit_meta'] : ['administrator'];
+const canManage = (user: any) => !CAPS || (!!user && user.can('seo.manage'));
+const canEditMeta = (user: any) => !CAPS || (!!user && user.can('seo.edit_meta'));
 
 /** A page or post by id (db.posts.get looks up one type at a time). */
 function postById(id: number): any {
@@ -154,7 +165,8 @@ function listView(ctx: any, t: any): string {
     const m = metaFrom(p.meta, 'seo.');
     rows += `<tr data-id="${p.id}"><td><div class="serp">${serp(host, p, m, info, tpl, defDesc, t)}</div>` +
       (m.noindex ? ' <span class="ak-badge ak-badge-warn">noindex</span>' : '') +
-      `</td><td style="text-align:right;white-space:nowrap"><a class="ak-btn ak-btn-sm" href="?edit=${p.id}&page=${page}">✏️ ${t.edit}</a></td></tr>`;
+      `</td><td style="text-align:right;white-space:nowrap">` +
+      (canEditMeta(ctx.user) ? `<a class="ak-btn ak-btn-sm" href="?edit=${p.id}&page=${page}">✏️ ${t.edit}</a>` : '') + `</td></tr>`;
   }
   if (!items.length) rows = `<tr><td colspan="2" class="ak-muted">${t.none}</td></tr>`;
   const pager = page > 1 || more
@@ -166,7 +178,8 @@ function listView(ctx: any, t: any): string {
   return `<div class="seo-grid"><section class="ak-card ak-card-flush"><div class="ak-card-head" style="padding:12px 16px"><h2>${t.pages}</h2>` +
     `<span class="ak-muted ak-small">${t.pagesHint}</span></div><table class="ak-table" data-seo="list"><thead><tr><th>${t.preview}</th><th></th></tr></thead>` +
     `<tbody>${rows}</tbody></table>${pager}</section>` +
-    `<section class="ak-card seo-defaults"><div class="ak-card-head"><h2>⚙️ ${t.defaults}</h2></div>${defaultsForm(t)}</section></div>`;
+    (canManage(ctx.user) ? `<section class="ak-card seo-defaults"><div class="ak-card-head"><h2>⚙️ ${t.defaults}</h2></div>${defaultsForm(t)}</section>` : '') +
+    `</div>`;
 }
 
 function editView(ctx: any, t: any, id: number): string {
@@ -207,21 +220,21 @@ export function registerAdmin(): void {
   site.adminPage('seo', {
     label: { th: 'SEO', en: 'SEO' },
     icon: '🔍',
-    access: ['administrator'],
+    access: PAGE_ACCESS,
     render: (ctx) => {
       const t = T[langOf(ctx)];
       const edit = Math.floor(Number(one(ctx.query?.edit)) || 0);
       const head = `<header class="ak-page-head"><span class="ak-page-icon">🔍</span><div class="ak-page-head-text"><h1>SEO</h1><p>${t.desc}</p></div>` +
         `<div class="ak-actions"><a class="ak-btn ak-btn-sm" href="/sitemap.xml" target="_blank" rel="noopener">🗺 sitemap.xml</a>` +
         `<a class="ak-btn ak-btn-sm" href="/robots.txt" target="_blank" rel="noopener">🤖 robots.txt</a></div></header>`;
-      return { title: 'SEO', html: STYLE + head + (edit ? editView(ctx, t, edit) : listView(ctx, t)) };
+      return { title: 'SEO', html: STYLE + head + (edit && canEditMeta(ctx.user) ? editView(ctx, t, edit) : listView(ctx, t)) };
     },
   });
 
   /** Saves a page's overrides (same validation and messages as the built-in PUT /seo/meta/{postId}). */
   site.action('saveMeta', {
     input: { postId: 'number', title: 'text?', description: 'text?', image: 'text?', noindex: 'bool' },
-    access: ['administrator'],
+    access: EDIT_META_ACCESS,
     run: (ctx) => {
       const { input, user } = ctx;
       const en = (ctx as any).locale === 'en';
@@ -248,7 +261,7 @@ export function registerAdmin(): void {
   /** Saves the site-wide defaults (the plugin's settings; validated by core against the manifest). */
   site.action('saveDefaults', {
     input: { titleTemplate: 'text?', defaultDescription: 'text?', defaultImage: 'text?', twitterHandle: 'text?' },
-    access: ['administrator'],
+    access: MANAGE_ACCESS,
     run: (ctx) => {
       const en = (ctx as any).locale === 'en';
       const v: Record<string, string> = {};

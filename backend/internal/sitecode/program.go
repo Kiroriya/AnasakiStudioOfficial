@@ -11,6 +11,7 @@ import (
 
 	"github.com/dop251/goja"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/plugin"
 )
 
@@ -383,7 +384,8 @@ func isResponseShape(o *goja.Object) bool {
 	return true
 }
 
-// allowed checks a route's access list against the caller.
+// allowed checks an access list against the caller: '*', role slugs and
+// "cap:<capability>" entries (the administrator always passes).
 func allowed(access []string, u *User) bool {
 	for _, a := range access {
 		if a == "*" {
@@ -398,6 +400,10 @@ func allowed(access []string, u *User) bool {
 	}
 	for _, a := range access {
 		if a == u.Role {
+			return true
+		}
+		// "cap:<capability>" (2.0.6): any role holding it, as set in Users → Roles
+		if c, ok := capEntry(a); ok && auth.RoleHas(u.Role, c) {
 			return true
 		}
 	}

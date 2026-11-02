@@ -131,11 +131,15 @@ func (a *API) installPackage(w http.ResponseWriter, r *http.Request) {
 		ID                 string `json:"id"`
 		Version            string `json:"version"`
 		ConfirmDestructive bool   `json:"confirmDestructive"`
+		// AcceptPublisher: install an update although its Store publisher
+		// differs from the installed one (audit H-2; the admin checked it)
+		AcceptPublisher bool `json:"acceptPublisher"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	inst, err := a.plugins.InstallFromStoreWith(in.ID, in.Version, plugin.InstallOptions{ConfirmDestructive: in.ConfirmDestructive || flag(r, "confirmDestructive")})
+	inst, err := a.plugins.InstallFromStoreWith(in.ID, in.Version, plugin.InstallOptions{ConfirmDestructive: in.ConfirmDestructive || flag(r, "confirmDestructive"),
+		AcceptPublisher: in.AcceptPublisher})
 	if err != nil {
 		platformErr(w, err)
 		return

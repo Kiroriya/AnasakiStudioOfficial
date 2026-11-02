@@ -59,6 +59,19 @@ const STYLES = `
           <div class="pjs-sec" id="plugin-consent-routes"><h4>🧭 {{ 'pjs.routes' | t }}</h4>
             <ul class="pjs-list">@for (r of c.routes; track r) { <li class="plugin-consent-route mono">{{ r }}</li> }</ul></div>
         }
+        @if (c.capabilities?.length) {
+          <div class="pjs-sec" id="plugin-consent-caps"><h4>🛡 {{ 'pjs.consent.caps' | t }}</h4>
+            <p class="muted small">{{ 'pjs.consent.capsHint' | t }}</p>
+            <ul class="pjs-list">
+              @for (k of c.capabilities; track k.key) {
+                <li class="plugin-consent-cap" [attr.data-cap]="k.key">
+                  <span><b>{{ k.label }}</b> <span class="pjs-scope-id mono">{{ k.key }}</span>
+                    @if (k.description) { <br /><span class="muted small">{{ k.description }}</span> }
+                    @if (k.default.length) { <br /><span class="muted small">{{ 'pjs.consent.capDefault' | t: { roles: k.default.join(', ') } }}</span> }</span>
+                </li>
+              }
+            </ul></div>
+        }
         @if (empty()) { <p class="muted" id="plugin-consent-none">{{ 'pjs.consent.none' | t }}</p> }
         @if (c.destructive.length) {
           <div class="pjs-destructive" id="plugin-consent-destructive">

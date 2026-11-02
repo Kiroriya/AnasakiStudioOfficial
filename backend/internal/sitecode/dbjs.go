@@ -104,6 +104,18 @@ func (v *vm) docsTable() string {
 // rawTableRe finds table references in a db.raw fragment of a plugin.
 var rawTableRe = regexp.MustCompile(`(?i)\b(select|from|join|into|update|table|union)\b|;`)
 
+// rawCommentRe finds SQL comments in a db.raw fragment of a plugin: MySQL
+// runs the body of a versioned comment (/*!50000SELECT*/), which hides a
+// keyword from rawTableRe's word boundaries (audit L-1), so a plugin's
+// fragment may not contain comments at all (/* */, -- or #).
+var rawCommentRe = regexp.MustCompile(`/\*|\*/|--|#`)
+
+// pluginRawAllowed reports whether a plugin may use fragment s in db.raw:
+// no table references and no comments.
+func pluginRawAllowed(s string) bool {
+	return !rawCommentRe.MatchString(s) && !rawTableRe.MatchString(s)
+}
+
 // installDB adds the phase-2 functions to the db global.
 func (v *vm) installDB(db *goja.Object) {
 	v.fillDBObject(db, nil)
@@ -137,8 +149,8 @@ func (v *vm) fillDBObject(o *goja.Object, tx *sql.Tx) {
 		if d.N.Fallback {
 			v.throw("db.raw ใช้ไม่ได้เมื่อยังไม่ได้ตั้งฐานข้อมูลแยก (CODE_DB_DSN)")
 		}
-		if v.u.plugin() && rawTableRe.MatchString(c.Argument(0).String()) {
-			v.throw("db.raw ในปลั๊กอินอ้างถึงตารางไม่ได้ (SELECT/FROM/JOIN…) — ใช้ query builder")
+		if v.u.plugin() && !pluginRawAllowed(c.Argument(0).String()) {
+			v.throw("db.raw ในปลั๊กอินอ้างถึงตารางหรือใส่ comment ไม่ได้ (SELECT/FROM/JOIN…, /* */, --, #) — ใช้ query builder")
 		}
 		s, ok := c.Argument(0).Export().(string)
 		if !ok || strings.TrimSpace(s) == "" {

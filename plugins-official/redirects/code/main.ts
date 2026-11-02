@@ -8,6 +8,12 @@
 //  - export legacyImport: the built-in's redirects_rules and redirects_404 rows
 import { Rule, normalize, target, findLoop, validate, CODES, EN, clipRunes, esc, one, toDate } from './lib';
 
+/**
+ * Who manages the rules. CMS 2.0.6+: the plugin's own capability redirects.manage (manifest "capabilities",
+ * default administrators), ticked per role in Users → Roles. Older CMS versions: administrators.
+ */
+const MANAGE = typeof (site as any).can === 'function' ? ['cap:redirects.manage'] : ['administrator'];
+
 /** How many distinct 404 paths are kept (most hit first). */
 const MAX_404 = 200;
 const RULES_KEY = 'redirects:rules';
@@ -189,7 +195,7 @@ function pager(param: string, page: number, pages: number, query: Record<string,
 site.adminPage('redirects', {
   label: { th: 'เปลี่ยนเส้นทาง', en: 'Redirects' },
   icon: '↪️',
-  access: ['administrator'],
+  access: MANAGE,
   render: (ctx) => {
     const t = T[langOf(ctx)];
     const q = ctx.query ?? {};
@@ -261,7 +267,7 @@ function fail(ctx: any, msg: string, extra = '') {
 /** Create (no id) or update a rule — the built-in's POST /rules and PUT /rules/{id}. */
 site.action('save', {
   input: { id: 'number?', from: 'text', to: 'text', code: 'number?' },
-  access: ['administrator'],
+  access: MANAGE,
   run: (ctx) => {
     const { input } = ctx;
     const id = Math.floor(Number(input.id) || 0);
@@ -289,7 +295,7 @@ site.action('save', {
 
 site.action('delete', {
   input: { id: 'number' },
-  access: ['administrator'],
+  access: MANAGE,
   run: (ctx) => {
     const n = db.table('rules').where('id', Math.floor(Number(ctx.input.id) || 0)).delete();
     invalidate();
@@ -298,7 +304,7 @@ site.action('delete', {
 });
 
 site.action('clear404', {
-  access: ['administrator'],
+  access: MANAGE,
   run: (ctx) => {
     db.table('notfound').all().delete();
     return { message: ctx.locale === 'en' ? 'Cleared' : 'ล้างแล้ว', data: { cleared: true } };
@@ -307,7 +313,7 @@ site.action('clear404', {
 
 /** The rules and the 404 log as JSON (the built-in's GET /rules and GET /404s), for scripts and tests. */
 site.action('list', {
-  access: ['administrator'],
+  access: MANAGE,
   run: () => ({
     data: {
       rules: allRules().map((r) => ({ id: Number(r.id), from: r.from_path, to: r.to_url, code: Number(r.code), hits: Number(r.hits), createdAt: r.created_at })),

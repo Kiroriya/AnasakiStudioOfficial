@@ -1,7 +1,7 @@
 {
   "id": "redirects",
   "name": "Redirects / เปลี่ยนเส้นทาง",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "301/302/307/308 redirects for moved or renamed links (exact path, trailing slash ignored, query kept, loop check) and a log of missing pages (404) to fix. / ตั้งค่า redirect เมื่อย้ายหรือเปลี่ยนลิงก์ และดูรายการหน้าที่ไม่พบ (404) เพื่อแก้ไข",
   "author": "Anasaki Studio",
   "icon": "↪️",
@@ -12,6 +12,11 @@
   "runtime": "js",
   "legacy": "redirects",
   "permissions": ["code"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการการเปลี่ยนเส้นทาง", "en": "Manage redirects" },
+      "description": { "th": "เปิดหน้าเปลี่ยนเส้นทาง เพิ่ม แก้ ลบกฎ และล้างรายการ 404", "en": "Open the Redirects page, add, edit or delete rules and clear the 404 log" },
+      "default": ["administrator"] }
+  ],
   "code": {
     "entry": "code/main.ts",
     "scopes": ["db", "middleware", "admin-pages"],

@@ -147,7 +147,7 @@ func (a *API) extUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.plugins.ServeAdminUI(w, r, id, rest, "/ext-ui/"+id+"/"+tok+"/", plugin.ServiceUser{ID: u.ID, Name: u.Name, Email: u.Email,
-		Role: u.Role, Caps: auth.Caps(u.Role), Locale: u.Locale})
+		Role: u.Role, Caps: auth.CapsFor(u.Role, id), Locale: u.Locale})
 }
 
 // serviceAPI is called by plugin services (signed requests):

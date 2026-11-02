@@ -11,7 +11,7 @@ import { LegacyMigrations } from '../core/legacy';
 import { AdminNotice, normalizeNotices, noticeTarget } from '../core/admin-ext';
 import { Plugins } from '../core/plugins';
 import { PostTypes } from '../core/post-types';
-import { listRoute } from '../core/post-type-utils';
+import { listRoute, typeSource } from '../core/post-type-utils';
 import { SiteInfo } from '../core/site';
 import { roleName } from '../core/roles';
 import './messages-platform';
@@ -153,7 +153,8 @@ export class Shell {
     const en = this.i18n.locale() === 'en';
     // post types from site.postType that this user may edit (the server filters by access.edit)
     const typeItems: NavItem[] = this.postTypes.editable().map(p => ({
-      path: listRoute(p.type), label: localized(p.label) || p.type, desc: t('nav.type.d'), icon: p.icon || '📦', id: 'nav-type-' + p.type,
+      path: listRoute(p.type), label: localized(p.label) || p.type, icon: p.icon || '📦', id: 'nav-type-' + p.type,
+      desc: typeSource(p) ? this.i18n.t('nav.type.plugin.d', { name: typeSource(p) }) : t('nav.type.d'),
     }));
     const adminPages: NavItem[] = this.postTypes.adminPages().map(p => ({
       path: '/x/code/' + p.id, label: localized(p.label) || p.id, desc: t('nav.adminPage.d'), icon: p.icon || '🧰', id: 'nav-code-page-' + p.id,

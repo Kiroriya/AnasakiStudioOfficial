@@ -3,10 +3,8 @@ package plugin
 import (
 	"html"
 	"log"
-	"net"
 	"net/http"
 	"strings"
-	"sync/atomic"
 )
 
 // PageInfo describes the public page being rendered; head/body hooks and
@@ -189,56 +187,3 @@ func (s *StatusRecorder) Code() int {
 
 // Unwrap exposes the underlying writer (http.ResponseController).
 func (s *StatusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
-
-var trustProxy atomic.Bool
-
-// SetTrustProxy makes ClientIP believe X-Real-IP / X-Forwarded-For (only
-// when the server sits behind a reverse proxy that sets them: TRUST_PROXY).
-func SetTrustProxy(v bool) { trustProxy.Store(v) }
-
-// TrustProxy reports whether proxy headers are trusted.
-func TrustProxy() bool { return trustProxy.Load() }
-
-// RequestScheme is "https" or "http" for r. X-Forwarded-Proto is believed
-// only behind a trusted proxy (TRUST_PROXY), so a client can't forge it.
-func RequestScheme(r *http.Request) string {
-	if r.TLS != nil || (TrustProxy() && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")) {
-		return "https"
-	}
-	return "http"
-}
-
-// RequestHost is the host the visitor asked for: X-Forwarded-Host behind a
-// trusted proxy (TRUST_PROXY), else the Host header.
-func RequestHost(r *http.Request) string {
-	if TrustProxy() {
-		if fh := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0]); fh != "" {
-			return fh
-		}
-	}
-	return r.Host
-}
-
-// ClientIP returns the caller's IP: the connection's address, or behind a
-// trusted proxy X-Real-IP / the last X-Forwarded-For hop (the one the proxy added).
-func ClientIP(r *http.Request) string {
-	if trustProxy.Load() {
-		if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); xr != "" {
-			return xr
-		}
-		if xf := r.Header.Values("X-Forwarded-For"); len(xf) > 0 {
-			last := xf[len(xf)-1]
-			if i := strings.LastIndex(last, ","); i >= 0 {
-				last = last[i+1:]
-			}
-			if ip := strings.TrimSpace(last); ip != "" {
-				return ip
-			}
-		}
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	return strings.Trim(host, "[]")
-}

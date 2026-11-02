@@ -1,12 +1,17 @@
 // The "Forms" admin page (was the Angular page /forms): builder, submissions inbox, CSV export. The page is
 // drawn in the browser by assets/admin.js (admin UI kit); every change goes through the actions below,
-// which the Access screen can restrict further. Editors and administrators (was capability edit_pages).
+// which the Access screen can restrict further. CMS 2.0.6+: the plugin's own capabilities, ticked per role in
+// Users → Roles — forms.manage (build / delete forms) and forms.view_submissions (inbox, CSV export), both
+// defaulting to administrators and editors. Older CMS versions: editors (was capability edit_pages).
 import {
   createForm, deleteForm, deleteSubmission, getForm, listForms, listSubmissions, markRead, updateForm, validateForm,
 } from './model';
 import { exportCSV } from './csv';
 
-const ACCESS = ['editor'];
+const CAPS = typeof (site as any).can === 'function';
+const MANAGE = CAPS ? ['cap:forms.manage'] : ['editor'];
+const SUBMISSIONS = CAPS ? ['cap:forms.view_submissions'] : ['editor'];
+const ACCESS = CAPS ? ['cap:forms.manage', 'cap:forms.view_submissions'] : ['editor'];
 
 /** JSON inside <script type="application/json"> (no "</script>" breakout). */
 const jsonData = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
@@ -37,6 +42,9 @@ export function registerAdmin(): void {
     },
     // GET …/download?form=<id> → form-<id>.csv
     download: (ctx) => {
+      if (CAPS && !ctx.user?.can('forms.view_submissions')) {
+        return { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'ไม่มีสิทธิ์ดูข้อความที่ส่งเข้ามา' };
+      }
       const id = Number(Array.isArray(ctx.query?.form) ? ctx.query.form[0] : ctx.query?.form) || 0;
       const fm = getForm(id);
       if (!fm) return { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'ไม่พบฟอร์มนี้' };
@@ -55,7 +63,7 @@ export function registerAdmin(): void {
 
   site.action('save', {
     input: { form: 'json' },
-    access: ACCESS,
+    access: MANAGE,
     run: ({ input }) => {
       const { form, error } = validateForm(input.form);
       if (error) return fail(error);
@@ -69,7 +77,7 @@ export function registerAdmin(): void {
 
   site.action('delete', {
     input: { id: 'number' },
-    access: ACCESS,
+    access: MANAGE,
     run: ({ input }) => {
       deleteForm(Number(input.id));
       return { data: { deleted: true } };
@@ -78,13 +86,13 @@ export function registerAdmin(): void {
 
   site.action('submissions', {
     input: { formId: 'number' },
-    access: ACCESS,
+    access: SUBMISSIONS,
     run: ({ input }) => (getForm(Number(input.formId)) ? { data: listSubmissions(Number(input.formId)) } : fail(NOT_FOUND)),
   });
 
   site.action('markRead', {
     input: { id: 'number', read: 'bool' },
-    access: ACCESS,
+    access: SUBMISSIONS,
     run: ({ input }) => {
       const s = markRead(Number(input.id), input.read === true);
       return s ? { data: s } : fail('ไม่พบข้อความนี้');
@@ -93,7 +101,7 @@ export function registerAdmin(): void {
 
   site.action('deleteSubmission', {
     input: { id: 'number' },
-    access: ACCESS,
+    access: SUBMISSIONS,
     run: ({ input }) => {
       deleteSubmission(Number(input.id));
       return { data: { deleted: true } };

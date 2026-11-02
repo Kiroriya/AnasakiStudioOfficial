@@ -51,6 +51,45 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	a.issueToken(w, u, http.StatusOK)
 }
 
+// logout answers POST /api/v1/auth/logout {all?}: the session token stops
+// working at once (revoked until it expires); all=true also ends every other
+// session and ticket of the account ("sign out everywhere").
+func (a *API) logout(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		All bool `json:"all"`
+	}
+	if r.ContentLength != 0 && !readJSON(w, r, &in) {
+		return
+	}
+	p := auth.From(r)
+	if err := a.st.RevokeSession(p.JTI, p.Expires); err != nil {
+		serverErr(w, err)
+		return
+	}
+	if in.All {
+		if a.visitor(r) { // the shared demo account: don't sign the other visitors out
+			demoDenied(w)
+			return
+		}
+		if err := a.st.BumpSessionEpoch(p.ID); err != nil {
+			serverErr(w, err)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// refreshSession answers POST /api/v1/auth/refresh: a fresh session token
+// (sliding expiry; the admin app renews while it is open).
+func (a *API) refreshSession(w http.ResponseWriter, r *http.Request) {
+	u, tok, err := a.session(auth.From(r).ID)
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"token": tok, "user": u})
+}
+
 // limiterIP is the address a login limit applies to: IPv6 clients get a
 // whole /64 each, so hopping between their own addresses doesn't help.
 func limiterIP(s string) string {

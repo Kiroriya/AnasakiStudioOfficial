@@ -65,6 +65,12 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
                 <li>✅ {{ 'setup.check.db' | t }}</li>
                 <li>✅ {{ 'setup.check.version' | t: { v: version() } }}</li>
               </ul>
+              @if (tokenRequired()) {
+                <label>{{ 'setup.token' | t }}
+                  <input name="setupToken" id="setup-token" type="password" autocomplete="off" [ngModel]="setupToken()" (ngModelChange)="setupToken.set($event)" />
+                </label>
+                <p class="hint">{{ 'setup.tokenHint' | t }}</p>
+              }
             </section>
           }
           @case (1) {
@@ -184,6 +190,9 @@ export class Setup {
   readonly steps = ['language', 'site', 'admin', 'finish', 'plugins'];
   readonly step = signal<Step>(0);
   readonly version = signal('');
+  /** The server set SETUP_TOKEN: the wizard asks for it (audit M-5). */
+  readonly tokenRequired = signal(false);
+  readonly setupToken = signal('');
   readonly busy = signal(false);
   readonly error = signal('');
   readonly showPw = signal(false);
@@ -217,7 +226,7 @@ export class Setup {
   });
 
   constructor() {
-    this.api.setupStatus().then(s => this.version.set(s.version)).catch(() => undefined);
+    this.api.setupStatus().then(s => { this.version.set(s.version ?? ''); this.tokenRequired.set(!!s.tokenRequired); }).catch(() => undefined);
     this.site.setTitle('');
   }
 
@@ -281,6 +290,7 @@ export class Setup {
 
   private validate(step: Step): string {
     const t = (k: string) => this.i18n.t(k);
+    if (step === 0 && this.tokenRequired() && !this.setupToken().trim()) return t('setup.err.token');
     if (step === 1 && !this.siteTitle.trim()) return t('setup.err.title');
     if (step === 2) {
       if (!this.adminName.trim()) return t('setup.err.name');
@@ -299,6 +309,7 @@ export class Setup {
         siteTitle: this.siteTitle.trim(), tagline: this.tagline.trim(), language: this.language,
         adminName: this.adminName.trim(), adminEmail: this.adminEmail.trim(), adminPassword: this.password(),
         locale: this.i18n.locale(), demo: this.demo,
+        ...(this.tokenRequired() ? { setupToken: this.setupToken().trim() } : {}),
       });
       this.state.done();
       this.auth.accept(res);
@@ -307,6 +318,8 @@ export class Setup {
       void this.loadRecommended();
     } catch (e) {
       this.error.set(errorMessage(e));
+      // a wrong setup token: back to the first step, where it is entered
+      if ((e as { error?: { setupToken?: boolean } })?.error?.setupToken) this.step.set(0);
     } finally {
       this.busy.set(false);
     }

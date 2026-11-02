@@ -141,13 +141,13 @@ func TestOfficialAnalytics(t *testing.T) {
 
 	// the daily chart works without the newer kit: the page references the plugin's own chart (assets/chart.js draws
 	// [data-ak-line] itself when the kit has no AK.line — CMS before 2.0.3 — and loads assets/chart.css)
-	const chartScript = `<script src="/plugin-assets/analytics/assets/chart.js?v=2.0.2" defer></script>`
-	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.js?v=2.0.2"}); rec.Code != 200 ||
+	const chartScript = `<script src="/plugin-assets/analytics/assets/chart.js?v=2.0.3" defer></script>`
+	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.js?v=2.0.3"}); rec.Code != 200 ||
 		!strings.Contains(rec.Body.String(), "typeof window.AK.line == 'function'") || !strings.Contains(rec.Body.String(), "data-ak-line") ||
 		!strings.Contains(rec.Body.String(), "chart.css") || !strings.Contains(rec.Body.String(), "an-lc-tip") {
 		t.Fatalf("chart.js: %d %.300s", rec.Code, rec.Body.String())
 	}
-	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.css?v=2.0.2"}); rec.Code != 200 || !strings.Contains(rec.Body.String(), ".an-lc-plot{") {
+	if rec := e.offBSend(offBReq{path: "/plugin-assets/analytics/assets/chart.css?v=2.0.3"}); rec.Code != 200 || !strings.Contains(rec.Body.String(), ".an-lc-plot{") {
 		t.Fatalf("chart.css: %d %.300s", rec.Code, rec.Body.String())
 	}
 

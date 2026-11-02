@@ -1,7 +1,8 @@
 import { SchemaField } from './models';
 import {
   InvalidJson, editRoute, fieldsToSchema, groupFields, fromDatetimeLocal, humanizeKey, isCustomType, listColumns, listRoute, metaCell, metaErrorsFromApi,
-  normalizeAdminPages, normalizeFieldDef, normalizePostTypes, pickMeta, publicPath, supportsOf, templateOption, toDatetimeLocal, typePrefix, validateMeta,
+  normalizeAdminPages, normalizeFieldDef, normalizePostTypes, pickMeta, publicPath, routedTypes, supportsOf, templateOption, toDatetimeLocal, typePrefix,
+  typeSource, validateMeta,
 } from './post-type-utils';
 
 describe('post types from the server', () => {
@@ -15,6 +16,15 @@ describe('post types from the server', () => {
     expect(normalizePostTypes(null)).toEqual([]);
     expect(isCustomType('template')).toBe(false);
     expect(isCustomType('a_very_long_type_name_x')).toBe(false);
+  });
+  it('plugin post types (CMS 2.0.5): source and routing', () => {
+    const list = normalizePostTypes([
+      { type: 'event' }, { type: 'docs_doc', plugin: 'docs', pluginName: 'Docs', public: false, slug: 'docs' }, { type: 'shop_item', plugin: 'shop', public: true },
+    ]);
+    expect(list.map(p => p.type)).toEqual(['event', 'docs_doc', 'shop_item']);
+    expect(list.map(typeSource)).toEqual(['', 'Docs', 'shop']);
+    expect(typeSource(undefined)).toBe('');
+    expect(routedTypes(list).map(p => p.type)).toEqual(['event', 'shop_item']);
   });
   it('admin pages', () => {
     expect(normalizeAdminPages([{ id: 'reports' }, { id: '../x' }, { id: 'reports' }, { id: 'sales-2026', label: 'Sales' }]).map(p => p.id)).toEqual(['reports', 'sales-2026']);

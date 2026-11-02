@@ -195,8 +195,9 @@ func (rs *routeSpec) firstSegment() string {
 	return strings.ToLower(first)
 }
 
-// checkAccess validates an access list: "*" (anyone) or role slugs; empty =
-// administrator only.
+// checkAccess validates an access list: "*" (anyone), role slugs,
+// "group:<name>" (visitor groups) and "cap:<capability>" (users whose role
+// holds it, since 2.0.6); empty = administrator only.
 func checkAccess(list []string) ([]string, error) {
 	if len(list) == 0 {
 		return []string{"administrator"}, nil
@@ -210,8 +211,12 @@ func checkAccess(list []string) ([]string, error) {
 			if !groupNameRe.MatchString(g) {
 				return nil, fmt.Errorf("access: %q ไม่ใช่กลุ่มที่ถูกต้อง (ใช้ 'group:member')", a)
 			}
+		} else if strings.HasPrefix(a, CapPrefix) {
+			if !validCapEntry(a) {
+				return nil, fmt.Errorf("access: %q ไม่ใช่สิทธิ์ที่ถูกต้อง (ใช้ 'cap:edit_pages' หรือ 'cap:<รหัสปลั๊กอิน>.<สิทธิ์>')", a)
+			}
 		} else if a != "*" && !accessRe.MatchString(a) {
-			return nil, fmt.Errorf("access: %q ไม่ใช่ role ที่ถูกต้อง (ใช้ '*', รหัส role เช่น 'editor' หรือ 'group:member')", a)
+			return nil, fmt.Errorf("access: %q ไม่ใช่ role ที่ถูกต้อง (ใช้ '*', รหัส role เช่น 'editor', 'group:member' หรือ 'cap:<สิทธิ์>')", a)
 		}
 		out = append(out, a)
 	}

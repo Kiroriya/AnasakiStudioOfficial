@@ -6,7 +6,7 @@ import { Auth } from '../core/auth';
 import { I18n, TPipe, localized } from '../core/i18n';
 import { BUILTIN_POST_TYPES, Post, SchemaField, Settings, Term } from '../core/models';
 import { PostTypes } from '../core/post-types';
-import { editRoute, listColumns, metaCell, publicPath, supportsOf, typePrefix } from '../core/post-type-utils';
+import { editRoute, listColumns, metaCell, publicPath, supportsOf, typePrefix, typeSource } from '../core/post-type-utils';
 import { starterPage } from '../editor/presets';
 import './messages-admin';
 import './messages-content-types';
@@ -27,7 +27,11 @@ import { Pager } from '../shared/pager';
       <div class="page-head-text">
         @if (custom()) {
           <h1 id="content-type-title">{{ typeLabel() }}</h1>
-          <p>{{ 'content.custom.desc' | t: { name: typeLabel() } }}</p>
+          @if (source()) {
+            <p>{{ 'content.plugin.desc' | t: { name: typeLabel(), plugin: source() } }}</p>
+          } @else {
+            <p>{{ 'content.custom.desc' | t: { name: typeLabel() } }}</p>
+          }
         } @else {
           <h1>{{ 'content.' + type() + '.title' | t }}</h1>
           <p>{{ 'content.' + type() + '.desc' | t }}</p>
@@ -39,7 +43,13 @@ import { Pager } from '../shared/pager';
       <button class="btn btn-primary" id="content-new" (click)="create()">+ {{ newLabel() }}</button>
     </header>
 
-    @if (custom()) { <div class="info-box">💡 {{ 'content.custom.tip' | t: { slug: prefix() } }}</div> }
+    @if (custom()) {
+      @if (pt()?.public === false && source()) {
+        <div class="info-box" id="content-plugin-tip">💡 {{ 'content.plugin.tip' | t: { plugin: source() } }}</div>
+      } @else {
+        <div class="info-box">💡 {{ 'content.custom.tip' | t: { slug: prefix() } }}</div>
+      }
+    }
     @else if (type() !== 'post') { <div class="info-box">💡 {{ 'content.' + type() + '.tip' | t }}</div> }
     @if (error()) { <p class="alert">{{ error() }}</p> }
 
@@ -169,6 +179,8 @@ export class ContentList {
   readonly custom = computed(() => !BUILTIN_POST_TYPES.includes(this.type()));
   readonly pt = computed(() => (this.custom() ? this.postTypes.get(this.type()) : undefined));
   readonly typeLabel = computed(() => { this.i18n.locale(); return localized(this.pt()?.label) || this.type(); });
+  /** The JS plugin that registered this type ('' = the site code). */
+  readonly source = computed(() => typeSource(this.pt()));
   readonly prefix = computed(() => typePrefix(this.pt() ?? { type: this.type() }));
   /** Pages and templates open in the designer; posts and post types in the post editor. */
   readonly designed = computed(() => this.type() === 'page' || this.type() === 'template');

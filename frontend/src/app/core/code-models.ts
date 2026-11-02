@@ -210,9 +210,17 @@ export interface CodePostType {
   fields?: Record<string, CodeFieldSpec>;
   /** Default title + content + excerpt + image. */
   supports?: string[];
-  /** The signed-in user may edit posts of this type (access.edit roles). */
+  /** The signed-in user may edit posts of this type (access.edit roles / capabilities). */
   canEdit?: boolean;
+  /** CMS 2.0.6: the signed-in user may publish posts of this type (caps.publish, else canEdit). */
+  canPublish?: boolean;
+  /** CMS 2.0.6: the capabilities that edit / publish the type (e.g. a plugin's docs.edit / docs.publish). */
+  caps?: { edit?: string; publish?: string };
+  /** false: the site does not route /<slug>/… (a plugin serves the pages itself). */
   public?: boolean;
+  /** The JS plugin that registered the type (CMS 2.0.5); absent for Site Code types. */
+  plugin?: string;
+  pluginName?: string;
 }
 
 /** An admin page from site.adminPage (sidebar group Developer → /x/code/<id>). */

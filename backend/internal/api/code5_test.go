@@ -32,7 +32,7 @@ func TestAPITokens(t *testing.T) {
 	admin, user := setupSite(t, c)
 	admin.put("main.ts", "site.route('GET /hi', { access: ['*'] }, () => 'hi')\n", "")
 
-	tok, item := newToken(t, admin, map[string]any{"name": "laptop", "scopes": []string{"code"}, "expiresInDays": 30})
+	tok, item := newToken(t, admin, map[string]any{"name": "laptop", "scopes": []string{"code"}, "expiresInDays": 30, "currentPassword": "secret123"})
 	if !strings.HasPrefix(tok, "ast_") || len(tok) != 44 || !validTokenShape(tok) {
 		t.Fatalf("token format: %q", tok)
 	}
@@ -77,7 +77,7 @@ func TestAPITokens(t *testing.T) {
 	}
 	// role capabilities still apply to a token
 	editor := user("Ed", "editor")
-	edTok, edItem := newToken(t, editor, map[string]any{"name": "ed"})
+	edTok, edItem := newToken(t, editor, map[string]any{"name": "ed", "currentPassword": "password1"})
 	if code, _ := c.as(edTok).do("GET", "/api/v1/code/tree", nil); code != 403 {
 		t.Fatalf("editor token without view_scripts: %d", code)
 	}
@@ -98,7 +98,7 @@ func TestAPITokens(t *testing.T) {
 		t.Fatalf("revoked token: %d", code)
 	}
 	// expired → 401
-	expTok, expItem := newToken(t, admin, map[string]any{"name": "old", "expiresInDays": 90})
+	expTok, expItem := newToken(t, admin, map[string]any{"name": "old", "expiresInDays": 90, "currentPassword": "secret123"})
 	if _, err := st.DB.Exec("UPDATE api_tokens SET expires_at = ? WHERE id = ?", time.Now().UTC().Add(-time.Hour), int64(expItem["id"].(float64))); err != nil {
 		t.Fatal(err)
 	}

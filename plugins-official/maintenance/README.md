@@ -23,6 +23,8 @@
 
 **สำหรับนักพัฒนา:** `plugins.call('maintenance', 'status')` → `{enabled, bypassKey, bypassPath}`
 
+**สิทธิ์ (CMS 2.0.6+):** `maintenance.manage` — หน้าโหมดปิดปรับปรุงและแถบแจ้งเตือน (ค่าเริ่มต้น: ผู้ดูแลระบบ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
 ## English
 
 The official maintenance-mode plugin — replaces the former built-in plugin with the same behaviour.
@@ -46,3 +48,5 @@ built-in plugin).
 no longer apply — testers open the bypass link again.
 
 **Developers:** `plugins.call('maintenance', 'status')` → `{enabled, bypassKey, bypassPath}`.
+
+**Permissions (CMS 2.0.6+):** `maintenance.manage` — the Maintenance page and the admin notice (default: administrators) — change them in Users → Roles · older CMS versions keep the former role list

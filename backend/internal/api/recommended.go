@@ -237,7 +237,7 @@ func (a *API) installOfficial(id string) (plugin.Installed, error) {
 		}
 		return a.plugins.SetPackageActive(id, true)
 	}
-	data, err := a.plugins.DownloadFromStore(id, "")
+	data, pub, err := a.plugins.DownloadFromStoreMeta(id, "")
 	if err != nil {
 		var se *plugin.StoreError
 		if errors.As(err, &se) && se.Status == http.StatusNotFound {
@@ -248,7 +248,7 @@ func (a *API) installOfficial(id string) (plugin.Installed, error) {
 	if err := verifyOfficialPackage(data, id); err != nil {
 		return plugin.Installed{}, err
 	}
-	if _, err := a.plugins.InstallPackage(data, "store", id); err != nil {
+	if _, err := a.plugins.InstallPackageWith(data, "store", id, plugin.InstallOptions{Publisher: pub}); err != nil {
 		return plugin.Installed{}, err
 	}
 	return a.plugins.SetPackageActive(id, true)

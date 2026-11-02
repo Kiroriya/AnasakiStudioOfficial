@@ -7,7 +7,7 @@ import { I18n, TPipe } from '../core/i18n';
 import { InstalledPackage, PluginInfo, Reconsent, StoreCategory, StoreDetail, StoreReview, StoreSummary } from '../core/models';
 import { PluginConsentDialog, PluginDepsDialog, PluginUninstallDialog, UninstallChoice, UninstallState } from './plugin-dialogs';
 import {
-  ConsentState, DepStatus, OptionalDepStatus, consentFor, consentNeeded, dependencyStatus, dependentsFromError, dependentsOf, destructiveFromError, isJsPlugin,
+  ConsentState, DepStatus, OptionalDepStatus, consentFor, consentNeeded, dependencyStatus, dependentsFromError, dependentsOf, destructiveFromError, isJsPlugin, publisherChangedFromError,
   isSensitiveScope, missingDeps, missingFromError, namesOf, normalizeRequires, optionalIcon, optionalStatus, scopeLabel, sortScopes,
 } from './plugin-deps';
 import './messages-plugins4b';
@@ -341,7 +341,13 @@ import { Pager } from '../shared/pager';
             <div><b>{{ n(d.views) }}</b><small>{{ 'store.views' | t }}</small></div>
             <div><b>{{ catName(d.category) }}</b><small>{{ 'store.category' | t }}</small></div>
           </div>
+          @if (d.publisherChanged) {
+            <div class="alert" role="alert">{{ 'store.publisherChanged' | t: { old: d.installedPublisher ?? '?', now: d.publisher || '?' } }}</div>
+          }
           <div class="row-actions detail-actions">
+            @if (d.publisherChanged && d.installedVersion !== d.version) {
+              <button class="btn btn-danger" [disabled]="busy() === d.id" (click)="install(d.id, true)">⚠ {{ 'store.publisherUpdate' | t }}</button>
+            }
             @if (d.updateAvailable) {
               <button class="btn btn-primary" [disabled]="busy() === d.id" (click)="install(d.id, true)">⬆ {{ 'store.updateTo' | t: { v: d.version } }}</button>
             } @else if (d.installed) {
@@ -691,7 +697,7 @@ export class PluginsPage implements OnInit {
           const destr = destructiveFromError(e);
           if (destr.length && !confirmDestructive) {
             this.busy.set(null);
-            if (!(await this.askConsent(consentFor('activate', p, null, destr)))) return false;
+            if (!(await this.askConsent(consentFor('activate', p, null, destr, this.i18n.locale())))) return false;
             confirmDestructive = true;
             this.busy.set(p.id);
             continue;
@@ -845,15 +851,16 @@ export class PluginsPage implements OnInit {
     }
     let base: ConsentState | null = null;
     if (!update && d) {
-      base = consentFor('install', d);
+      base = consentFor('install', d, null, [], this.i18n.locale());
       if (consentNeeded(base) && !(await this.askConsent(base))) return false;
     }
     let confirmDestructive = false;
+    let acceptPublisher = false;
     this.busy.set(id);
     try {
       for (let attempt = 0; attempt < 4; attempt++) {
         try {
-          const p = await this.api.installPackage(id, undefined, confirmDestructive ? { confirmDestructive } : {});
+          const p = await this.api.installPackage(id, undefined, { confirmDestructive, acceptPublisher });
           await this.loadPackages();
           this.refreshInstalledFlags();
           this.updates.update(u => { const c = { ...u }; delete c[id]; return c; });
@@ -870,10 +877,17 @@ export class PluginsPage implements OnInit {
             this.busy.set(id);
             continue;
           }
+          if (publisherChangedFromError(e) && !acceptPublisher) {
+            this.busy.set(null);
+            if (!(await Dialog.confirm({ title: this.i18n.t('store.publisherConfirm'), text: errorMessage(e), danger: true, icon: 'warning' }))) return false;
+            acceptPublisher = true;
+            this.busy.set(id);
+            continue;
+          }
           const destr = destructiveFromError(e);
           if (destr.length && !confirmDestructive) {
             this.busy.set(null);
-            const c = base ?? consentFor(update ? 'upgrade' : 'install', d ?? { name: id });
+            const c = base ?? consentFor(update ? 'upgrade' : 'install', d ?? { name: id }, null, [], this.i18n.locale());
             if (!(await this.askConsent({ ...c, mode: update ? 'upgrade' : 'install', destructive: destr }))) return false;
             confirmDestructive = true;
             this.busy.set(id);

@@ -1,7 +1,7 @@
 {
   "id": "forms",
   "name": "Forms",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Form builder: contact, newsletter or quote forms placed with the designer block, an inbox with CSV export, spam protection, mail notification, webhooks and the form.submitted event. / สร้างฟอร์ม วางบนหน้าเว็บด้วยดีไซเนอร์ ดูข้อความที่ส่งเข้ามา ส่งออก CSV แจ้งเตือนทางอีเมล และ webhook",
   "author": "Anasaki Studio",
   "icon": "📝",
@@ -12,6 +12,14 @@
   "runtime": "js",
   "legacy": "forms",
   "permissions": ["code", "settings", "webhooks"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "สร้างและแก้ไขแบบฟอร์ม", "en": "Build and edit forms" },
+      "description": { "th": "เปิดหน้าแบบฟอร์ม สร้าง แก้ไข และลบฟอร์ม", "en": "Open the Forms page and create, edit or delete forms" },
+      "default": ["administrator", "editor"] },
+    { "id": "view_submissions", "label": { "th": "ดูข้อความที่ส่งเข้ามา", "en": "View submissions" },
+      "description": { "th": "อ่าน ทำเครื่องหมาย ลบข้อความ และส่งออก CSV", "en": "Read, mark and delete submissions and export them as CSV" },
+      "default": ["administrator", "editor"] }
+  ],
   "settings": [
     { "key": "notifyEmail", "type": "text", "maxLength": 200, "placeholder": "owner@example.com",
       "label": { "th": "อีเมลรับแจ้งเตือน", "en": "Notification email" },

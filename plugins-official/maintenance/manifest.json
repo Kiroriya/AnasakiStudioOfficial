@@ -1,7 +1,7 @@
 {
   "id": "maintenance",
   "name": "Maintenance mode / โหมดปิดปรับปรุง",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Shows a \"back soon\" page (HTTP 503 + Retry-After) to visitors while the site is being worked on; the admin keeps working and a bypass link lets testers see the real site. / แสดงหน้า \"ปิดปรับปรุงชั่วคราว\" (HTTP 503) ให้ผู้เยี่ยมชม ผู้ดูแลยังใช้หลังบ้านได้ และดูเว็บจริงได้ด้วยลิงก์ bypass",
   "author": "Anasaki Studio",
   "icon": "🚧",
@@ -12,6 +12,11 @@
   "runtime": "js",
   "legacy": "maintenance",
   "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "ควบคุมโหมดปิดปรับปรุง", "en": "Control maintenance mode" },
+      "description": { "th": "เปิด/ปิดโหมดปิดปรับปรุง แก้ข้อความ และดูลิงก์ข้ามการปิดปรับปรุง", "en": "Switch maintenance mode, edit its message and see the bypass link" },
+      "default": ["administrator"] }
+  ],
   "settings": [
     { "key": "enabled", "type": "boolean", "default": false,
       "label": { "th": "เปิดโหมดปิดปรับปรุง", "en": "Enable maintenance mode" } },

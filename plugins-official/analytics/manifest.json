@@ -1,7 +1,7 @@
 {
   "id": "analytics",
   "name": "Analytics",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Privacy-friendly server-side page-view counter: no cookies, no third-party script, raw IPs never stored — popular pages, daily visitors and referrers. / นับยอดเข้าชมฝั่งเซิร์ฟเวอร์ ไม่ใช้คุกกี้ ไม่เก็บ IP — หน้ายอดนิยม ผู้เข้าชมรายวัน และแหล่งที่มา",
   "author": "Anasaki Studio",
   "icon": "📈",
@@ -12,6 +12,11 @@
   "runtime": "js",
   "legacy": "analytics",
   "permissions": ["code"],
+  "capabilities": [
+    { "id": "view", "label": { "th": "ดูสถิติผู้เข้าชม", "en": "View analytics" },
+      "description": { "th": "เปิดหน้าสถิติผู้เข้าชมและเห็นการ์ดผู้เข้าชมบนแดชบอร์ด", "en": "Open the Analytics page and see the visitors card on the dashboard" },
+      "default": ["administrator", "editor"] }
+  ],
   "code": {
     "entry": "code/main.ts",
     "scopes": ["db", "content", "middleware", "admin-pages"],

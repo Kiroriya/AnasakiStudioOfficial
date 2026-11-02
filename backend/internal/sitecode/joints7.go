@@ -373,25 +373,45 @@ func (v *vm) siteSetMeta(c goja.FunctionCall) goja.Value {
 	return v.toJS(out)
 }
 
-// WithUnitFields adds the custom fields of running JS plugins (site.fields,
-// keys "<id>.<key>") to manifest m for post, page and m's custom types; m
-// itself is not changed.
+// WithUnitFields adds what running JS plugins register for content to
+// manifest m: their post types (site.postType, scope "post-types", since
+// 2.0.5) and their custom fields (site.fields, keys "<id>.<key>") of post,
+// page and every custom type; m itself is not changed. A plugin type whose
+// id or slug is already taken in m is skipped (activation refuses it, but m
+// may be a draft).
 func (e *Engine) WithUnitFields(m Manifest) Manifest {
-	set := e.units()
-	var add []*liveProg
-	for _, lp := range set.loaded() {
+	return withUnits(m, e.units().loaded())
+}
+
+func withUnits(m Manifest, units []*liveProg) Manifest {
+	var withTypes, withFields []*liveProg
+	for _, lp := range units {
+		if len(lp.prog.Manifest.PostTypes) > 0 {
+			withTypes = append(withTypes, lp)
+		}
 		if len(lp.prog.fields) > 0 {
-			add = append(add, lp)
+			withFields = append(withFields, lp)
 		}
 	}
-	if len(add) == 0 {
+	if len(withTypes) == 0 && len(withFields) == 0 {
 		return m
+	}
+	if len(withTypes) > 0 {
+		types := append([]PostTypeInfo(nil), m.PostTypes...)
+		for _, lp := range withTypes {
+			for _, t := range lp.prog.Manifest.PostTypes {
+				if typeTaken(types, t.Type, t.Slug) == "" {
+					types = append(types, t)
+				}
+			}
+		}
+		m.PostTypes = types
 	}
 	fields := map[string][]FieldInfo{}
 	for k, list := range m.Fields {
 		fields[k] = append([]FieldInfo(nil), list...)
 	}
-	for _, lp := range add {
+	for _, lp := range withFields {
 		types := make([]string, 0, len(lp.prog.fields))
 		for t := range lp.prog.fields {
 			types = append(types, t)
@@ -406,6 +426,90 @@ func (e *Engine) WithUnitFields(m Manifest) Manifest {
 	}
 	m.Fields = fields
 	return m
+}
+
+// typeTaken returns the type of list that has id or slug ("" = free).
+func typeTaken(list []PostTypeInfo, id, slug string) string {
+	for _, t := range list {
+		if t.Type == id || t.Slug == slug {
+			return t.Type
+		}
+	}
+	return ""
+}
+
+func typeOwner(t PostTypeInfo) string {
+	if t.Plugin != "" {
+		return "ปลั๊กอิน " + t.Plugin
+	}
+	return "Site Code"
+}
+
+// unitTypeConflicts checks the post types of plugin unit lp against Site
+// Code's live types (site), the other loaded plugins (others) and the URL
+// prefixes other installed plugins declare (code.routes / service public).
+func (e *Engine) unitTypeConflicts(lp *liveProg, site Manifest, others []*liveProg) []Problem {
+	types := lp.prog.Manifest.PostTypes
+	if len(types) == 0 {
+		return nil
+	}
+	var probs []Problem
+	taken := append([]PostTypeInfo(nil), site.PostTypes...)
+	for _, o := range others {
+		if o.unit.ID != lp.unit.ID {
+			taken = append(taken, o.prog.Manifest.PostTypes...)
+		}
+	}
+	declared := map[string]string{}
+	if e.cfg.Plugins != nil {
+		for _, r := range e.cfg.Plugins.CodeUnits() {
+			if r.ID == lp.unit.ID {
+				continue
+			}
+			for _, p := range r.Code.Routes {
+				first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+				if first = strings.ToLower(first); first != "" && declared[first] == "" {
+					declared[first] = r.ID
+				}
+			}
+		}
+	}
+	for _, t := range types {
+		for _, o := range taken {
+			switch {
+			case o.Type == t.Type:
+				probs = append(probs, Problem{Message: fmt.Sprintf("site.postType %q: มีประเภทนี้แล้ว (ลงทะเบียนโดย %s)", t.Type, typeOwner(o))})
+			case o.Slug == t.Slug:
+				probs = append(probs, Problem{Message: fmt.Sprintf("site.postType %q: slug /%s ซ้ำกับประเภท %q ของ %s", t.Type, t.Slug, o.Type, typeOwner(o))})
+			default:
+				continue
+			}
+			break
+		}
+		if id := declared[t.Slug]; id != "" {
+			probs = append(probs, Problem{Message: fmt.Sprintf("site.postType %q: slug /%s เป็น URL ของปลั๊กอิน %s", t.Type, t.Slug, id)})
+		}
+	}
+	return probs
+}
+
+// siteTypeConflicts checks Site Code's post types (m) against the types of
+// the loaded plugins (publish / restore).
+func siteTypeConflicts(m Manifest, units []*liveProg) []Problem {
+	var probs []Problem
+	for _, lp := range units {
+		for _, pt := range lp.prog.Manifest.PostTypes {
+			for _, t := range m.PostTypes {
+				switch {
+				case t.Type == pt.Type:
+					probs = append(probs, Problem{Message: fmt.Sprintf("site.postType %q: ปลั๊กอิน %s ลงทะเบียนประเภทนี้ไว้แล้ว", t.Type, lp.unit.ID)})
+				case t.Slug == pt.Slug:
+					probs = append(probs, Problem{Message: fmt.Sprintf("site.postType %q: slug /%s ซ้ำกับประเภท %q ของปลั๊กอิน %s", t.Type, t.Slug, pt.Type, lp.unit.ID)})
+				}
+			}
+		}
+	}
+	return probs
 }
 
 // ---------------------------------------------------------------- admin notices
@@ -440,7 +544,7 @@ const (
 
 var noticeLevels = map[string]bool{"info": true, "warning": true, "danger": true, "success": true}
 
-// accessList reads {access: [...]} (role slugs) with default def.
+// accessList reads {access: [...]} (role slugs, "cap:<capability>") with default def.
 func (v *vm) accessList(o *goja.Object, def []string, what string) []string {
 	if o == nil {
 		return def
@@ -454,10 +558,11 @@ func (v *vm) accessList(o *goja.Object, def []string, what string) []string {
 		v.throw("%s: access ต้องเป็น array ของ role เช่น ['editor']", what)
 	}
 	for _, r := range list {
-		if !accessRe.MatchString(r) {
-			v.throw("%s: access: %q ไม่ใช่ role ที่ถูกต้อง", what, r)
+		if !adminEntry(r) {
+			v.throw("%s: access: %q ไม่ใช่ role ที่ถูกต้อง (หรือ 'cap:<สิทธิ์>')", what, r)
 		}
 	}
+	v.vetCaps(list, what)
 	return list
 }
 

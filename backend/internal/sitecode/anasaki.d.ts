@@ -40,9 +40,13 @@ interface SiteUser {
   email: string;
   /** Role slug, e.g. "administrator", "editor". / รหัส role */
   role: string;
-  /** Capabilities of the role. / สิทธิ์ของ role */
+  /** Capabilities of the role (in a JS plugin: the core ones and the plugin's own "<id>.*"). / สิทธิ์ของ role */
   caps: string[];
-  /** Whether the user's role has a capability. / ตรวจว่ามีสิทธิ์นี้ไหม */
+  /**
+   * Whether the user's role has a capability: a core one ('edit_pages') or, since 2.0.6, one of the plugin's
+   * own capabilities declared in the manifest ('analytics.view'). Naming another plugin's capability throws.
+   * ตรวจว่ามีสิทธิ์นี้ไหม (ปลั๊กอินตรวจได้เฉพาะสิทธิ์ของตัวเอง)
+   */
   can(cap: string): boolean;
 }
 
@@ -99,7 +103,9 @@ type RouteResult = RouteResponse | RoutePageResult | object | string | number | 
 
 interface RouteOptions {
   /**
-   * Who may call the route: `['*']` = anyone, otherwise role slugs (the administrator always may).
+   * Who may call the route: `['*']` = anyone, otherwise role slugs (the administrator always may),
+   * `'group:<name>'` (visitor groups) and, since 2.0.6, `'cap:<capability>'` — every role holding the
+   * capability (Users → Roles), e.g. `['cap:analytics.view']`. A plugin names only its own capabilities.
    * Default: `['administrator']`.
    * ใครเรียกได้: ['*'] = ทุกคน หรือรหัส role; ค่าเริ่มต้น = ผู้ดูแลระบบเท่านั้น
    */
@@ -701,15 +707,21 @@ interface PostTypeSpec {
   label?: I18nLabel;
   singular?: I18nLabel;
   icon?: string;
-  /** Public URL prefix (/<slug>/<post-slug>, archive /<slug>); default = the type id. */
+  /** Public URL prefix (/<slug>/<post-slug>, archive /<slug>); default = the type id (a plugin type: the id with "_" → "-"). A plugin may use one of its own code.routes prefixes. */
   slug?: string;
-  /** Default true. */
+  /** Default true. false: the CMS does not route /<slug> or /<slug>/<post-slug> — your own routes serve the type's pages. */
   public?: boolean;
   /** Default ['title', 'content', 'excerpt', 'image']. */
   supports?: ('title' | 'content' | 'excerpt' | 'image' | 'categories')[];
   fields?: Record<string, CustomField>;
-  /** Roles that edit (and publish) this type; default ['editor', 'administrator']. */
+  /** Roles (or 'cap:<capability>' entries, 2.0.6) that edit (and publish) this type; default ['editor', 'administrator']. */
   access?: { edit?: string[] };
+  /**
+   * Since 2.0.6: the capabilities that edit / publish the type, e.g. { edit: 'docs.edit', publish: 'docs.publish' }
+   * (a plugin's own, declared in the manifest). caps.edit replaces the default role list; caps.publish limits
+   * publishing (else whoever edits may publish). The REST /posts endpoints and db.posts enforce them.
+   */
+  caps?: { edit?: string; publish?: string };
 }
 
 interface JobContext {
@@ -772,7 +784,7 @@ interface Site {
   visitorGroups(groups: string[]): void;
   /** Export a function other units can import (a plugin: only names listed in code.exports); it runs in this unit's context with JSON arguments / result. / ส่งออกฟังก์ชันให้โค้ดอื่นเรียก */
   export(name: string, fn: (...args: any[]) => any): void;
-  /** A custom post type (admin menu, editor with fields, /<slug>/<post-slug>). / ประเภทเนื้อหาใหม่ */
+  /** A custom post type (admin menu, editor with fields, /<slug>/<post-slug>). In a JS plugin (scope "post-types", CMS 2.0.5) the id must be "<plugin id, - as _>_<name>" (≤ 20 characters), e.g. docs_doc. / ประเภทเนื้อหาใหม่ */
   postType(id: string, spec: PostTypeSpec): void;
   /** Custom fields for 'post', 'page' or a custom type. / ฟิลด์เพิ่มเติม */
   fields(type: string, fields: Record<string, CustomField>): void;
@@ -1089,6 +1101,12 @@ interface Site {
   dashboardWidget(id: string, spec: DashboardWidgetSpec): void;
   /** A designer block rendered on the server (JS plugins; the node is {plugin, block, values}). / บล็อกดีไซเนอร์ที่เรนเดอร์ฝั่ง server */
   block(type: string, spec: BlockSpec): void;
+  /**
+   * Since 2.0.6: whether user (ctx.user; null → false) holds a capability — a core one or one of the plugin's own
+   * ("<id>.<capability>", manifest "capabilities"). Feature-detect with `typeof site.can === 'function'`.
+   * ตรวจสิทธิ์ของผู้ใช้ (ปลั๊กอินตรวจได้เฉพาะสิทธิ์ของตัวเอง)
+   */
+  can(user: SiteUser | null | undefined, cap: string): boolean;
 }
 
 

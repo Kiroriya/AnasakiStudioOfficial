@@ -189,8 +189,12 @@ func TestSetupUsersRolesFlow(t *testing.T) {
 	if code, _ := c.do("POST", "/api/v1/setup", setup); code != 409 {
 		t.Fatalf("second setup must be 409, got %d", code)
 	}
-	if _, body := c.do("GET", "/api/public/site", nil); body["siteTitle"] != "My Site" || body["adminPath"] != "admin" {
+	// audit L-4: no admin path, and the version only for a signed-in session
+	if _, body := c.do("GET", "/api/public/site", nil); body["siteTitle"] != "My Site" || body["adminPath"] != nil || body["version"] != nil {
 		t.Fatalf("public site: %v", body)
+	}
+	if _, body := admin.do("GET", "/api/public/site", nil); body["version"] == nil || body["adminPath"] != nil {
+		t.Fatalf("public site (signed in): %v", body)
 	}
 	if _, body := admin.do("GET", "/api/v1/settings", nil); body["home_page_id"] == "" || body["timezone"] != "Asia/Bangkok" {
 		t.Fatalf("settings after blank setup: %v", body)
@@ -284,8 +288,8 @@ func TestUploadAndDownload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, hash, _ := st.UserByEmail("admin@x.io")
-	tok, _ := auth.New("test-secret").Issue(admin, hash)
+	_, cred, _ := st.UserAuthByID(admin.ID) // the session credential (password hash + session epoch)
+	tok, _ := auth.New("test-secret").Issue(admin, cred)
 	upload := func(name, content string) (int, map[string]any) {
 		var buf bytes.Buffer
 		mw := multipart.NewWriter(&buf)

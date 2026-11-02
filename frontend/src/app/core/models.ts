@@ -29,10 +29,26 @@ export interface User {
 export interface UserList { items: User[]; total: number; counts: Record<string, number> }
 
 export interface RoleInfo { slug: string; name: string; builtin: boolean; caps: string[]; userCount: number }
-export interface RolesResponse { roles: RoleInfo[]; caps: { key: string; group: string }[]; builtin?: string[] }
+/**
+ * A capability of the catalog (GET /roles). Plugin capabilities (CMS 2.0.6) have group "plugins", key
+ * "<plugin>.<id>" and carry the plugin and the manifest's th/en label and description.
+ */
+export interface CapInfo {
+  key: string;
+  group: string;
+  plugin?: string;
+  pluginName?: string;
+  pluginIcon?: string;
+  label?: { th?: string; en?: string };
+  description?: { th?: string; en?: string };
+  default?: string[];
+}
+export interface RolesResponse { roles: RoleInfo[]; caps: CapInfo[]; builtin?: string[] }
 
-export interface SetupStatus { needsSetup: boolean; product: string; version: string }
-export interface PublicSite { siteTitle: string; tagline: string; siteIcon: string; siteLogo: string; adminPath: string; product: string; version: string; demo?: DemoStatus }
+/** GET /setup: `version` and `tokenRequired` (SETUP_TOKEN is set) only while the site still needs setup. */
+export interface SetupStatus { needsSetup: boolean; product: string; version?: string; tokenRequired?: boolean }
+/** GET /api/public/site: `version` only for a signed-in session; the admin path is never public. */
+export interface PublicSite { siteTitle: string; tagline: string; siteIcon: string; siteLogo: string; product: string; version?: string; demo?: DemoStatus }
 
 /** Demo mode (public playground): shared visitor account and periodic reset. */
 export interface DemoStatus { enabled: boolean; email: string; password: string; everyMinutes: number; nextReset: string; baselineAt: string }
@@ -224,6 +240,18 @@ export interface InstalledPackage {
   code?: PackageCode;
   /** Why a JS plugin could not be activated (build/migration/visitor/route errors); it stays off. */
   activationError?: string | null;
+  /** CMS 2.0.6: what the plugin lets roles do (ticked per role in Users → Roles). */
+  capabilities?: PluginCapability[];
+}
+
+/** A capability a plugin declares in its manifest (CMS 2.0.6); key = "<plugin>.<id>" (installed packages). */
+export interface PluginCapability {
+  id: string;
+  key?: string;
+  label: { th?: string; en?: string } | string;
+  description?: { th?: string; en?: string } | string | null;
+  /** Roles granted the capability when it first appears. */
+  default?: string[];
 }
 
 /** Phase 4b: what a JS plugin's code asks for (manifest `code`). */
@@ -255,6 +283,8 @@ export interface StoreSummary {
   id: string; name: string; version: string; description: string; author: string; icon: string; iconUrl?: string;
   category: string; tags: string[]; downloads: number; views: number; rating: number; ratingCount: number;
   verified: boolean; official?: boolean; updatedAt: string; installed?: boolean; installedVersion?: string; updateAvailable?: boolean;
+  /** Store publisher id; publisherChanged: it differs from the one the installed plugin is bound to (no update offered). */
+  publisher?: string; publisherChanged?: boolean; installedPublisher?: string;
 }
 export interface StoreDetail extends StoreSummary {
   readme: string; homepage: string; license: string; permissions: string[]; screenshots: string[];
@@ -265,6 +295,8 @@ export interface StoreDetail extends StoreSummary {
   /** Phase 6: "works with" plugins (optional, never blocking). */
   optionalRequires?: PackageRequiresRaw;
   code?: PackageCode;
+  /** Store 1.2.2: the capabilities the plugin declares (manifest `capabilities`). */
+  capabilities?: PluginCapability[];
 }
 export interface StoreCategory { slug: string; name: string; nameEn: string; icon: string; count: number }
 export interface StoreReview { stars: number; comment: string; author: string; createdAt: string }
@@ -282,4 +314,4 @@ export interface ApiToken {
 }
 
 /** POST /auth/tokens body; expiresInDays 0 = never. */
-export interface ApiTokenCreate { name: string; scopes: string[]; expiresInDays: number }
+export interface ApiTokenCreate { name: string; scopes: string[]; expiresInDays: number; currentPassword?: string }

@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
 )
 
@@ -36,17 +37,21 @@ const packagesSchema = `CREATE TABLE IF NOT EXISTS plugin_packages (
 
 // Installed is the API representation of an installed package plugin.
 type Installed struct {
-	ID             string           `json:"id"`
-	Name           string           `json:"name"`
-	Version        string           `json:"version"`
-	Description    string           `json:"description"`
-	Author         string           `json:"author"`
-	Icon           string           `json:"icon"`
-	IconURL        string           `json:"iconUrl"`
-	Category       string           `json:"category"`
-	Permissions    []string         `json:"permissions"`
-	Active         bool             `json:"active"`
-	Source         string           `json:"source"` // upload | store
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version"`
+	Description string   `json:"description"`
+	Author      string   `json:"author"`
+	Icon        string   `json:"icon"`
+	IconURL     string   `json:"iconUrl"`
+	Category    string   `json:"category"`
+	Permissions []string `json:"permissions"`
+	Active      bool     `json:"active"`
+	Source      string   `json:"source"` // upload | store
+	// Publisher is the Store publisher id the package is bound to (set by
+	// the first install from the Store; "" = unknown). Updates from another
+	// publisher are refused (audit H-2).
+	Publisher      string           `json:"publisher,omitempty"`
 	InstalledAt    time.Time        `json:"installedAt"`
 	SettingsSchema []Field          `json:"settingsSchema"`
 	Settings       Values           `json:"settings"`
@@ -79,6 +84,9 @@ type Installed struct {
 	// Legacy: the former built-in plugin this official package replaces
 	// (manifest "legacy", phase 7).
 	Legacy string `json:"legacy,omitempty"`
+	// Capabilities the plugin declares (since 2.0.6): "<id>.<capability>",
+	// ticked per role in Users → Roles.
+	Capabilities []CapabilityView `json:"capabilities"`
 }
 
 // Reconsent lists what upgrades added that still awaits approval.
@@ -192,6 +200,7 @@ type pkg struct {
 	secret      string // shared HMAC secret with the service
 	reconsent   *Reconsent
 	codeError   string // activation error of a JS plugin
+	publisher   string // Store publisher id the package is bound to ("" = unknown)
 }
 
 type packages struct {
@@ -211,6 +220,11 @@ type packages struct {
 	segMu  sync.Mutex
 	segs   map[string]bool // first path segments of the site (siteSegments)
 	segsAt time.Time
+
+	// capCatalog cache (guarded by mu): valid for the list loaded at capsAt
+	caps   []auth.CapInfo
+	capsAt time.Time
+	capsOK bool
 }
 
 func newPackages(m *Manager) (*packages, error) {
@@ -247,7 +261,7 @@ func (p *packages) all() []*pkg {
 		return p.list
 	}
 	rows, err := p.db.Query(`SELECT id, version, manifest, active, source, COALESCE(settings, '{}'), installed_at,
-		service_url, service_secret, COALESCE(consent_pending, ''), COALESCE(code_error, '') FROM plugin_packages`)
+		service_url, service_secret, COALESCE(consent_pending, ''), COALESCE(code_error, ''), publisher FROM plugin_packages`)
 	if err != nil {
 		log.Printf("plugin packages: %v", err)
 		return p.list
@@ -255,11 +269,11 @@ func (p *packages) all() []*pkg {
 	defer rows.Close()
 	var list []*pkg
 	for rows.Next() {
-		var id, ver, src, svcURL, secret, consent, codeErr string
+		var id, ver, src, svcURL, secret, consent, codeErr, publisher string
 		var mfRaw, setRaw []byte
 		var active bool
 		var at time.Time
-		if err := rows.Scan(&id, &ver, &mfRaw, &active, &src, &setRaw, &at, &svcURL, &secret, &consent, &codeErr); err != nil {
+		if err := rows.Scan(&id, &ver, &mfRaw, &active, &src, &setRaw, &at, &svcURL, &secret, &consent, &codeErr, &publisher); err != nil {
 			log.Printf("plugin packages: %v", err)
 			continue
 		}
@@ -279,7 +293,7 @@ func (p *packages) all() []*pkg {
 		}
 		list = append(list, &pkg{mf: &mf, version: ver, active: active, source: src, installedAt: at,
 			settings: Sanitize(mf.Settings, stored), dir: filepath.Join(p.root, id, ver), serviceURL: svcURL, secret: secret,
-			reconsent: rc, codeError: codeErr})
+			reconsent: rc, codeError: codeErr, publisher: publisher})
 	}
 	sort.Slice(list, func(i, j int) bool { return strings.ToLower(list[i].mf.Name) < strings.ToLower(list[j].mf.Name) })
 	p.list, p.loadedAt = list, time.Now()
@@ -335,7 +349,7 @@ func (p *packages) file(k *pkg, rel string) string {
 func (k *pkg) view() Installed {
 	mf := k.mf
 	in := Installed{ID: mf.ID, Name: mf.Name, Version: k.version, Description: mf.Description, Author: mf.Author,
-		Icon: mf.Icon, Category: mf.Category, Permissions: mf.Permissions, Active: k.active, Source: k.source,
+		Icon: mf.Icon, Category: mf.Category, Permissions: mf.Permissions, Active: k.active, Source: k.source, Publisher: k.publisher,
 		InstalledAt: k.installedAt, SettingsSchema: mf.Settings, Settings: k.settings, Blocks: []InstalledBlock{}}
 	if ip := mf.IconPath(); ip != "" {
 		in.Icon = ""
@@ -382,6 +396,7 @@ func (k *pkg) view() Installed {
 		in.Functions = mf.Service.Functions
 	}
 	in.Legacy = mf.Legacy
+	in.Capabilities = mf.capabilityViews()
 	return in
 }
 
@@ -441,11 +456,43 @@ func (m *Manager) InstalledVersion(id string) string {
 	return ""
 }
 
+// InstalledPublisher returns the Store publisher id installed package id is
+// bound to ("" when it is not installed or the publisher is unknown).
+func (m *Manager) InstalledPublisher(id string) string {
+	if k := m.pkgs.get(id); k != nil {
+		return k.publisher
+	}
+	return ""
+}
+
 // InstallOptions are the administrator's answers for an install / upgrade.
 type InstallOptions struct {
 	// ConfirmDestructive allows migrations of a JS plugin upgrade that drop
 	// or rename data (backups are made first).
 	ConfirmDestructive bool
+	// Publisher is the Store publisher id of the downloaded package (source
+	// "store"; X-Anasaki-Publisher). The first install binds the package to
+	// it; an update from another publisher is a *PublisherError unless
+	// AcceptPublisher (the administrator trusts the new publisher).
+	Publisher       string
+	AcceptPublisher bool
+}
+
+// PublisherError: an update from the Store comes from another publisher than
+// the one the installed plugin is bound to — the plugin id may have changed
+// hands (audit H-2). Nothing is installed (HTTP 409).
+type PublisherError struct {
+	ID, Installed, Offered string
+}
+
+func (e *PublisherError) Error() string {
+	offered := e.Offered
+	if offered == "" {
+		offered = "unknown"
+	}
+	return fmt.Sprintf("อัปเดตนี้มาจากผู้เผยแพร่คนละรายกับปลั๊กอิน %s ที่ติดตั้งไว้ (เดิม %s, ใหม่ %s) — ปลั๊กอินอาจเปลี่ยนมือ จึงไม่ได้ติดตั้งให้ ตรวจสอบกับร้านก่อน / "+
+		"This update of %s comes from a different publisher (installed: %s, offered: %s) — the plugin may have changed hands; it was not installed",
+		e.ID, e.Installed, offered, e.ID, e.Installed, offered)
 }
 
 // InstallPackage validates a zip and installs (or upgrades) it. source is
@@ -492,13 +539,16 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 	p.installMu.Lock()
 	defer p.installMu.Unlock()
 	old := p.get(mf.ID)
+	if source == "store" && old != nil && old.publisher != "" && opts.Publisher != old.publisher && !opts.AcceptPublisher {
+		return Installed{}, &PublisherError{ID: mf.ID, Installed: old.publisher, Offered: opts.Publisher}
+	}
 	reactivate := old != nil && old.active && mf.Runtime == RuntimeJS && mf.Code != nil && reconsentFor(old, mf) == nil
 	if reactivate {
 		if m.code == nil {
 			return Installed{}, &ActivationError{Msg: "ระบบ Site Code ไม่พร้อมใช้งาน — อัปเกรดปลั๊กอิน JavaScript ไม่ได้"}
 		}
 		ref := CodeUnitRef{ID: mf.ID, Name: mf.Name, Version: mf.Version, InstalledAt: old.installedAt, Active: true,
-			Code: *mf.Code, Requires: mf.Requires, OptionalRequires: mf.OptionalRequires, Source: source}
+			Code: *mf.Code, Requires: mf.Requires, OptionalRequires: mf.OptionalRequires, Source: source, Capabilities: mf.CapKeys()}
 		plan, err := m.code.PlanUnit(ref, codeFilesOf(files))
 		if err != nil {
 			return Installed{}, err
@@ -576,13 +626,18 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 	if mf.Service != nil {
 		secret = NewServiceSecret() // kept on upgrade when one exists
 	}
-	if _, err := p.db.Exec(`INSERT INTO plugin_packages (id, version, manifest, active, source, settings, installed_at, updated_at, service_secret, consent_pending, code_error)
-		VALUES (?,?,?,FALSE,?,?,?,?,?,'','')
+	publisher := "" // only the Store vouches for a publisher; an upload keeps the binding
+	if source == "store" {
+		publisher = opts.Publisher
+	}
+	if _, err := p.db.Exec(`INSERT INTO plugin_packages (id, version, manifest, active, source, settings, installed_at, updated_at, service_secret, consent_pending, code_error, publisher)
+		VALUES (?,?,?,FALSE,?,?,?,?,?,'','',?)
 		ON DUPLICATE KEY UPDATE version=VALUES(version), manifest=VALUES(manifest), source=VALUES(source),
 		settings=VALUES(settings), updated_at=VALUES(updated_at),
 		service_secret=IF(service_secret='', VALUES(service_secret), service_secret),
+		publisher=IF(VALUES(publisher)<>'', VALUES(publisher), publisher),
 		active=IF(?<>'', FALSE, active), consent_pending=?, code_error=''`,
-		mf.ID, mf.Version, mfJSON, source, setJSON, now, now, secret, consent, consent); err != nil {
+		mf.ID, mf.Version, mfJSON, source, setJSON, now, now, secret, publisher, consent, consent); err != nil {
 		return Installed{}, err
 	}
 	p.invalidate()
@@ -603,6 +658,10 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 		}
 	}
 	p.invalidate()
+	// capabilities before the code runs: its access lists may name them
+	if err := m.syncCaps(mf); err != nil {
+		log.Printf("%v", err)
+	}
 	if mf.Runtime == RuntimeJS && m.code != nil {
 		if reactivate {
 			if err := m.activateCode(mf.ID, opts.ConfirmDestructive); err != nil {
@@ -737,6 +796,9 @@ func (m *Manager) DeletePackageWith(id string, opts DeleteOptions) error {
 		log.Printf("plugin package %s: kv cleanup: %v", id, err)
 	}
 	p.invalidate()
+	if err := m.dropCaps(id); err != nil {
+		log.Printf("plugin package %s: capabilities cleanup: %v", id, err)
+	}
 	if pkgIDRe.MatchString(id) {
 		_ = os.RemoveAll(filepath.Join(p.root, id))
 	}

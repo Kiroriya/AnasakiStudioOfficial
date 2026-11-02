@@ -1,6 +1,6 @@
 import { I18n } from '../core/i18n';
 import {
-  CODE_SCOPES, compareVersions, consentCanConfirm, consentFor, consentNeeded, dependencyStatus, dependentsFromError, dependentsOf,
+  CODE_SCOPES, compareVersions, consentCanConfirm, consentCaps, consentFor, consentNeeded, dependencyStatus, dependentsFromError, dependentsOf,
   destructiveFromError, destructiveText, isJsPlugin, isSensitiveScope, missingDeps, missingFromError, namesOf, normalizeRequires,
   optionalIcon, optionalStatus, satisfies, scopeLabel, sortScopes,
 } from './plugin-deps';
@@ -90,6 +90,7 @@ describe('plugin code scopes and consent', () => {
   });
   it('sensitivity and canonical order', () => {
     expect(CODE_SCOPES.filter(isSensitiveScope)).toEqual(['content-write', 'mail', 'http', 'visitor', 'filters-core', 'content-fields', 'webhooks']);
+    expect(isSensitiveScope('post-types')).toBe(false);
     expect(sortScopes(['routes', 'zzz', 'db', 'db', 'mail'])).toEqual(['db', 'mail', 'routes', 'zzz']);
     expect(isJsPlugin({ runtime: 'JS' })).toBe(true);
     expect(isJsPlugin({ runtime: 'wasm' })).toBe(false);
@@ -98,7 +99,7 @@ describe('plugin code scopes and consent', () => {
   it('consent content for install, re-consent and destructive migrations', () => {
     const src = { name: 'Shop', version: '1.2.0', runtime: 'js', permissions: ['code', 'blocks'], code: { scopes: ['routes', 'db', 'mail'], hosts: ['api.x.com'], routes: ['/shop'] } };
     const c = consentFor('install', src);
-    expect(c).toEqual({ mode: 'install', name: 'Shop', version: '1.2.0', runtime: 'js', permissions: ['code', 'blocks'], api: [], scopes: ['db', 'mail', 'routes'], hosts: ['api.x.com'], routes: ['/shop'], destructive: [] });
+    expect(c).toEqual({ mode: 'install', name: 'Shop', version: '1.2.0', runtime: 'js', permissions: ['code', 'blocks'], api: [], scopes: ['db', 'mail', 'routes'], hosts: ['api.x.com'], routes: ['/shop'], destructive: [], capabilities: [] });
     expect(consentNeeded(c)).toBe(true);
     expect(consentNeeded(consentFor('install', { name: 'Plain' }))).toBe(false);
     const rc = consentFor('reconsent', src, { fromVersion: '1.0.0', scopes: ['http', 'db'], hosts: ['b.com'] });
@@ -107,6 +108,24 @@ describe('plugin code scopes and consent', () => {
     const d = consentFor('upgrade', src, null, [{ op: 'drop_table', table: 'p_shop_x' }]);
     expect(consentNeeded(consentFor('upgrade', { name: 'x' }, null, d.destructive))).toBe(true);
     expect([consentCanConfirm(d, false), consentCanConfirm(d, true), consentCanConfirm(c, false)]).toEqual([false, true, true]);
+  });
+  it('consent lists the capabilities a plugin adds (CMS 2.0.6), in the admin language', () => {
+    const src = {
+      id: 'analytics', name: 'Analytics', permissions: ['code'],
+      capabilities: [
+        { id: 'view', label: { th: 'ดูสถิติ', en: 'View analytics' }, description: { th: 'เปิดหน้าสถิติ', en: 'Open the page' }, default: ['administrator', 'editor'] },
+        { id: 'export', key: 'analytics.export', label: 'Export' },
+      ],
+    };
+    expect(consentFor('install', src, null, [], 'en').capabilities).toEqual([
+      { key: 'analytics.view', label: 'View analytics', description: 'Open the page', default: ['administrator', 'editor'] },
+      { key: 'analytics.export', label: 'Export', description: '', default: [] },
+    ]);
+    expect(consentFor('install', src).capabilities![0].label).toBe('ดูสถิติ');
+    expect(consentCaps(undefined, [{ id: 'x', label: { en: 'X' } }], 'th')).toEqual([{ key: 'x', label: 'X', description: '', default: [] }]);
+    expect(consentCaps('p', null, 'en')).toEqual([]);
+    // re-consent is about permissions only
+    expect(consentFor('reconsent', src, { fromVersion: '1.0.0' }).capabilities).toBeUndefined();
   });
 });
 

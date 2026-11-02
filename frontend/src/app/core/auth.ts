@@ -7,6 +7,8 @@ import { I18n, Locale } from './i18n';
 import { Role, User } from './models';
 
 const TOKEN_KEY = 'anasaki.token';
+/** Sessions last 12 hours on the server; the open admin renews its token this often. */
+const REFRESH_EVERY_MS = 30 * 60 * 1000;
 
 export type Cap =
   | 'edit_own_posts' | 'edit_others_posts' | 'edit_pages' | 'upload_files'
@@ -35,6 +37,7 @@ export class Auth {
 
   readonly user = signal<User | null>(null);
   readonly loggedIn = computed(() => this.user() !== null);
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Keep every open tab in step: signing in/out in one tab applies to all.
@@ -75,6 +78,27 @@ export class Auth {
   accept(res: { token: string; user: User }) {
     try { localStorage.setItem(TOKEN_KEY, res.token); } catch { /* private mode */ }
     this.setUser(res.user);
+    this.startRefresh();
+  }
+
+  /** Renews the session token while the admin is open (sliding 12-hour sessions). */
+  private startRefresh() {
+    if (this.refreshTimer !== null || typeof setInterval !== 'function') return;
+    this.refreshTimer = setInterval(() => void this.renew(), REFRESH_EVERY_MS);
+  }
+
+  private stopRefresh() {
+    if (this.refreshTimer !== null) clearInterval(this.refreshTimer);
+    this.refreshTimer = null;
+  }
+
+  /** Swaps the stored token for a fresh one (silently keeps the old one on failure). */
+  async renew() {
+    if (!this.token) return;
+    try {
+      const res = await this.api.refreshSession();
+      if (res?.token) { try { localStorage.setItem(TOKEN_KEY, res.token); } catch { /* private mode */ } }
+    } catch { /* 401 → the interceptor signs out */ }
   }
 
   /** Saves the profile; a new password ends the other sessions and returns a fresh token for this one. */
@@ -112,6 +136,8 @@ export class Auth {
     if (!this.token) return false;
     try {
       this.setUser(await this.api.me());
+      this.startRefresh();
+      void this.renew(); // a token restored from storage may be hours old
       return true;
     } catch {
       this.clear();
@@ -119,13 +145,16 @@ export class Auth {
     }
   }
 
-  logout() {
+  /** Signs out: the server revokes the token (all = every session of the account). */
+  logout(all = false, server = true) {
+    if (server && this.token && this.user()) this.api.logout(all).catch(() => undefined);
     this.clear();
     this.router.navigateByUrl('/login');
   }
 
   clear() {
     try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+    this.stopRefresh();
     this.user.set(null);
   }
 }
@@ -137,7 +166,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(r).pipe(
     catchError((e: HttpErrorResponse) => {
       // 401 = session expired; 403 on /auth/me = account suspended
-      if ((e.status === 401 || (e.status === 403 && req.url.endsWith('/auth/me'))) && !req.url.endsWith('/auth/login')) auth.logout();
+      if ((e.status === 401 || (e.status === 403 && req.url.endsWith('/auth/me'))) && !req.url.endsWith('/auth/login')) auth.logout(false, false);
       return throwError(() => e);
     }),
   );

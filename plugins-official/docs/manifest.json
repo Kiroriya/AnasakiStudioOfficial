@@ -1,0 +1,47 @@
+{
+  "id": "docs",
+  "name": "Docs",
+  "version": "1.1.0",
+  "description": "Documentation hub at /docs: articles grouped by product and section, with sidebar, table of contents, search, Markdown / llms.txt and drag-and-drop ordering. / ศูนย์รวมเอกสารที่ /docs แบ่งตามผลิตภัณฑ์ มีสารบัญและค้นหา",
+  "author": "Anasaki Studio",
+  "icon": "📘",
+  "category": "content",
+  "tags": ["docs", "documentation", "knowledge base", "help center"],
+  "license": "MIT",
+  "minCore": "2.0.5",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "edit", "label": { "th": "เขียนและแก้ไขเอกสาร", "en": "Write and edit docs" },
+      "description": { "th": "เพิ่มและแก้ไขบทความในเมนู เอกสาร (ตัวแก้ไขเนื้อหาปกติ)", "en": "Add and edit articles under Docs (the normal editor)" },
+      "default": ["administrator", "editor"] },
+    { "id": "publish", "label": { "th": "เผยแพร่เอกสาร", "en": "Publish docs" },
+      "description": { "th": "เผยแพร่บทความ และแก้ไขหรือลบบทความที่เผยแพร่แล้ว", "en": "Publish articles, and change or delete published ones" },
+      "default": ["administrator", "editor"] },
+    { "id": "manage", "label": { "th": "จัดการศูนย์รวมเอกสาร", "en": "Manage the docs hub" },
+      "description": { "th": "เปิดหน้า เอกสาร (ตั้งค่า) และนำเข้าชุดเอกสาร JSON", "en": "Open the Docs hub page and import JSON bundles" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "hubTitle", "type": "text", "maxLength": 120, "placeholder": "ศูนย์รวมเอกสาร",
+      "label": { "th": "หัวข้อหน้า /docs", "en": "Docs home title" },
+      "help": { "th": "เว้นว่าง = “ศูนย์รวมเอกสาร” (หรือ “Documentation” บนเว็บภาษาอังกฤษ)", "en": "Empty = “Documentation” (Thai sites: “ศูนย์รวมเอกสาร”)" } },
+    { "key": "hubIntro", "type": "textarea", "maxLength": 500,
+      "label": { "th": "คำแนะนำใต้หัวข้อ", "en": "Intro under the title" },
+      "help": { "th": "ใช้เป็น meta description ของหน้า /docs ด้วย", "en": "Also the meta description of /docs" } },
+    { "key": "products", "type": "textarea", "maxLength": 20000,
+      "label": { "th": "ผลิตภัณฑ์ (JSON)", "en": "Products (JSON)" },
+      "help": { "th": "[{\"id\":\"guide\",\"name\":{\"th\":\"…\",\"en\":\"…\"},\"desc\":{\"th\":\"…\",\"en\":\"…\"},\"icon\":\"📘\"}] — เว้นว่าง = หมวดเดียว “เอกสาร” (รหัส general) · แก้ง่ายกว่าในหน้า เอกสาร (ตั้งค่า) → ตั้งค่า หรือใส่ไว้ในชุดเอกสาร JSON", "en": "[{\"id\":\"guide\",\"name\":{\"th\":\"…\",\"en\":\"…\"},\"desc\":{…},\"icon\":\"📘\"}] — empty = one group “Documentation” (id general) · easier on the Docs hub admin page → Settings" } },
+    { "key": "legacyRedirects", "type": "textarea", "maxLength": 20000,
+      "label": { "th": "เปลี่ยนเส้นทางจากลิงก์เดิม", "en": "Redirects from old links" },
+      "help": { "th": "JSON [{\"from\":\"/blog/old\",\"to\":\"/docs/general/new\"}] หรือบรรทัดละคู่ “/เดิม /ใหม่” — ตอบ 301", "en": "JSON [{\"from\":\"/blog/old\",\"to\":\"/docs/general/new\"}] or one “/old /new” pair per line — answered with 301" } },
+    { "key": "editUrl", "type": "text", "maxLength": 500, "placeholder": "https://github.com/<org>/<repo>/edit/main/docs/{product}/{slug}.md",
+      "label": { "th": "ลิงก์ “แก้ไขหน้านี้”", "en": "“Edit this page” link" },
+      "help": { "th": "เว้นว่าง = ไม่แสดง · https:// หรือ / ใช้ {id} {slug} {product} ได้ · ทุกคนเห็นลิงก์นี้ จึงไม่ควรใส่ที่อยู่หลังบ้าน", "en": "Empty = hidden · https:// or a path; {id} {slug} {product} are replaced · everyone sees it, so do not put the admin address here" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["post-types", "content", "content-write", "routes", "filters-core", "middleware", "admin-pages"],
+    "routes": ["/docs"]
+  }
+}

@@ -516,6 +516,10 @@ site.visitorGroups(['member', 'gold']);   // columns on the Access screen
 - `ctx.visitor` in route, collection, page, action, filter and admin-page handlers (jobs: `null`).
 - Access lists accept `group:<name>` (`access: ['group:member', 'editor']`, also as admin overrides):
   anonymous visitors are matched by group, CMS users by role (the administrator always passes).
+- Since 2.0.6 access lists also accept `cap:<capability>` — every role holding it (Users → Roles), e.g.
+  `access: ['cap:edit_pages']` or a plugin capability `['cap:analytics.view']`; `site.can(user, cap)` checks one in
+  code. Site Code may name any capability; a JS plugin only its own and the core ones
+  ([plugin-api.md §2.1](plugin-api.md)).
 - Bindings and `showWhen`: `visitor`, `visitor.name`, `visitor.groups`, and `visitor.is.<group>` →
   `true`/`false` (false without a visitor). `is` is reserved: `visitor.is` alone and
   `visitor.is.<g>.<x>` are null. Shared vectors: `backend/internal/design/testdata/expr_vectors_visitor.json`.
@@ -543,7 +547,9 @@ site.fields('post', { readingTime: 'number' });
   (`posts[].meta` in `data.json`).
 - Admin API: the existing `/api/v1/posts` endpoints — `GET /posts?type=event`, `Post.meta`, `POST/PUT /posts`
   with `meta`. Permissions of a custom type: the roles in `access.edit` (default editor + administrator) list,
-  edit and publish it. `GET /api/v1/post-types` (any signed-in user) →
+  edit and publish it; since 2.0.6 `access.edit` accepts `cap:<capability>` entries and
+  `caps: { edit, publish }` names the capabilities that edit / publish the type (publishing limited to
+  `caps.publish` when set). `GET /api/v1/post-types` (any signed-in user) →
   `{postTypes:[{type,label,singular,icon,slug,public,supports,fields,access,canEdit}], postFields:{post:{…}, page:{…}, <type>:{…}}}`
   where `fields`/`postFields` are objects `{"<key>": {type, label:{th,en}, required?, min?, max?, options?}}`
   in declaration order (`postTypes[].fields` = the type's own fields, `postFields` = `site.fields` additions).
@@ -557,6 +563,11 @@ site.fields('post', { readingTime: 'number' });
   `= != < <= > >= in` (also `eq ne lt lte gt gte`) on top-level meta keys (JSON comparison); results include `meta`.
 - A type removed from the code: its posts stay in the database, hidden from the admin (the API answers 400
   for that type) until the type is registered again.
+- **JS plugins** register post types too (since 2.0.5, scope `post-types`, [plugin-api.md §3.5](plugin-api.md)):
+  type ids `<plugin id, - as _>_<name>` (e.g. `docs_doc`), `public: false` = the plugin serves the pages. A
+  plugin's type id or slug cannot be used here while that plugin is active (publish is refused), and Site Code may
+  read (`db.posts.list / get`) but not write a plugin's types. `GET /api/v1/post-types` marks them with
+  `plugin` / `pluginName`.
 
 ### Writing content
 
@@ -665,8 +676,15 @@ and last error.
   `admin-pages`, `jobs` (site.job, site.cron, jobs.enqueue), `routes`, `filters-core` (filters on core
   points). Outside them a call throws `ไม่มีสิทธิ์ใช้ <scope> …` and a warning is logged; at registration
   the activation fails. Plugins never get `db.query` / `schema.raw`, and `db.raw` fragments may not
-  contain SELECT/FROM/JOIN/… (raw SQL could reach other units' tables). Site Code has every scope.
-- Site Code only (not in plugins yet): `site.postType`, `site.fields`, `site.formatter`.
+  contain SELECT/FROM/JOIN/… or SQL comments (`/* */`, `/*! */`, `--`, `#` — a MySQL versioned comment
+  could hide a keyword; since 2.0.7) (raw SQL could reach other units' tables). Site Code has every scope.
+
+  Memory: goja (the JavaScript engine) has no per-script memory limit — a handler or plugin can still use a
+  lot of memory within its time limit (e.g. `'x'.repeat(n)` on visitor input). Limit the container
+  (`mem_limit` / `deploy.resources.limits.memory` in docker-compose) and set `GOMEMLIMIT` a bit below it so
+  the Go runtime collects garbage before the kernel kills the process; validate sizes of visitor input in
+  your code.
+- `site.postType` in a plugin needs the `post-types` scope (since 2.0.5; type ids `<id>_<name>`).
 - A plugin's jobs and schedules are `<id>:<job>`; its admin pages `<id>:<page>`.
 
 ### Imports, exports and plugins.call
@@ -809,7 +827,7 @@ Tokens let tools (the CLI, CI, editor plugins) use the Site Code API without a b
 | Method + path | Who | Request → response |
 |---|---|---|
 | `GET /api/v1/auth/tokens[?user=<id>]` | any signed-in user (own tokens); `?user=` needs `manage_users` and a role you may manage | `{items:[token]}` newest first |
-| `POST /api/v1/auth/tokens` | any signed-in user (session only; not the demo visitor) | `{name, scopes:["code"], expiresInDays: 0\|30\|90\|365}` (0 = never) → 201 `{token:"ast_…", item}`; at most 50 per user |
+| `POST /api/v1/auth/tokens` | any signed-in user (session only; not the demo visitor) | `{name, scopes:["code"], expiresInDays?: 0\|30\|90\|365, currentPassword}` (default 90; 0 = never) → 201 `{token:"ast_…", item}`; the account password is required (400 `{error, currentPassword:true}` otherwise, since 2.0.7); at most 50 per user |
 | `DELETE /api/v1/auth/tokens/{id}` | the owner, or `manage_users` | 204; someone else's token without `manage_users` → 404 |
 
 Token item: `{id, userId, userName, name, prefix, scopes, lastUsedAt, expiresAt, createdAt, expired}` (RFC 3339

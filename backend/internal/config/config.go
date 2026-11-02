@@ -27,6 +27,14 @@ type Config struct {
 	AdminPassword string
 	CORSOrigin    string // extra origin allowed to call the API cross-origin ("" = none; the admin is same-origin)
 	TrustProxy    bool   // behind a reverse proxy: take the client IP from X-Real-IP / X-Forwarded-For
+	// TrustedProxies (TRUSTED_PROXIES) lists the peers (CIDRs / IPs) whose proxy
+	// headers are believed when TrustProxy is on; empty = loopback + private ranges.
+	TrustedProxies string
+	// SiteURL (SITE_URL) is the public address, e.g. https://example.com
+	// (e-mail links; HSTS is sent when it is https).
+	SiteURL string
+	// SetupToken (SETUP_TOKEN): when set, the first-run setup wizard requires it.
+	SetupToken string
 
 	// SiteCodeDisabled (SITE_CODE_DISABLED=true) stops every Site Code route and
 	// event handler: the way back in when bad code locks the owner out.
@@ -62,6 +70,9 @@ func Load() Config {
 		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 		CORSOrigin:        strings.TrimRight(strings.TrimSpace(os.Getenv("CORS_ORIGIN")), "/"), // off unless set: `ng serve` proxies /api (proxy.conf.json)
 		TrustProxy:        isTrue(os.Getenv("TRUST_PROXY")),
+		TrustedProxies:    strings.TrimSpace(os.Getenv("TRUSTED_PROXIES")),
+		SiteURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("SITE_URL")), "/"),
+		SetupToken:        strings.TrimSpace(os.Getenv("SETUP_TOKEN")),
 		DemoMode:          isTrue(os.Getenv("DEMO_MODE")),
 		SiteCodeDisabled:  isTrue(os.Getenv("SITE_CODE_DISABLED")),
 		CodeDSN:           strings.TrimSpace(os.Getenv("CODE_DB_DSN")),

@@ -45,7 +45,9 @@ func (a *API) listRoles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"roles": rs, "caps": auth.Catalog(), "builtin": builtin})
 }
 
-// cleanCaps validates caps against the catalog and de-duplicates them.
+// cleanCaps validates caps against the catalog and de-duplicates them. A
+// plugin capability no installed plugin declares any more (a page opened
+// before an uninstall) is dropped rather than refused.
 func cleanCaps(caps []string) ([]string, string) {
 	known := map[string]bool{}
 	for _, c := range auth.Catalog() {
@@ -54,6 +56,9 @@ func cleanCaps(caps []string) ([]string, string) {
 	seen := map[string]bool{}
 	out := []string{}
 	for _, c := range caps {
+		if !known[c] && auth.IsPluginCap(c) {
+			continue
+		}
 		if !known[c] {
 			return nil, "ไม่รู้จักสิทธิ์: " + c
 		}
@@ -196,6 +201,12 @@ func (a *API) deleteRole(w http.ResponseWriter, r *http.Request) {
 // restoreRoles brings back deleted built-in roles (with their default
 // permissions): POST /roles/restore → the role list.
 func (a *API) restoreRoles(w http.ResponseWriter, r *http.Request) {
+	before := map[string]bool{}
+	if rs, err := a.st.ListRoles(); err == nil {
+		for _, x := range rs {
+			before[x.Slug] = true
+		}
+	}
 	if err := a.st.SetOptions(map[string]string{seed.RolesRemovedOption: ""}); err != nil {
 		serverErr(w, err)
 		return
@@ -203,6 +214,16 @@ func (a *API) restoreRoles(w http.ResponseWriter, r *http.Request) {
 	if err := seed.Roles(a.st); err != nil {
 		serverErr(w, err)
 		return
+	}
+	// a role created again gets the plugin capabilities that name it by default (2.0.6)
+	if a.plugins != nil {
+		for _, b := range auth.BuiltinRoles() {
+			if !before[b.Slug] {
+				if err := a.plugins.GrantPluginDefaults(b.Slug); err != nil {
+					log.Printf("restore role %s: plugin capabilities: %v", b.Slug, err)
+				}
+			}
+		}
 	}
 	if err := a.reloadRoles(); err != nil {
 		serverErr(w, err)

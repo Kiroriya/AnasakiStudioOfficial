@@ -1,6 +1,7 @@
 # Anasaki Studio — CORE API reference (v1.0.0)
 
-Base: `/api/v1`. JSON in/out. Auth: `Authorization: Bearer <token>` (JWT, 7 days).
+Base: `/api/v1`. JSON in/out. Auth: `Authorization: Bearer <token>` (JWT, 12 hours, renewed with
+`POST /auth/refresh` while the admin is open; revoked by `POST /auth/logout`).
 Errors: `{"error": "<short Thai message>"}` with 400 (validation) · 401 (login again) · 403 (no capability /
 suspended) · 404 · 409 (conflict). "cap" = required capability. Plugin and platform endpoints are in
 `PLATFORM_SPEC.md` §4–5.
@@ -9,25 +10,59 @@ suspended) · 404 · 409 (conflict). "cap" = required capability. Plugin and pla
 
 | Method | Path | Body → Response |
 |---|---|---|
-| GET | `/api/v1/setup` | → `{needsSetup, product, version}` (`needsSetup` = no user yet) |
-| POST | `/api/v1/setup` | `{siteTitle, tagline, language:"th"\|"en", adminName, adminEmail, adminPassword (≥8), locale:"th"\|"en", demo:bool}` → 201 `{token, user}`; 409 once installed. `demo:true` installs the demo site, `false` a blank published home page |
-| GET | `/api/public/site` | → `{siteTitle, tagline, siteIcon, siteLogo, adminPath, product, version}` |
+| GET | `/api/v1/setup` | → `{needsSetup, product}`; while `needsSetup` (no user yet) also `version` and `tokenRequired` (the server sets `SETUP_TOKEN`) |
+| POST | `/api/v1/setup` | `{siteTitle, tagline, language:"th"\|"en", adminName, adminEmail, adminPassword (≥8), locale:"th"\|"en", demo:bool, setupToken?}` → 201 `{token, user}`; 409 once installed; 403 `{error, setupToken:true}` when `SETUP_TOKEN` is set and `setupToken` does not match (10 wrong tries / 15 min per IP, then 429). `demo:true` installs the demo site, `false` a blank published home page |
+| GET | `/api/public/site` | → `{siteTitle, tagline, siteIcon, siteLogo, product, demo}`; `version` only with a valid session token. The admin path is never returned (the admin knows it from its own URL) |
 | GET | `/api/health` | → `{status:"ok"}` |
 
 First run: the admin is created automatically only when **both** `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set
-(docker automation, installs the demo); otherwise the admin SPA shows the wizard.
+(docker automation, installs the demo); otherwise the admin SPA shows the wizard. Set `SETUP_TOKEN` on any
+server reachable from the internet: the wizard then asks for it, so whoever finds the fresh site first cannot
+create the administrator. Without it the server logs a prominent warning on every start until the setup is done.
 
 ## Auth
 
 | Method | Path | cap | Body → Response |
 |---|---|---|---|
 | POST | `/auth/login` | – | `{email, password}` → `{token, user}`; 401 wrong credentials; 403 `บัญชีนี้ถูกระงับ` (suspended). Records `lastLoginAt` |
+| POST | `/auth/logout` | session | `{all?:bool}` → 204. The session token stops working at once (kept in `revoked_sessions` until it would expire); `all:true` also ends every other session and plugin-screen ticket of the account ("sign out everywhere": bumps `users.session_epoch`) |
+| POST | `/auth/refresh` | session | → `{token, user}`: a fresh 12-hour token (the admin renews every 30 minutes while open) |
 | GET | `/auth/me` | any | → `User` |
 | PUT | `/auth/me` | any | any of `{name, email, password, locale, firstName, lastName, bio, website, avatar}` → `User` |
 
 `User` = `{id, email, name, firstName, lastName, bio, website, avatar, role, status:"active"|"suspended", locale,
 caps:[string], lastLoginAt:string|null, createdAt, postCount}` (`name` = display name, `postCount` = posts of type post).
-Suspended users get 403 on every authenticated endpoint.
+Suspended users get 403 on every authenticated endpoint. A new password, "sign out everywhere" and logout
+revoke sessions on the server; personal access tokens (`ast_…`) are created with `POST /auth/tokens
+{name, scopes, expiresInDays?, currentPassword}` — the account password is required and `expiresInDays`
+defaults to 90 (0 = never, 30, 90, 365).
+
+### Client IP behind a proxy
+
+`TRUST_PROXY=true` makes rate limits and statistics use the visitor's IP from `X-Real-IP` (or the right-most
+`X-Forwarded-For` hop that is not itself a proxy), **only** when the connection's peer is in `TRUSTED_PROXIES`
+(CIDRs / IPs, default loopback + private ranges `127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+fc00::/7`). The same applies to `X-Forwarded-Proto` / `X-Forwarded-Host`. The proxy must overwrite `X-Real-IP`
+(Caddy `header_up X-Real-IP {client_ip}`); behind Cloudflare it must resolve `{client_ip}` from
+`CF-Connecting-IP` for Cloudflare's ranges only (see `store/deploy/Caddyfile`).
+
+### Security headers
+
+| Where | Headers |
+|---|---|
+| every response | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=31536000` when `SITE_URL` is `https://…` |
+| admin app (`/<admin path>/`) | `Content-Security-Policy: object-src 'none'; base-uri 'self'; frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
+| API, plugin screens (`/api/`, `/ext-ui/`) | `Content-Security-Policy: frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`, the same `Permissions-Policy` |
+| public site | `Content-Security-Policy: frame-ancestors <FRAME_ANCESTORS>` (default `'self'`; `*` = no header, anyone may embed) |
+
+Known gap: the admin CSP does not restrict `script-src`. The admin opens previews of the site in
+`about:blank` / `srcdoc` frames, which inherit the admin's policy and must run the site's own inline scripts and
+third-party embeds, and Monaco is loaded with its AMD loader; a strict `script-src 'self'` would break both. The
+session token is still in `localStorage` on the site's origin. Plan: serve the admin from its own origin (e.g.
+`admin.example.com`) or move previews to a separate origin, then add `script-src 'self'` (+ Monaco's worker
+`blob:`) and an HttpOnly session cookie.
+
+Access log: plugin-screen tickets in `/ext-ui/…/<ticket>/…` are written as `***`; query strings are never logged.
 
 ## Users (cap `manage_users`)
 
@@ -46,7 +81,7 @@ must be `http(s)://…` or a site path.
 
 | Method | Path | Body → Response |
 |---|---|---|
-| GET | `/roles` | → `{roles:[{slug, name, builtin, caps, userCount}], caps:[{key, group}]}` |
+| GET | `/roles` | → `{roles:[{slug, name, builtin, caps, userCount}], caps:[{key, group, plugin?, pluginName?, pluginIcon?, label?, description?, default?}]}` — plugin capabilities (2.0.6): `key` `<plugin>.<id>`, `group` `plugins`, th/en `label` / `description` from the manifest |
 | POST | `/roles` | `{slug (^[a-z][a-z0-9_-]{1,31}$), name, caps}` → 201 Role |
 | PUT | `/roles/{slug}` | `{name?, caps?}` → Role. `administrator` is immutable (400); other built-ins are editable |
 | DELETE | `/roles/{slug}` | → 204, custom roles only; their users become `subscriber` |
@@ -163,7 +198,7 @@ Settings keys (via `GET/PUT /settings`): `smtp_host`, `smtp_port` (empty = 587/4
 |---|---|---|
 | `GET /mail/status` | any user | `{configured}` |
 | `POST /mail/test {to?}` | `manage_options` | sends a test email (default: `admin_email`) → `{sentTo}`; SMTP errors → 502 with a readable message |
-| `POST /auth/forgot {email}` | public | always 200 (does not reveal accounts); 503 when email is not configured; 5 requests / 15 min per IP |
+| `POST /auth/forgot {email}` | public | always 200 (does not reveal accounts); 503 when email is not configured; 5 requests / 15 min per IP (429), and at most 3 mails per address and hour from any IP (more requests still answer 200 but send nothing) |
 | `POST /auth/reset {token, password}` | public | one-time token (2 h; 72 h for welcome links) → `{token, user}` (signed in) |
 | `POST /users {…, sendWelcome: true}` | `manage_users` | also emails the new user a "choose your password" link |
 

@@ -41,6 +41,7 @@ type unitInfo struct {
 	library     string
 	n           Naming            // the unit's tables (plugins)
 	aliases     map[string]string // code.eventAliases (phase 7)
+	caps        map[string]bool   // declared capabilities "<id>.<capability>" (2.0.6)
 }
 
 // siteUnitInfo is Site Code without an engine (unit tests).
@@ -133,7 +134,7 @@ func (e *Engine) newUnitInfo(ref plugin.CodeUnitRef) *unitInfo {
 	u := &unitInfo{ID: ref.ID, Plugin: true, Name: ref.Name, Version: ref.Version, InstalledAt: ref.InstalledAt,
 		scopes: set(ref.Code.Scopes), hosts: ref.Code.Hosts, routes: ref.Code.Routes, exports: set(ref.Code.Exports),
 		requires: ref.Requires, optional: ref.OptionalRequires, library: ref.Code.Library, declared: map[string]bool{},
-		aliases: ref.Code.EventAliases}
+		aliases: ref.Code.EventAliases, caps: set(ref.Capabilities)}
 	if h := ref.Code.Hooks; h != nil {
 		for _, n := range append(append([]string{}, h.Filters...), h.Events...) {
 			u.declared[n] = true
@@ -219,6 +220,9 @@ func (e *Engine) units() *unitSet {
 	}
 	ns := e.loadUnits(refs, fp)
 	e.unitSetP.Store(ns)
+	if opts, err := e.st.Options(); err == nil {
+		e.ManifestFor(opts) // pushes the post type slugs with the new plugin types
+	}
 	return ns
 }
 
@@ -365,7 +369,8 @@ func (e *Engine) loadUnits(refs []plugin.CodeUnitRef, fp string) *unitSet {
 		set.errs[id] = msg
 	}
 	opts, _ := e.st.Options()
-	siteVisitor := e.ManifestFor(opts).Visitor
+	siteM := e.ManifestFor(opts)
+	siteVisitor := siteM.Visitor
 	visitorBy := ""
 	for _, ref := range order {
 		bad := ""
@@ -384,6 +389,9 @@ func (e *Engine) loadUnits(refs []plugin.CodeUnitRef, fp string) *unitSet {
 			continue
 		}
 		lp, probs := e.buildUnit(set.refs[ref.ID], files, set, opts) // full requires (plugins.call)
+		if len(probs) == 0 {
+			probs = e.unitTypeConflicts(lp, siteM, set.list)
+		}
 		if len(probs) > 0 {
 			set.errs[ref.ID] = problemsText(probs)
 			continue
@@ -504,6 +512,9 @@ func (e *Engine) prepareUnit(ref plugin.CodeUnitRef, files map[string]string) (*
 		return fail(err.Error())
 	}
 	lp, probs := e.buildUnit(ref, files, others, opts)
+	if len(probs) == 0 {
+		probs = e.unitTypeConflicts(lp, e.ManifestFor(opts), others.list)
+	}
 	if len(probs) > 0 {
 		plan.Errors = append(plan.Errors, toCodeProblems(probs)...)
 		return nil, plan

@@ -44,7 +44,9 @@ var CodeScopes = map[string]bool{"db": true, "content": true, "content-write": t
 	// phase 6: site.middleware / site.afterResponse, and unsanitised site.head / site.bodyEnd output
 	"middleware": true, "head-scripts": true,
 	// phase 7 joints: site.fields in a plugin (post meta "<id>.<key>"), http.webhook to any public URL
-	"content-fields": true, "webhooks": true}
+	"content-fields": true, "webhooks": true,
+	// 2.0.5: site.postType in a plugin (type ids "<id>_<name>")
+	"post-types": true}
 
 // codeExt are the file types of code/** and migrations/**.
 var codeExt = map[string]bool{".ts": true, ".js": true, ".mjs": true, ".json": true, ".md": true}
@@ -240,7 +242,7 @@ func (mf *Manifest) validateCode(files map[string][]byte) error {
 		}
 	}
 	if err := uniqueList("code.scopes", c.Scopes, len(CodeScopes), func(s string) bool { return CodeScopes[s] },
-		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks)"); err != nil {
+		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks, post-types)"); err != nil {
 		return err
 	}
 	if err := uniqueList("code.hosts", c.Hosts, maxCodeHosts, func(h string) bool { return len(h) <= 253 && codeHostRe.MatchString(h) },
@@ -676,11 +678,14 @@ type CodeUnitRef struct {
 	// Source is where the package came from: SourceStore or SourceUpload
 	// (demo mode runs only Store packages).
 	Source string
+	// Capabilities are the plugin's declared capabilities, "<id>.<capability>"
+	// (manifest "capabilities", since 2.0.6).
+	Capabilities []string
 }
 
 func (k *pkg) codeRef() CodeUnitRef {
 	r := CodeUnitRef{ID: k.mf.ID, Name: k.mf.Name, Version: k.version, InstalledAt: k.installedAt, Active: k.active,
-		Requires: k.mf.Requires, OptionalRequires: k.mf.OptionalRequires, Source: k.source}
+		Requires: k.mf.Requires, OptionalRequires: k.mf.OptionalRequires, Source: k.source, Capabilities: k.mf.CapKeys()}
 	if k.mf.Code != nil {
 		r.Code = *k.mf.Code
 	}

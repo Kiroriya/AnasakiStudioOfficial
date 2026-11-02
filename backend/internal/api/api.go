@@ -33,8 +33,9 @@ type API struct {
 	code   *sitecode.Engine // Site Code (nil = endpoints not mounted)
 	codeMu sync.Mutex       // serialises draft writes (limits, conflicts)
 
-	setupMu   sync.Mutex // serialises the first-run setup
-	adminPath pathCache
+	setupMu    sync.Mutex // serialises the first-run setup
+	setupToken string     // SETUP_TOKEN: required by POST /setup when set (audit M-5)
+	adminPath  pathCache
 
 	legacy *legacy.Migrator // phase 7: migration of the former built-ins (nil = none)
 }
@@ -56,6 +57,8 @@ func (a *API) Routes(mux *http.ServeMux) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("POST "+p+"/auth/login", a.login)
+	mux.Handle("POST "+p+"/auth/logout", a.protectSession("", http.HandlerFunc(a.logout)))
+	mux.Handle("POST "+p+"/auth/refresh", a.protectSession("", http.HandlerFunc(a.refreshSession)))
 	mux.HandleFunc("GET "+p+"/setup", a.getSetup)
 	mux.HandleFunc("POST "+p+"/setup", a.runSetup)
 	mux.HandleFunc("GET /api/public/site", a.publicSite)
@@ -168,8 +171,8 @@ func (a *API) protect(cap string, fn http.HandlerFunc) http.Handler {
 func (a *API) protectSession(cap string, fn http.HandlerFunc) http.Handler {
 	return a.auth.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := auth.From(r)
-		u, hash, err := a.st.SessionUser(p.ID) // cheap: runs on every request
-		if err != nil || !a.auth.Current(p, hash) {
+		u, hash, revoked, err := a.st.SessionCheck(p.ID, p.JTI) // cheap: runs on every request
+		if err != nil || revoked || !a.auth.Current(p, hash) {
 			writeErr(w, http.StatusUnauthorized, "กรุณาเข้าสู่ระบบใหม่")
 			return
 		}

@@ -5,7 +5,7 @@ import { Dialog } from '../core/dialog';
 import { I18n, TPipe, localized } from '../core/i18n';
 import { CodePostType } from '../core/code-models';
 import { PostTypes } from '../core/post-types';
-import { templateOption, typePrefix } from '../core/post-type-utils';
+import { routedTypes, templateOption, typePrefix } from '../core/post-type-utils';
 import { Media, Post, Settings } from '../core/models';
 import { Plugins } from '../core/plugins';
 import { SiteInfo } from '../core/site';
@@ -142,11 +142,11 @@ export function reservedOwner(p: string, reserved: ReservedPath[]): string | nul
                 @for (p of templates(); track p.id) { <option [value]="'' + p.id">{{ p.title }}</option> }
               </select>
             </div>
-            @if (postTypes.list().length) {
+            @if (routedTypes().length) {
               <div class="form-row" id="settings-type-templates">
                 <div class="form-label">{{ 'settings.typeTemplates' | t }}<small>{{ 'settings.typeTemplatesHint' | t }}</small></div>
                 <div class="type-tpl-list">
-                  @for (pt of postTypes.list(); track pt.type) {
+                  @for (pt of routedTypes(); track pt.type) {
                     <label class="type-tpl-row" [attr.data-type]="pt.type">
                       <span>{{ pt.icon || '📦' }} {{ typeName(pt) }} <small class="muted mono">{{ 'settings.typeTemplateHint' | t: { slug: prefix(pt) } }}</small></span>
                       <select [id]="'settings-type-template-' + pt.type" [value]="v(tplKey(pt.type))" (change)="set(tplKey(pt.type), $event)">
@@ -291,6 +291,8 @@ export class SettingsPage implements OnInit {
   readonly plugins = inject(Plugins);
   /** Post types of the site code: a single-post template each (option post_template_<type>). */
   readonly postTypes = inject(PostTypes);
+  /** Types the site routes itself (a public: false type has no single-post template). */
+  readonly routedTypes = computed(() => routedTypes(this.postTypes.list()));
   private i18n = inject(I18n);
   private api = inject(Api);
   private site = inject(SiteInfo);
@@ -338,7 +340,8 @@ export class SettingsPage implements OnInit {
   });
   readonly pathError = computed(() => {
     const p = this.draft()['admin_path'] ?? 'admin';
-    if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(p)) return this.i18n.t('settings.adminPathInvalid');
+    // same length as the server (3–32)
+    if (!/^[a-z0-9][a-z0-9-]{2,31}$/.test(p)) return this.i18n.t('settings.adminPathInvalid');
     const owner = reservedOwner(p, this.reserved());
     if (owner) return this.i18n.t('settings.adminPathPlugin', { id: owner });
     if (owner === '' || p === this.draft()['blog_base'] || p === this.draft()['category_base']) return this.i18n.t('settings.adminPathTaken');

@@ -59,6 +59,9 @@ services:
       ADMIN_PATH: ${ADMIN_PATH:-}
       SITE_URL: ${SITE_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      FRAME_ANCESTORS: ${FRAME_ANCESTORS:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # public demo / playground — see .env.example
@@ -66,7 +69,8 @@ services:
       DEMO_EMAIL: ${DEMO_EMAIL:-}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       DEMO_RESET_MINUTES: ${DEMO_RESET_MINUTES:-}
-    ports: ["${PORT:-8090}:8090"]
+    # BIND_ADDR=127.0.0.1 when a reverse proxy on this machine is in front (see .env.example)
+    ports: ["${BIND_ADDR:-0.0.0.0}:${PORT:-8090}:8090"]
     volumes:
       - uploads:/data/uploads
       - plugins:/data/plugins

@@ -31,6 +31,8 @@ permissions `settings`, `webhooks`
 **ย้ายจากปลั๊กอินในตัว:** `forms_forms` และ `forms_submissions` นำเข้าด้วย `legacyImport` (คงหมายเลขเดิม ทำซ้ำได้)
 ข้อแตกต่างเล็กน้อยดู `../GAPS.md` (port B)
 
+**สิทธิ์ (CMS 2.0.6+):** `forms.manage` — สร้าง/แก้/ลบฟอร์ม · `forms.view_submissions` — ดูข้อความและส่งออก CSV (ค่าเริ่มต้น: ผู้ดูแลระบบ, บรรณาธิการ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
 ## English
 
 Form builder: forms are designed on the **Forms** admin page (administrators and editors), placed with the designer
@@ -47,3 +49,5 @@ plugin; forms and submissions are migrated with their ids, so pages that already
 - Settings (Plugins → Forms → Settings): `notifyEmail`, `siteTitle`, `webhookUrl`. Scopes: `db`, `routes`, `mail`,
   `admin-pages`, `webhooks`.
 - Legacy import: `forms_forms`, `forms_submissions` (ids kept, idempotent). Small differences: `../GAPS.md` (port B).
+
+**Permissions (CMS 2.0.6+):** `forms.manage` — build / edit / delete forms · `forms.view_submissions` — the inbox and CSV export (default: administrators, editors) — change them in Users → Roles · older CMS versions keep the former role list

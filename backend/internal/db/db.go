@@ -57,6 +57,8 @@ func Migrate(db *sql.DB) error {
 		{"users", "avatar", "VARCHAR(512) NOT NULL DEFAULT ''"},
 		{"users", "status", "VARCHAR(16) NOT NULL DEFAULT 'active'"},
 		{"users", "last_login_at", "DATETIME NULL"},
+		// bumped by "sign out everywhere": ends every session and ticket (audit M-4)
+		{"users", "session_epoch", "INT NOT NULL DEFAULT 0"},
 		{"media", "downloads", "BIGINT NOT NULL DEFAULT 0"},
 		{"posts", "pinned", "BOOLEAN NOT NULL DEFAULT FALSE"},
 		{"posts", "sort_order", "INT NOT NULL DEFAULT 0"},

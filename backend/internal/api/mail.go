@@ -162,7 +162,14 @@ func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok := map[string]string{"message": "ถ้าอีเมลนี้มีบัญชีอยู่ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปให้แล้ว"}
-	u, _, err := a.st.UserByEmail(strings.TrimSpace(strings.ToLower(in.Email)))
+	email := strings.TrimSpace(strings.ToLower(in.Email))
+	// a few mails per address and hour, whatever the IP (audit L-2); the
+	// answer stays the same, so it tells nothing about the address
+	if !allowResetEmail(email) {
+		writeJSON(w, http.StatusOK, ok)
+		return
+	}
+	u, _, err := a.st.UserByEmail(email)
 	if err != nil || u.Status == model.UserSuspended || (a.demo != nil && u.Role == demo.Role) {
 		writeJSON(w, http.StatusOK, ok)
 		return
@@ -256,31 +263,58 @@ func (a *API) sendWelcome(r *http.Request, u *model.User) {
 	}()
 }
 
-// resetLimiter allows a few reset requests per client per window.
-var resetLimiter = struct {
+// windowLimiter allows max events per key in a sliding window; keys whose
+// events are all older than the window are swept regularly, so the map can't
+// grow without bound.
+type windowLimiter struct {
 	sync.Mutex
-	hits map[string][]time.Time
-}{hits: map[string][]time.Time{}}
+	max    int
+	window time.Duration
+	hits   map[string][]time.Time
+	swept  time.Time
+}
 
-func (a *API) allowReset(r *http.Request) bool {
-	const max, window = 5, 15 * time.Minute
-	ip := plugin.ClientIP(r)
+func newWindowLimiter(max int, window time.Duration) *windowLimiter {
+	return &windowLimiter{max: max, window: window, hits: map[string][]time.Time{}}
+}
+
+func (l *windowLimiter) allow(key string) bool {
 	now := time.Now()
-	resetLimiter.Lock()
-	defer resetLimiter.Unlock()
-	kept := resetLimiter.hits[ip][:0]
-	for _, t := range resetLimiter.hits[ip] {
-		if now.Sub(t) < window {
+	l.Lock()
+	defer l.Unlock()
+	if now.Sub(l.swept) > l.window || len(l.hits) > 10000 {
+		for k, ts := range l.hits {
+			if len(ts) == 0 || now.Sub(ts[len(ts)-1]) >= l.window {
+				delete(l.hits, k)
+			}
+		}
+		l.swept = now
+	}
+	kept := l.hits[key][:0]
+	for _, t := range l.hits[key] {
+		if now.Sub(t) < l.window {
 			kept = append(kept, t)
 		}
 	}
-	if len(kept) >= max {
-		resetLimiter.hits[ip] = kept
+	if len(kept) >= l.max {
+		l.hits[key] = kept
 		return false
 	}
-	resetLimiter.hits[ip] = append(kept, now)
+	l.hits[key] = append(kept, now)
 	return true
 }
+
+// resetIPs: reset requests per client IP; resetEmails: per address (any IP).
+var (
+	resetIPs    = newWindowLimiter(5, 15*time.Minute)
+	resetEmails = newWindowLimiter(3, time.Hour)
+)
+
+func (a *API) allowReset(r *http.Request) bool {
+	return resetIPs.allow(limiterIP(plugin.ClientIP(r)))
+}
+
+func allowResetEmail(email string) bool { return resetEmails.allow(email) }
 
 // randomPassword is an unguessable placeholder for accounts whose owner sets
 // the real password from the welcome email.

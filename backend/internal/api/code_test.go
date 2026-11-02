@@ -74,7 +74,7 @@ func newCodeAPI(t *testing.T, tweak func(*sitecode.Config)) (*client, *sitecode.
 	web.SetCodeSessions(code.Session)
 	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
 		var out []site.PostTypeRoute
-		for _, pt := range code.ManifestFor(opts).PostTypes {
+		for _, pt := range code.ContentFor(opts).PostTypes {
 			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
 		}
 		return out

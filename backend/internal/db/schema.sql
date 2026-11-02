@@ -142,6 +142,14 @@ CREATE TABLE IF NOT EXISTS password_resets (
   INDEX (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Session tokens revoked by a logout, kept until they would have expired
+-- (audit M-4).
+CREATE TABLE IF NOT EXISTS revoked_sessions (
+  jti        CHAR(32) NOT NULL PRIMARY KEY,
+  expires_at DATETIME NOT NULL,
+  INDEX (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Demo mode (DEMO_MODE=true): when the baseline was saved, etc. The baseline
 -- itself lives in demo_snap_<table> copies made at runtime.
 CREATE TABLE IF NOT EXISTS demo_meta (

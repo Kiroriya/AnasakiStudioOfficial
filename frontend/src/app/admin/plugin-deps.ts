@@ -7,7 +7,7 @@
  */
 import { CodeDestructive } from '../core/code-models';
 import { tr } from '../core/i18n';
-import { InstalledPackage, PackageCode, PackageRequireEntry, PackageRequiresRaw, Reconsent } from '../core/models';
+import { InstalledPackage, PackageCode, PackageRequireEntry, PackageRequiresRaw, PluginCapability, Reconsent } from '../core/models';
 import './messages-plugins4b';
 
 // ------------------------------------------------------------------ semver
@@ -170,6 +170,11 @@ export function dependentsFromError(e: unknown): string[] {
 }
 
 /** 400 `{error, destructive:[…]}`: migrations that may lose data, to be confirmed. */
+/** 409 of an update whose Store publisher changed (the plugin id may have changed hands). */
+export function publisherChangedFromError(e: unknown): boolean {
+  return body(e)?.['publisherChanged'] === true;
+}
+
 export function destructiveFromError(e: unknown): CodeDestructive[] {
   const d = body(e)?.['destructive'];
   return Array.isArray(d) ? d.filter(x => x && typeof x === 'object' && typeof x.op === 'string') : [];
@@ -183,7 +188,7 @@ export function destructiveText(d: CodeDestructive): string {
 
 // ------------------------------------------------------------------ code scopes
 
-export const CODE_SCOPES = ['db', 'content', 'content-write', 'mail', 'http', 'visitor', 'admin-pages', 'jobs', 'routes', 'filters-core', 'content-fields', 'webhooks'] as const;
+export const CODE_SCOPES = ['db', 'content', 'content-write', 'mail', 'http', 'visitor', 'admin-pages', 'jobs', 'routes', 'filters-core', 'content-fields', 'webhooks', 'post-types'] as const;
 export type CodeScope = (typeof CODE_SCOPES)[number];
 /** Scopes reviewers and admins should look at twice. */
 export const SENSITIVE_SCOPES: readonly string[] = ['content-write', 'mail', 'http', 'visitor', 'filters-core', 'content-fields', 'webhooks'];
@@ -220,10 +225,27 @@ export interface ConsentState {
   hosts: string[];
   routes: string[];
   destructive: CodeDestructive[];
+  /** CMS 2.0.6: the capabilities the plugin adds (administrators get them all; defaults go to the listed roles). */
+  capabilities?: ConsentCap[];
+}
+
+/** A capability as the consent dialog lists it. */
+export interface ConsentCap { key: string; label: string; description: string; default: string[] }
+
+/** The capabilities of a manifest-like source in locale (key "<plugin>.<id>"). */
+export function consentCaps(pluginID: string | undefined, caps: PluginCapability[] | null | undefined, locale: 'th' | 'en'): ConsentCap[] {
+  const text = (l: PluginCapability['label'] | null | undefined) =>
+    !l ? '' : typeof l === 'string' ? l : (locale === 'en' ? l.en || l.th : l.th || l.en) ?? '';
+  return (caps ?? []).map(c => ({
+    key: c.key || (pluginID ? `${pluginID}.${c.id}` : c.id),
+    label: text(c.label) || c.id,
+    description: text(c.description),
+    default: [...(c.default ?? [])],
+  }));
 }
 
 /** Consent content from a manifest-like source (store detail, installed package or reconsent). */
-export function consentFor(mode: ConsentMode, src: { name: string; version?: string; runtime?: string; permissions?: string[]; code?: PackageCode | null }, rc?: Reconsent | null, destructive: CodeDestructive[] = []): ConsentState {
+export function consentFor(mode: ConsentMode, src: { id?: string; name: string; version?: string; runtime?: string; permissions?: string[]; code?: PackageCode | null; capabilities?: PluginCapability[] | null }, rc?: Reconsent | null, destructive: CodeDestructive[] = [], locale: 'th' | 'en' = 'th'): ConsentState {
   if (rc) {
     return {
       mode, name: src.name, version: src.version, runtime: src.runtime, permissions: [...(rc.permissions ?? [])], api: [...(rc.api ?? [])],
@@ -233,6 +255,7 @@ export function consentFor(mode: ConsentMode, src: { name: string; version?: str
   return {
     mode, name: src.name, version: src.version, runtime: src.runtime, permissions: [...(src.permissions ?? [])], api: [],
     scopes: sortScopes(src.code?.scopes), hosts: [...(src.code?.hosts ?? [])], routes: [...(src.code?.routes ?? [])], destructive,
+    capabilities: consentCaps(src.id, src.capabilities, locale),
   };
 }
 

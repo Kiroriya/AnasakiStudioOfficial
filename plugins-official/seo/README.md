@@ -33,6 +33,8 @@
 **สำหรับนักพัฒนา:** `import { applyTemplate } from 'seo'` (library), `plugins.call('seo', 'metaOf', postId)` →
 `{title, description, image, noindex}`, หรืออ่าน `post.meta['seo.title']` จาก `db.posts`
 
+**สิทธิ์ (CMS 2.0.6+):** `seo.manage` — หน้า SEO และค่าเริ่มต้นทั้งเว็บ · `seo.edit_meta` — แก้ SEO รายหน้าในหน้า SEO (ค่าเริ่มต้น: ผู้ดูแลระบบ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
 ## English
 
 The official Anasaki Studio SEO plugin — replaces the former built-in SEO plugin with the same behaviour.
@@ -68,3 +70,5 @@ presses "Clean up old data".
 
 **Developers:** `import { applyTemplate } from 'seo'` (library); `plugins.call('seo', 'metaOf', postId)`; or read
 `post.meta['seo.title']` from `db.posts`.
+
+**Permissions (CMS 2.0.6+):** `seo.manage` — the SEO page and site-wide defaults · `seo.edit_meta` — per-page SEO on the SEO page (default: administrators) — change them in Users → Roles · older CMS versions keep the former role list

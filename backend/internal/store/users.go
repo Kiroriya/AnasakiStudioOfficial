@@ -64,27 +64,65 @@ func (s *Store) UserByEmail(email string) (*model.User, string, error) {
 	return &u, hash, nil
 }
 
-// UserAuthByID returns the user and its password hash.
+// credCol is what sessions and tickets are bound to (auth stamp): the
+// password hash and the session epoch, so a new password or "sign out
+// everywhere" (BumpSessionEpoch) ends every session and ticket. It is not a
+// bcrypt hash — check passwords with UserByEmail's hash.
+const credCol = `CONCAT(password_hash, '|', session_epoch)`
+
+// UserAuthByID returns the user and its session credential (credCol).
 func (s *Store) UserAuthByID(id int64) (*model.User, string, error) {
 	var u model.User
 	var hash string
-	if err := scanUser(s.DB.QueryRow(`SELECT `+userCols+`, password_hash FROM users WHERE id = ?`, id), &u, &hash); err != nil {
+	if err := scanUser(s.DB.QueryRow(`SELECT `+userCols+`, `+credCol+` FROM users WHERE id = ?`, id), &u, &hash); err != nil {
 		return nil, "", notFound(err)
 	}
 	return &u, hash, nil
 }
 
 // SessionUser returns what every authenticated request checks (id, name,
-// role, status) and the password hash, by primary key only — no post count
-// or other profile columns, since it runs on each API call.
+// role, status) and the session credential (credCol), by primary key only —
+// no post count or other profile columns, since it runs on each API call.
 func (s *Store) SessionUser(id int64) (*model.User, string, error) {
+	u, hash, _, err := s.SessionCheck(id, "")
+	return u, hash, err
+}
+
+// SessionCheck is SessionUser that also reports whether session token jti
+// was revoked by a logout ("" = no token id: never revoked), in one query.
+func (s *Store) SessionCheck(id int64, jti string) (*model.User, string, bool, error) {
 	u := model.User{ID: id}
 	var hash string
-	if err := s.DB.QueryRow(`SELECT name, role, status, password_hash FROM users WHERE id = ?`, id).
-		Scan(&u.Name, &u.Role, &u.Status, &hash); err != nil {
-		return nil, "", notFound(err)
+	var revoked bool
+	if err := s.DB.QueryRow(`SELECT name, role, status, `+credCol+`,
+		EXISTS(SELECT 1 FROM revoked_sessions WHERE jti = ?) FROM users WHERE id = ?`, jti, id).
+		Scan(&u.Name, &u.Role, &u.Status, &hash, &revoked); err != nil {
+		return nil, "", false, notFound(err)
 	}
-	return &u, hash, nil
+	return &u, hash, revoked && jti != "", nil
+}
+
+// RevokeSession records a logged-out session token until it expires (and
+// drops expired entries).
+func (s *Store) RevokeSession(jti string, expires time.Time) error {
+	if jti == "" {
+		return nil
+	}
+	if expires.IsZero() {
+		expires = time.Now().Add(24 * time.Hour)
+	}
+	if _, err := s.DB.Exec(`DELETE FROM revoked_sessions WHERE expires_at < ?`, time.Now().UTC()); err != nil {
+		return err
+	}
+	_, err := s.DB.Exec(`INSERT IGNORE INTO revoked_sessions (jti, expires_at) VALUES (?, ?)`, jti, expires.UTC())
+	return err
+}
+
+// BumpSessionEpoch signs user id out everywhere: every session token and
+// ticket issued before stops working (the credential changes).
+func (s *Store) BumpSessionEpoch(id int64) error {
+	_, err := s.DB.Exec(`UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?`, id)
+	return err
 }
 
 func (s *Store) UserByID(id int64) (*model.User, error) {

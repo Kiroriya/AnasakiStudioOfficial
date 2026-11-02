@@ -19,10 +19,17 @@ export function tokenFormError(name: string, scopes: readonly string[]): string 
   return '';
 }
 
-/** Body of POST /auth/tokens. */
-export function tokenCreateBody(name: string, expiresInDays: number, scopes: readonly string[]): ApiTokenCreate {
+/** Message key when the account password (required to create a token) is missing, else ''. */
+export function tokenPasswordError(password: string): string {
+  return password ? '' : 'apitok.err.password';
+}
+
+/** Body of POST /auth/tokens (the server asks for the account password too). */
+export function tokenCreateBody(name: string, expiresInDays: number, scopes: readonly string[], currentPassword?: string): ApiTokenCreate {
   const days = (TOKEN_EXPIRY_DAYS as readonly number[]).includes(expiresInDays) ? expiresInDays : DEFAULT_TOKEN_EXPIRY;
-  return { name: name.trim(), scopes: TOKEN_SCOPES.filter(s => scopes.includes(s)), expiresInDays: days };
+  const body: ApiTokenCreate = { name: name.trim(), scopes: TOKEN_SCOPES.filter(s => scopes.includes(s)), expiresInDays: days };
+  if (currentPassword !== undefined) body.currentPassword = currentPassword;
+  return body;
 }
 
 /** The command that signs the CLI in with a new token. */

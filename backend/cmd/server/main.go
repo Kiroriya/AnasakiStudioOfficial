@@ -38,6 +38,9 @@ func main() {
 		log.Print(warn)
 	}
 	plugin.SetTrustProxy(cfg.TrustProxy)
+	if err := plugin.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatal(err)
+	}
 	plugin.SetCoreVersion(config.Version) // plugins' minCore is checked against this release
 
 	conn, err := db.Open(cfg.DSN)
@@ -80,6 +83,7 @@ func main() {
 	mux := http.NewServeMux()
 	authn := auth.New(cfg.JWTSecret)
 	core := api.New(st, authn, cfg.UploadDir, plugins, web)
+	core.SetSetupToken(cfg.SetupToken)
 
 	// Site Code: the site's own JS/TS, served after plugin public routes and
 	// before page routing, and subscribed to core events.
@@ -99,7 +103,7 @@ func main() {
 	plugins.SetCodeRuntime(code) // JS plugins ("runtime": "js") run as Site Code units
 	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
 		var out []site.PostTypeRoute
-		for _, t := range code.ManifestFor(opts).PostTypes {
+		for _, t := range code.ContentFor(opts).PostTypes {
 			out = append(out, site.PostTypeRoute{Type: t.Type, Slug: t.Slug, Public: t.Public, Label: t.Label})
 		}
 		return out
@@ -130,8 +134,9 @@ func main() {
 	mux.Handle("/", adminOrSite(core.AdminPath, spa(cfg.AdminDir), plugins.Middleware(web)))
 
 	srv := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           logRequests(core.AdminPath, cors(cfg.CORSOrigin, secureHeaders(core.AdminPath, mux))),
+		Addr: cfg.Addr,
+		Handler: logRequests(core.AdminPath, cors(cfg.CORSOrigin, secureHeaders(core.AdminPath,
+			headerPolicy{HSTS: strings.HasPrefix(strings.ToLower(cfg.SiteURL), "https://"), FrameAncestors: config.Env("FRAME_ANCESTORS", "'self'")}, mux))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       10 * time.Minute, // large uploads
 		WriteTimeout:      10 * time.Minute,
@@ -141,6 +146,12 @@ func main() {
 	if cfg.AdminEmail == "" || cfg.AdminPassword == "" {
 		if n, err := st.CountUsers(); err == nil && n == 0 {
 			log.Printf("first run: open the admin to finish the setup wizard")
+			if cfg.SetupToken == "" {
+				// audit M-5: whoever opens the wizard first becomes the administrator
+				log.Print(setupWarning)
+			} else {
+				log.Printf("first run: the setup wizard asks for the SETUP_TOKEN set on this server")
+			}
 		}
 	}
 	// background jobs and cron of Site Code; stopped cleanly on SIGINT / SIGTERM
@@ -245,19 +256,57 @@ func sandboxUploads(h http.Handler) http.Handler {
 	})
 }
 
-// secureHeaders adds anti-framing / sniffing / referrer headers to the admin
-// app, the API and plugin admin screens (the public site is left alone so it
-// can still be embedded elsewhere).
-func secureHeaders(adminPath func() string, next http.Handler) http.Handler {
+const setupWarning = `
+######################################################################
+# WARNING: this site is not set up yet and SETUP_TOKEN is not set.   #
+# Whoever opens the admin first creates the administrator account.  #
+# Finish the setup wizard now, or restart with SETUP_TOKEN=<secret>  #
+# (openssl rand -hex 16) so the wizard asks for it.                  #
+######################################################################`
+
+// headerPolicy configures secureHeaders.
+type headerPolicy struct {
+	// HSTS: send Strict-Transport-Security (SITE_URL is https).
+	HSTS bool
+	// FrameAncestors of the public site (FRAME_ANCESTORS, default 'self';
+	// "*" = no restriction, so other sites may embed it).
+	FrameAncestors string
+}
+
+// adminCSP is the Content-Security-Policy of the admin app (audit M-4). It
+// does not restrict script-src: the admin opens previews of the site in
+// about:blank / srcdoc frames, which inherit this policy and must run the
+// site's own (inline) scripts, and Monaco is loaded with its AMD loader. The
+// script-src gap is documented in docs/API.md ("Security headers").
+const adminCSP = "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+
+// secureHeaders adds the security headers (audit M-4 / L-6): the admin app,
+// the API and plugin admin screens get anti-framing, nosniff, a referrer
+// policy, a permissions policy and the admin CSP; the public site gets
+// nosniff, a referrer policy and frame-ancestors (FRAME_ANCESTORS); both get
+// HSTS when the site is served over https (SITE_URL).
+func secureHeaders(adminPath func() string, pol headerPolicy, next http.Handler) http.Handler {
+	fa := strings.TrimSpace(pol.FrameAncestors)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/ext-ui/") ||
-			p == "/"+adminPath() || strings.HasPrefix(p, "/"+adminPath()+"/") {
-			h := w.Header()
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		if pol.HSTS {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
+		admin := p == "/"+adminPath() || strings.HasPrefix(p, "/"+adminPath()+"/")
+		switch {
+		case admin || strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/ext-ui/"):
 			h.Set("X-Frame-Options", "SAMEORIGIN")
-			h.Set("Content-Security-Policy", "frame-ancestors 'self'")
-			h.Set("X-Content-Type-Options", "nosniff")
-			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			if admin {
+				h.Set("Content-Security-Policy", adminCSP)
+			} else {
+				h.Set("Content-Security-Policy", "frame-ancestors 'self'")
+			}
+			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+		case fa != "" && fa != "*":
+			h.Set("Content-Security-Policy", "frame-ancestors "+fa)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -283,7 +332,23 @@ func logRequests(adminPath func() string, next http.Handler) http.Handler {
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		if !strings.HasPrefix(r.URL.Path, "/"+adminPath()+"/") {
-			log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start).Round(time.Microsecond))
+			log.Printf("%s %s %s", r.Method, logPath(r.URL.Path), time.Since(start).Round(time.Microsecond))
 		}
 	})
+}
+
+// logPath is a request path safe for the access log: the ticket of a plugin
+// admin screen (/ext-ui/code/<ticket>/…, /ext-ui/<id>/<ticket>/…) acts for
+// the signed-in user for hours, so it is masked (audit L-3). Only the path
+// is logged, never the query string.
+func logPath(p string) string {
+	rest, ok := strings.CutPrefix(p, "/ext-ui/")
+	if !ok {
+		return p
+	}
+	parts := strings.SplitN(rest, "/", 3)
+	if len(parts) >= 2 && parts[1] != "" {
+		parts[1] = "***"
+	}
+	return "/ext-ui/" + strings.Join(parts, "/")
 }

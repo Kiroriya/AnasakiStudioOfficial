@@ -4,7 +4,7 @@ import { Dialog } from '../core/dialog';
 import { I18n, TPipe } from '../core/i18n';
 import { ApiToken } from '../core/models';
 import {
-  DEFAULT_TOKEN_EXPIRY, TOKEN_EXPIRY_DAYS, TOKEN_NAME_MAX, TOKEN_SCOPES, cliLoginCommand, normalizeTokens, tokenCreateBody, tokenExpired, tokenFormError,
+  DEFAULT_TOKEN_EXPIRY, TOKEN_EXPIRY_DAYS, TOKEN_NAME_MAX, TOKEN_SCOPES, cliLoginCommand, normalizeTokens, tokenCreateBody, tokenExpired, tokenFormError, tokenPasswordError,
 } from './api-tokens-utils';
 import './messages-apitokens';
 
@@ -87,6 +87,9 @@ import './messages-apitokens';
                 @for (d of expiryChoices; track d) { <option [value]="d" [selected]="d === expiry()">{{ expiryLabel(d) }}</option> }
               </select>
             </label>
+            <label>{{ 'apitok.password' | t }}
+              <input id="api-token-password" type="password" autocomplete="current-password" [value]="password()" (input)="password.set(val($event))" (keyup.enter)="save()" />
+            </label>
             <fieldset class="api-token-scopes">
               <legend>{{ 'apitok.scopes' | t }}</legend>
               @for (s of scopeChoices; track s) {
@@ -127,12 +130,13 @@ export class ApiTokens {
   readonly error = signal('');
   readonly dialogOpen = signal(false);
   readonly name = signal('');
+  readonly password = signal('');
   readonly expiry = signal<number>(DEFAULT_TOKEN_EXPIRY);
   readonly scopes = signal<string[]>([...TOKEN_SCOPES]);
   readonly touched = signal(false);
   readonly busy = signal(false);
   readonly created = signal<{ token: string; item: ApiToken } | null>(null);
-  readonly formError = computed(() => tokenFormError(this.name(), this.scopes()));
+  readonly formError = computed(() => tokenFormError(this.name(), this.scopes()) || tokenPasswordError(this.password()));
   readonly cli = computed(() => cliLoginCommand(SITE_ORIGIN || location.origin, this.created()?.token ?? ''));
 
   readonly expiryChoices = TOKEN_EXPIRY_DAYS;
@@ -168,6 +172,7 @@ export class ApiTokens {
 
   openCreate() {
     this.name.set('');
+    this.password.set('');
     this.expiry.set(DEFAULT_TOKEN_EXPIRY);
     this.scopes.set([...TOKEN_SCOPES]);
     this.touched.set(false);
@@ -190,7 +195,8 @@ export class ApiTokens {
     if (this.formError() || this.busy()) return;
     this.busy.set(true);
     try {
-      const res = await this.api.createApiToken(tokenCreateBody(this.name(), this.expiry(), this.scopes()));
+      const res = await this.api.createApiToken(tokenCreateBody(this.name(), this.expiry(), this.scopes(), this.password()));
+      this.password.set('');
       this.created.set(res);
       if (res.item) this.items.update(l => normalizeTokens([res.item, ...l.filter(x => x.id !== res.item.id)]));
       else await this.load();

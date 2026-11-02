@@ -11,10 +11,11 @@ import (
 	"github.com/anasaki/studio/backend/internal/sitecode"
 )
 
-// Custom post types and fields from Site Code (phase 4a).
+// Custom post types and fields from Site Code (phase 4a) and, since 2.0.5,
+// from JS plugins (scope "post-types"; plugin / pluginName set).
 //
 //	GET /api/v1/post-types   any signed-in user (the admin sidebar)
-//	  → {"postTypes":[{type,label,singular,icon,slug,public,supports,fields,access,canEdit}],
+//	  → {"postTypes":[{type,label,singular,icon,slug,public,supports,fields,access,caps,canEdit,canPublish,plugin?,pluginName?}],
 //	     "postFields":{"post":{…}, "page":{…}, "<type>":{…}}}
 //
 // fields / postFields entries are objects {"<key>": {type, label:{th,en}, required?, min?, max?, options?}}
@@ -34,7 +35,13 @@ type postTypeOut struct {
 	Supports []string                `json:"supports"`
 	Fields   json.RawMessage         `json:"fields"`
 	Access   sitecode.PostTypeAccess `json:"access"`
+	Caps     sitecode.PostTypeCaps   `json:"caps"`
 	CanEdit  bool                    `json:"canEdit"`
+	// CanPublish: the caller may publish posts of the type (2.0.6).
+	CanPublish bool `json:"canPublish"`
+	// Plugin / PluginName: the JS plugin that registered the type (2.0.5).
+	Plugin     string `json:"plugin,omitempty"`
+	PluginName string `json:"pluginName,omitempty"`
 }
 
 // postCatalog lists the custom post types (with canEdit for me) and the
@@ -43,7 +50,9 @@ func postCatalog(m sitecode.Manifest, me *auth.Principal) ([]postTypeOut, map[st
 	types := []postTypeOut{}
 	for _, t := range m.PostTypes {
 		types = append(types, postTypeOut{Type: t.Type, Label: t.Label, Singular: t.Singular, Icon: t.Icon, Slug: t.Slug,
-			Public: t.Public, Supports: t.Supports, Fields: sitecode.FieldsObject(t.Fields), Access: t.Access, CanEdit: t.CanEditType(me.Role)})
+			Public: t.Public, Supports: t.Supports, Fields: sitecode.FieldsObject(t.Fields), Access: t.Access, CanEdit: t.CanEditType(me.Role),
+			Caps: t.Caps, CanPublish: t.CanPublishType(me.Role),
+			Plugin: t.Plugin, PluginName: t.PluginName})
 	}
 	fields := map[string]json.RawMessage{model.TypePost: json.RawMessage("{}"), model.TypePage: json.RawMessage("{}")}
 	for typ, list := range m.Fields {

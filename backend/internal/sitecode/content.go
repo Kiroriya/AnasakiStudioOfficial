@@ -90,6 +90,9 @@ func (v *vm) mayPublish(typ string) bool {
 	if typ == model.TypePost || typ == model.TypePage {
 		return v.user.Can(auth.CapPublishPosts)
 	}
+	if t := v.customType(typ); t != nil && t.Caps.Publish != "" { // 2.0.6
+		return v.user != nil && t.CanPublishType(v.user.Role)
+	}
 	return v.mayEdit(typ, 0)
 }
 
