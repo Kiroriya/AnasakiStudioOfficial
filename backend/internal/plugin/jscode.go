@@ -46,7 +46,9 @@ var CodeScopes = map[string]bool{"db": true, "content": true, "content-write": t
 	// phase 7 joints: site.fields in a plugin (post meta "<id>.<key>"), http.webhook to any public URL
 	"content-fields": true, "webhooks": true,
 	// 2.0.5: site.postType in a plugin (type ids "<id>_<name>")
-	"post-types": true}
+	"post-types": true,
+	// 2.1.0: site.taxonomy, db.terms writes, the media library from code, the plugin's own files
+	"taxonomies": true, "terms-write": true, "media": true, "media-write": true, "files": true}
 
 // codeExt are the file types of code/** and migrations/**.
 var codeExt = map[string]bool{".ts": true, ".js": true, ".mjs": true, ".json": true, ".md": true}
@@ -242,7 +244,7 @@ func (mf *Manifest) validateCode(files map[string][]byte) error {
 		}
 	}
 	if err := uniqueList("code.scopes", c.Scopes, len(CodeScopes), func(s string) bool { return CodeScopes[s] },
-		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks, post-types)"); err != nil {
+		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks, post-types, taxonomies, terms-write, media, media-write, files)"); err != nil {
 		return err
 	}
 	if err := uniqueList("code.hosts", c.Hosts, maxCodeHosts, func(h string) bool { return len(h) <= 253 && codeHostRe.MatchString(h) },

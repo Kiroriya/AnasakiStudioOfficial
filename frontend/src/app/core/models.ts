@@ -5,7 +5,8 @@ export type Role = 'administrator' | 'editor' | 'author' | 'contributor' | 'subs
 /** Built-in types plus post types registered by Site Code (site.postType). */
 export type PostType = 'post' | 'page' | 'template' | (string & {});
 export const BUILTIN_POST_TYPES = ['post', 'page', 'template'];
-export type PostStatus = 'draft' | 'publish';
+/** 'scheduled' (CMS 2.1.0): waits for publishedAt, then the server publishes it. */
+export type PostStatus = 'draft' | 'publish' | 'scheduled';
 
 export interface User {
   id: number;
@@ -59,6 +60,24 @@ export interface Term {
   name: string;
   slug: string;
   count: number;
+  /** Parent term id in a hierarchical taxonomy, 0 = top level (CMS 2.1.0). */
+  parent?: number;
+  description?: string;
+}
+
+/** "category" or a taxonomy registered with site.taxonomy (CMS 2.1.0). */
+export interface Taxonomy {
+  id: string;
+  label: { th?: string; en?: string };
+  singular: { th?: string; en?: string };
+  hierarchical: boolean;
+  postTypes: string[];
+  slug: string;
+  public: boolean;
+  builtin: boolean;
+  canManage: boolean;
+  plugin?: string;
+  pluginName?: string;
 }
 
 export interface Post {
@@ -75,6 +94,8 @@ export interface Post {
   authorId: number;
   authorName: string;
   categories: Term[];
+  /** Terms of every taxonomy by taxonomy id (CMS 2.1.0). */
+  terms?: Record<string, Term[]>;
   /** Shown first in post lists on the site (WordPress "sticky"). */
   pinned?: boolean;
   /** Position in the hand-made ("manual") order; 0 = not placed. */
@@ -98,6 +119,10 @@ export interface PostInput {
   clearFeatured?: boolean;
   categoryIds?: number[];
   pinned?: boolean;
+  /** Publish date (ISO): in the future the post is scheduled (CMS 2.1.0). */
+  publishedAt?: string;
+  /** Term ids per taxonomy; a taxonomy left out is unchanged (CMS 2.1.0). */
+  terms?: Record<string, number[]>;
   /** Custom field values (site.postType fields / site.fields), phase 4a. */
   meta?: Record<string, unknown>;
 }
@@ -207,7 +232,15 @@ export interface I18nText { th: string; en: string }
 /** Settings / block prop field (plugin manifest schema). */
 export interface SchemaField {
   key: string;
-  type: 'text' | 'textarea' | 'number' | 'color' | 'boolean' | 'select' | 'url' | 'image' | 'date' | 'datetime' | 'email' | 'json';
+  /** 'secret' (CMS 2.1.0, plugin settings): a password box; the value is never sent back. */
+  type: 'text' | 'textarea' | 'number' | 'color' | 'boolean' | 'select' | 'url' | 'image' | 'date' | 'datetime' | 'email' | 'json' | 'secret'
+    // CMS 2.1.0 custom fields: ids of posts / users / terms / media, rows of fields, HTML
+    | 'relation' | 'user' | 'term' | 'file' | 'gallery' | 'repeater' | 'richtext';
+  postTypes?: string[];
+  multiple?: boolean;
+  taxonomy?: string;
+  /** repeater: each row's fields. */
+  fields?: SchemaField[];
   label: I18nText | string;
   default?: unknown;
   options?: { value: string; label: I18nText | string }[];
@@ -225,6 +258,8 @@ export interface InstalledPackage {
   id: string; name: string; version: string; description: string; author: string; icon: string; iconUrl?: string;
   category: string; permissions: string[]; active: boolean; source: 'upload' | 'store'; installedAt: string;
   settingsSchema: SchemaField[]; settings: Record<string, unknown>; blocks: PluginBlock[];
+  /** Settings of type 'secret' that have a value (CMS 2.1.0). */
+  secretsSet?: string[];
   service?: ServiceView;
   /** Set after an upgrade that asks for more than was approved: the package stays off until re-approved. */
   reconsent?: Reconsent;

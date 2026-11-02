@@ -15,7 +15,13 @@ var ErrNotFound = errors.New("not found")
 type Store struct {
 	DB *sql.DB
 
-	// options cache: the site options are read on every public request
+	*optCache // shared by every copy (As)
+	ev        *events
+	actor     Actor // who writes through this copy (As); zero = the system
+}
+
+// optCache: the site options are read on every public request.
+type optCache struct {
 	optMu   sync.Mutex
 	opts    map[string]string
 	optsAt  time.Time
@@ -27,7 +33,7 @@ type Store struct {
 // sharing the database, manual SQL) within this time.
 const optionsTTL = 3 * time.Second
 
-func New(db *sql.DB) *Store { return &Store{DB: db} }
+func New(db *sql.DB) *Store { return &Store{DB: db, optCache: &optCache{}, ev: &events{}} }
 
 // InvalidateCache drops the cached options; call it after changing the
 // options table without SetOptions (e.g. restoring a backup or the demo

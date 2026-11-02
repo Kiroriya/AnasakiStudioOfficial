@@ -284,11 +284,11 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 	}
 	in.apply(u)
 	if in.Password == "" {
-		a.saveUser(w, u, "", http.StatusOK)
+		a.saveUser(w, r, u, "", http.StatusOK)
 		return
 	}
 	// a new password signs out every other session; this one gets a fresh token
-	if !a.storeUser(w, u, in.Password) {
+	if !a.storeUser(w, r, u, in.Password) {
 		return
 	}
 	fresh, tok, err := a.session(u.ID)
@@ -326,6 +326,36 @@ const (
 	errRoleTooHigh = "คุณไม่สามารถกำหนดสิทธิ์ที่สูงกว่าสิทธิ์ของตัวเองได้"
 	errUserTooHigh = "คุณไม่มีสิทธิ์จัดการบัญชีนี้"
 )
+
+// userOptions lists users as {id, name} (ids given in ?ids=1,2 or by
+// ?search=, at most 50): the picker of "user" custom fields (CMS 2.1.0).
+// No e-mail addresses or roles.
+func (a *API) userOptions(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	out := []map[string]any{}
+	if ids := q.Get("ids"); ids != "" {
+		for i, s := range strings.Split(ids, ",") {
+			id, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+			if err != nil || i >= 100 {
+				continue
+			}
+			if u, err := a.st.UserByID(id); err == nil {
+				out = append(out, map[string]any{"id": u.ID, "name": u.Name})
+			}
+		}
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	us, _, err := a.st.ListUsers(model.UserFilter{Search: q.Get("search"), Status: model.UserActive, Limit: 50})
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	for _, u := range us {
+		out = append(out, map[string]any{"id": u.ID, "name": u.Name})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
 
 func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -389,13 +419,12 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.apply(u)
-	if !a.saveUser(w, u, in.Password, http.StatusCreated) {
+	if !a.saveUser(w, r, u, in.Password, http.StatusCreated) {
 		return
 	}
 	if in.SendWelcome {
 		a.sendWelcome(r, u)
 	}
-	a.plugins.Emit("user.created", map[string]any{"id": u.ID, "email": u.Email, "name": u.Name, "role": u.Role})
 }
 
 func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
@@ -434,12 +463,12 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	if in.Status != "" {
 		u.Status = in.Status
 	}
-	a.saveUser(w, u, in.Password, http.StatusOK)
+	a.saveUser(w, r, u, in.Password, http.StatusOK)
 }
 
 // saveUser validates and stores u, then answers with it; false on failure.
-func (a *API) saveUser(w http.ResponseWriter, u *model.User, password string, status int) bool {
-	if !a.storeUser(w, u, password) {
+func (a *API) saveUser(w http.ResponseWriter, r *http.Request, u *model.User, password string, status int) bool {
+	if !a.storeUser(w, r, u, password) {
 		return false
 	}
 	if fresh, err := a.st.UserByID(u.ID); err == nil {
@@ -451,7 +480,7 @@ func (a *API) saveUser(w http.ResponseWriter, u *model.User, password string, st
 }
 
 // storeUser validates and stores u; on failure it answers and returns false.
-func (a *API) storeUser(w http.ResponseWriter, u *model.User, password string) bool {
+func (a *API) storeUser(w http.ResponseWriter, r *http.Request, u *model.User, password string) bool {
 	if u.Name == "" || !strings.Contains(u.Email, "@") {
 		writeErr(w, http.StatusBadRequest, "กรุณากรอกชื่อและอีเมลให้ถูกต้อง")
 		return false
@@ -492,9 +521,9 @@ func (a *API) storeUser(w http.ResponseWriter, u *model.User, password string) b
 	}
 	var err error
 	if u.ID == 0 {
-		err = a.st.CreateUser(u, hash)
+		err = a.db(r).CreateUser(u, hash)
 	} else {
-		err = a.st.UpdateUser(u, hash)
+		err = a.db(r).UpdateUser(u, hash)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate") {
@@ -542,7 +571,7 @@ func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "ไม่พบผู้ใช้ที่จะรับโอนเนื้อหา")
 		return
 	}
-	if err := a.st.DeleteUser(id, to); err != nil {
+	if err := a.db(r).DeleteUser(id, to); err != nil {
 		serverErr(w, err)
 		return
 	}
@@ -607,14 +636,14 @@ func (a *API) bulkUsers(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "สิทธิ์การใช้งานไม่ถูกต้อง")
 			return
 		}
-		n, err = a.st.SetUsersRole(in.IDs, in.Role)
+		n, err = a.db(r).SetUsersRole(in.IDs, in.Role)
 	case "suspend":
-		n, err = a.st.SetUsersStatus(in.IDs, model.UserSuspended)
+		n, err = a.db(r).SetUsersStatus(in.IDs, model.UserSuspended)
 	case "activate":
-		n, err = a.st.SetUsersStatus(in.IDs, model.UserActive)
+		n, err = a.db(r).SetUsersStatus(in.IDs, model.UserActive)
 	case "delete":
 		for _, id := range in.IDs {
-			e := a.st.DeleteUser(id, me.ID)
+			e := a.db(r).DeleteUser(id, me.ID)
 			if e == nil {
 				n++
 			} else if !errors.Is(e, store.ErrNotFound) {

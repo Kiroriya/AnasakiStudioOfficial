@@ -419,5 +419,18 @@ func (s *Site) sitemapEntries(opts map[string]string) []map[string]any {
 			}
 		}
 	}
+	// 2.1.0: the term archives of public taxonomies (site.taxonomy)
+	for _, tax := range s.taxonomies(opts) {
+		if !tax.Public {
+			continue
+		}
+		if terms, err := s.st.ListTerms(tax.ID); err == nil {
+			for _, t := range terms {
+				if t.Count > 0 {
+					out = append(out, map[string]any{"loc": TermURL(tax.Slug, t.Slug), "type": "term", "taxonomy": tax.ID})
+				}
+			}
+		}
+	}
 	return out
 }

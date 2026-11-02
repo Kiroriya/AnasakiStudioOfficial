@@ -121,12 +121,12 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	admin, err := seed.Admin(a.st, in.AdminName, in.AdminEmail, in.AdminPassword, in.Locale)
+	admin, err := seed.Admin(a.st.As(store.Actor{Source: "setup"}), in.AdminName, in.AdminEmail, in.AdminPassword, in.Locale)
 	if err == nil {
 		if in.Demo {
-			err = seed.Demo(a.st, a.uploadDir, admin.ID)
+			err = seed.Demo(a.st.Quiet(), a.uploadDir, admin.ID) // sample content: no events
 		} else {
-			err = seed.Blank(a.st, admin.ID)
+			err = seed.Blank(a.st.Quiet(), admin.ID)
 		}
 	}
 	if err == nil {
@@ -138,7 +138,6 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	a.plugins.Emit("user.created", map[string]any{"id": admin.ID, "email": admin.Email, "name": admin.Name, "role": admin.Role})
 	a.issueToken(w, admin, http.StatusCreated)
 }
 

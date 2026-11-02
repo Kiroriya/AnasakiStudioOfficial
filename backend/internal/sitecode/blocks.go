@@ -105,6 +105,9 @@ func (v *vm) siteBlock(c goja.FunctionCall) goja.Value {
 		if err := plugin.ValidateSchema(check); err != nil {
 			v.throw("%s: props: %s", what, err.Error())
 		}
+		if err := plugin.NoSecrets(check); err != nil {
+			v.throw("%s: props: %s", what, err.Error())
+		}
 	}
 	if sc := optString(o, "script"); sc != "" {
 		if !plugin.AssetPathOK(sc) || !strings.HasSuffix(strings.ToLower(sc), ".js") {

@@ -60,6 +60,7 @@ import { Pager } from '../shared/pager';
           <option value="">{{ 'common.allStatus' | t }}</option>
           <option value="publish">{{ 'common.published' | t }}</option>
           <option value="draft">{{ 'common.draft' | t }}</option>
+          <option value="scheduled">{{ 'post.scheduledBadge' | t }}</option>
         </select>
         @if (hasCategories()) {
           <select [value]="category()" (change)="category.set(val($event)); page.set(1); load()">
@@ -96,7 +97,7 @@ import { Pager } from '../shared/pager';
               @if (hasCategories()) {
                 <td>@for (c of p.categories; track c.id) { <span class="chip">{{ c.name }}</span> } @empty { <span class="muted">—</span> }</td>
               }
-              <td><span class="badge" [class.badge-live]="p.status === 'publish'">● {{ (p.status === 'publish' ? 'common.published' : 'common.draft') | t }}</span></td>
+              <td><span class="badge" [attr.data-status]="p.status" [class.badge-live]="p.status === 'publish'" [title]="p.status === 'scheduled' && p.publishedAt ? i18n.date(p.publishedAt, true) : ''">{{ p.status === 'scheduled' ? '⏰' : '●' }} {{ (p.status === 'publish' ? 'common.published' : p.status === 'scheduled' ? 'post.scheduledBadge' : 'common.draft') | t }}</span></td>
               <td class="muted small">{{ i18n.date(p.updatedAt, true) }}</td>
               <td class="row-actions">
                 @if (designed()) { <a class="btn btn-sm btn-primary" [routerLink]="['/design', p.id]">🎨 {{ 'content.design' | t }}</a> }
@@ -335,7 +336,7 @@ export class ContentList {
   }
 
   /** Published content needs publish_posts to change or delete (the server enforces it too). */
-  canModify(p: Post) { return p.status !== 'publish' || this.auth.can('publish_posts'); }
+  canModify(p: Post) { return p.status === 'draft' || this.auth.can('publish_posts'); }
 
   async remove(p: Post) {
     this.more.set(null);

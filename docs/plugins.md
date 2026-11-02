@@ -120,6 +120,7 @@ built-in plugin settings):
 | `boolean` | true/false | |
 | `select` | string | must be one of `options: [{ "value": "a", "label": { "th": "", "en": "" } }]` |
 | `url` / `image` | string | `http(s)://`, `/path`, `#`, `mailto:`, `tel:` (never `javascript:`) |
+| `secret` (CMS 2.1.0, settings only) | string | ≤ 2000 bytes; an API key or password: stored encrypted (AES-256-GCM, key `SITE_CODE_SECRET_KEY` or `site-code.key` in `PLUGINS_DIR`), never sent back to the admin (`secretsSet` lists the ones with a value), left out of `head` / `bodyEnd` / block templates; the plugin reads it with `site.settings(key)` or in the service API settings. The form sends `""` for "keep" and `"<key>__clear": true` to remove it |
 
 `label` can also be a plain string. `key` matches `^[a-zA-Z][a-zA-Z0-9_]{0,39}$`. Missing values
 get their `default`; unknown keys are dropped; invalid values are refused with

@@ -1,0 +1,23 @@
+{
+  "id": "image-optimizer",
+  "name": "Image optimizer",
+  "version": "1.0.0",
+  "description": "Example JS plugin (CMS 2.1.0): shrinks JPEG and PNG uploads that are wider than a limit and re-encodes them (media.uploaded → media.read → media.resize → media.replace), keeping the original when the result is not smaller; refuses images over a size limit before they are stored (media.beforeSave).",
+  "author": "Anasaki Studio",
+  "icon": "🗜️",
+  "category": "utilities",
+  "tags": ["images", "media", "performance", "resize"],
+  "license": "MIT",
+  "minCore": "2.1.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "maxWidth", "type": "number", "default": 1920, "min": 320, "max": 8000, "label": { "th": "ความกว้างสูงสุด (px)", "en": "Max width (px)" } },
+    { "key": "quality", "type": "number", "default": 82, "min": 40, "max": 100, "label": { "th": "คุณภาพ JPEG (40-100)", "en": "JPEG quality (40-100)" } },
+    { "key": "maxUploadMB", "type": "number", "default": 0, "min": 0, "max": 512, "label": { "th": "ปฏิเสธรูปที่ใหญ่เกิน (MB, 0 = ไม่จำกัด)", "en": "Refuse images over (MB, 0 = no limit)" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["media", "media-write", "filters-core"]
+  }
+}

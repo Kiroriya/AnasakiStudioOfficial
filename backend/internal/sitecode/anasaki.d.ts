@@ -112,18 +112,88 @@ interface RouteOptions {
   access?: string[];
 }
 
-/** Core events delivered to site.on. / เหตุการณ์ของระบบ */
+/**
+ * Who made a change (CMS 2.1.0): the user (0 = none: a visitor, db.asSystem, the scheduler) and where
+ * it came from: 'admin', 'api' (personal access token), 'code' (Site Code), 'plugin:<id>' (a JS
+ * plugin), 'scheduler', 'setup', 'password-reset' or 'system'. / ใครเป็นผู้แก้ไข และมาจากไหน
+ */
+interface EventActor {
+  id: number;
+  source: string;
+}
+
+/** A post in an event payload. / โพสต์ใน payload ของ event */
+interface PostEvent {
+  id: number;
+  type: string;
+  title: string;
+  slug: string;
+  status: PostStatus;
+  url: string;
+  /** 2.1.0 */
+  authorId: number;
+  /** RFC 3339; null when never published. 2.1.0 */
+  publishedAt: string | null;
+  /** 2.1.0 */
+  actor: EventActor;
+}
+
+interface UserEvent { id: number; email: string; name: string; role: string; status: string; actor: EventActor }
+interface MediaEvent {
+  id: number; filename: string; url: string; mime: string; size: number;
+  /** image | video | audio | document | archive | other (2.1.0) */
+  kind: string; width: number; height: number; alt: string; authorId: number; actor: EventActor;
+}
+interface TermEvent { id: number; taxonomy: string; name: string; slug: string; actor: EventActor }
+
+/**
+ * Core events delivered to site.on. Since 2.1.0 the store fires them for every write (the admin,
+ * Site Code, JS plugins, the scheduler); each payload has `actor`, updates carry `previous`.
+ * เหตุการณ์ของระบบ (2.1.0: ยิงจากทุกช่องทางที่เขียนข้อมูล พร้อม actor และค่าเดิม)
+ */
 interface SiteEvents {
-  /** A post/page became published. / เผยแพร่เนื้อหา */
-  'post.published': { id: number; type: string; title: string; slug: string; url: string };
-  /** A post/page was created or saved. / บันทึกเนื้อหา */
-  'post.saved': { id: number; type: string; title: string; slug: string; status: string; url: string };
+  /** A post/page became published (also by the scheduler). / เผยแพร่เนื้อหา */
+  'post.published': PostEvent;
+  /** A post/page was created or saved (isNew; previous on an update). / บันทึกเนื้อหา */
+  'post.saved': PostEvent & { isNew: boolean; previous?: { title: string; slug: string; status: PostStatus } };
   /** A post/page was deleted. / ลบเนื้อหา */
-  'post.deleted': { id: number; type: string; title: string; slug: string };
+  'post.deleted': PostEvent;
+  /** 2.1.0: a post/page was created. / สร้างเนื้อหา */
+  'post.created': PostEvent;
+  /** 2.1.0: a post/page was updated, with the values before. / แก้ไขเนื้อหา (มีค่าเดิม) */
+  'post.updated': PostEvent & { previous: { title: string; slug: string; status: PostStatus; authorId: number; publishedAt: string | null } };
+  /** 2.1.0: the status changed (WordPress transition_post_status); from is '' for a new post. / สถานะเปลี่ยน */
+  'post.statusChanged': PostEvent & { from: PostStatus | ''; to: PostStatus };
+  /** 2.1.0: a post was scheduled (or its time moved). / ตั้งเวลาเผยแพร่ */
+  'post.scheduled': PostEvent;
+  /** 2.1.0: a published post went back to draft or scheduled. / เลิกเผยแพร่ */
+  'post.unpublished': PostEvent;
   /** A user account was created. / สร้างผู้ใช้ */
-  'user.created': { id: number; email: string; name: string; role: string };
+  'user.created': UserEvent;
+  /** 2.1.0: a profile, role or status changed (never the password itself). / แก้ไขผู้ใช้ */
+  'user.updated': UserEvent & { previous: { email: string; name: string; role: string; status: string }; passwordChanged: boolean };
+  /** 2.1.0 / เปลี่ยน role */
+  'user.roleChanged': UserEvent & { from: string; to: string };
+  /** 2.1.0: deleted; their content went to reassignedTo. / ลบผู้ใช้ */
+  'user.deleted': UserEvent & { reassignedTo: number };
   /** A media file was uploaded. / อัปโหลดไฟล์ */
-  'media.uploaded': { id: number; filename: string; url: string; mime: string; size: number };
+  'media.uploaded': MediaEvent;
+  /** 2.1.0 (alt text) / แก้ไขไฟล์ */
+  'media.updated': MediaEvent & { previous: { alt: string } };
+  /** 2.1.0 / ลบไฟล์ */
+  'media.deleted': MediaEvent;
+  /** 2.1.0 / สร้างหมวด/แท็ก */
+  'term.created': TermEvent;
+  /** 2.1.0 / แก้ไขหมวด/แท็ก */
+  'term.updated': TermEvent & { previous: { name: string; slug: string } };
+  /** 2.1.0 / ลบหมวด/แท็ก */
+  'term.deleted': TermEvent;
+  /** 2.1.0: site settings saved in the admin; the changed keys, never the values. / ตั้งค่าเว็บถูกบันทึก */
+  'settings.updated': { keys: string[]; actor: EventActor };
+  /** 2.1.0 / เปิดปลั๊กอิน */
+  'plugin.activated': { id: string; version: string; actor: EventActor };
+  /** 2.1.0 / ปิดปลั๊กอิน */
+  'plugin.deactivated': { id: string; version: string; actor: EventActor };
 }
 
 interface Site {
@@ -234,8 +304,11 @@ interface Post {
   type: string;
   title: string;
   slug: string;
-  /** "publish" or "draft" (drafts only reach users who may edit them). / สถานะ */
-  status: string;
+  /**
+   * "publish", "draft" or "scheduled" (2.1.0). Drafts and scheduled posts only reach users who may
+   * edit them. / สถานะ
+   */
+  status: PostStatus;
   /** Public path, e.g. "/blog/hello". / path สาธารณะ */
   url: string;
   excerpt: string;
@@ -248,11 +321,26 @@ interface Post {
   categories: { slug: string; name: string }[];
   /** Author display name. / ชื่อผู้เขียน */
   author: string;
-  /** RFC 3339, null for a draft. */
+  /** RFC 3339, null for a draft. For a scheduled post: when it goes live. */
   publishedAt: string | null;
   /** RFC 3339. */
   updatedAt: string;
+  /** RFC 3339 (2.1.0). */
+  createdAt: string;
+  /** Author user id (2.1.0). / id ผู้เขียน */
+  authorId: number;
+  /** Featured image media id, null = none (2.1.0). / id รูปเด่น */
+  imageId: number | null;
+  /** Shown first in lists (2.1.0). / ปักหมุด */
+  pinned: boolean;
+  /** Position in the manual order, 0 = not placed (2.1.0). / ลำดับที่จัดเอง */
+  sortOrder: number;
+  /** Terms of every taxonomy by taxonomy id (2.1.0). / หมวดทุกชุด */
+  terms: Record<string, { id: number; slug: string; name: string; parent: number }[]>;
 }
+
+/** 'scheduled' (CMS 2.1.0): waits for publishedAt, then core publishes it. */
+type PostStatus = 'draft' | 'publish' | 'scheduled';
 
 interface PostListOptions {
   /** Default 'post'; also a site.postType id. */
@@ -267,6 +355,15 @@ interface PostListOptions {
   page?: number;
   /** 1-100, default 10. */
   perPage?: number;
+  /**
+   * 2.1.0: only this status, or 'any'. Without the right to see drafts of the type only 'publish'
+   * matches (another status gives an empty list). / กรองสถานะ
+   */
+  status?: PostStatus | 'any';
+  /** 2.1.0: only this author's posts. / เฉพาะผู้เขียนคนนี้ */
+  authorId?: number;
+  /** 2.1.0: only these posts (at most 200 ids). / เฉพาะ id เหล่านี้ */
+  ids?: number[];
 }
 
 /** A result row. / แถวผลลัพธ์ */
@@ -289,7 +386,7 @@ interface CorePostsRow {
   author_id: number; featured_media_id: number | null; published_at: string | null; created_at: string; updated_at: string;
 }
 /** Categories and tags (read-only view). */
-interface CoreTermsRow { id: number; taxonomy: string; name: string; slug: string }
+interface CoreTermsRow { id: number; taxonomy: string; name: string; slug: string; parent: number }
 /** Post / term links of published posts (read-only view). */
 interface CorePostTermsRow { post_id: number; term_id: number }
 /** CMS users without passwords or tokens (read-only view). */
@@ -431,7 +528,8 @@ interface Db extends DbTables {
     get(idOrSlug: number | string, opts?: { type?: string }): Post | null;
     /**
      * Creates a post (checked against ctx.user's capabilities — visitors cannot write; see
-     * db.asSystem). Runs post.beforeSave, emits post.saved / post.published.
+     * db.asSystem). Runs post.beforeSave; the store fires post.created / post.saved / post.published
+     * (actor source 'code', or 'plugin:<id>' in a JS plugin).
      * สร้างโพสต์ (ตรวจสิทธิ์ของผู้เรียก)
      */
     create(post: PostInput): Post;
@@ -442,6 +540,20 @@ interface Db extends DbTables {
   };
   /** Runs fn with system rights (content writes); audited as `as_system` with file:line. / ทำแทนระบบ */
   asSystem<R>(fn: () => R): R;
+  /**
+   * Terms of 'category' and the site.taxonomy taxonomies (CMS 2.1.0). Reading needs scope "content";
+   * writing needs "terms-write", the right to manage the taxonomy (or db.asSystem) and is limited to
+   * 'category' and the code's own taxonomies. / หมวดหมู่
+   */
+  terms: {
+    /** By name; default taxonomy 'category', at most `limit` (default 200, ≤ 1000). */
+    list(opts?: { taxonomy?: string; parent?: number; search?: string; postId?: number; ids?: number[]; slugs?: string[]; limit?: number }): Term[];
+    get(idOrSlug: number | string, opts?: { taxonomy?: string }): Term | null;
+    create(term: TermInput & { taxonomy: string; name: string }): Term;
+    update(id: number, patch: TermInput): Term;
+    /** Its children move up to its parent. */
+    delete(id: number): boolean;
+  };
 }
 
 interface Logger {
@@ -605,6 +717,10 @@ interface SiteRequest {
   rawBody?: string;
   /** Exact body bytes as base64 (`rawBody: true`). */
   rawBodyBase64?: string;
+  /** The files of a multipart/form-data body (CMS 2.1.0; raise the route's maxBody for big files). / ไฟล์ที่ส่งมา */
+  files(): { field: string; filename: string; type: string; size: number; bytes: Uint8Array }[];
+  /** The text fields of a multipart/form-data body (CMS 2.1.0). */
+  form(): Record<string, string | string[]>;
 }
 
 interface RouteOptions {
@@ -636,10 +752,31 @@ interface PostInput {
   type?: string;
   title?: string;
   slug?: string;
-  status?: 'draft' | 'publish';
+  /**
+   * 'scheduled' needs publishedAt; 'publish' with a future publishedAt is scheduled too (2.1.0).
+   * Without the right to publish the type the post is saved as a draft.
+   */
+  status?: PostStatus;
   excerpt?: string;
   content?: string;
   meta?: Record<string, any>;
+  /** 2.1.0: the author (needs the right to edit others' posts). / ผู้เขียน */
+  authorId?: number;
+  /** 2.1.0: Date, ISO 8601 or epoch ms; in the future it schedules, in the past it back-dates; null clears. */
+  publishedAt?: Date | string | number | null;
+  /** 2.1.0: featured image media id; null or 0 removes it. / รูปเด่น */
+  imageId?: number | null;
+  /** 2.1.0 (needs the right to edit others' posts). / ปักหมุด */
+  pinned?: boolean;
+  /** 2.1.0 (needs the right to edit others' posts). / ลำดับที่จัดเอง */
+  sortOrder?: number;
+  /** 2.1.0: designer document (needs edit_pages; code blocks need edit_scripts). / ดีไซน์ */
+  design?: Record<string, any>;
+  /**
+   * 2.1.0: terms per taxonomy, ids or slugs of existing terms; replaces that taxonomy's terms. The
+   * taxonomy must be 'category' (posts, types supporting categories) or the code's own one listing the type.
+   */
+  terms?: Record<string, (number | string)[]>;
 }
 
 /** Core filter points. / จุด filter ของระบบ */
@@ -658,6 +795,11 @@ interface SiteFilters {
   'action.result': ActionResult;
   /** Return null to cancel. ctx {source} */
   'mail.beforeSend': MailMessage | null;
+  /**
+   * 2.1.0: before a file joins the media library (admin upload, URL import, media.upload). Change the
+   * filename (same extension) or alt, or return {error: '…'} to refuse. ctx {mime, size, kind, source, user}
+   */
+  'media.beforeSave': { filename: string; alt: string; error?: string };
   /** <head> meta of every public page (50 ms, phase 6). ctx {page, path} */
   'page.meta': PageMeta;
   /** /sitemap.xml entries (paths or {loc, lastmod?, changefreq?, priority?}); core serves the sitemap once a unit filters this. ctx {baseUrl, visible} */
@@ -691,17 +833,69 @@ interface SitemapEntry {
   priority?: number;
 }
 
-type CustomFieldType = 'text' | 'textarea' | 'number' | 'bool' | 'date' | 'datetime' | 'select' | 'url' | 'image' | 'email' | 'json';
+/**
+ * Since CMS 2.1.0 also: relation (post ids, `postType`), user (user ids), term (term ids, `taxonomy`),
+ * file (a media id), gallery (media ids), repeater (rows of `fields`), richtext (sanitised HTML), color.
+ * relation / user / term / file store one id, or a list with `multiple: true` (gallery always a list).
+ */
+type CustomFieldType = 'text' | 'textarea' | 'number' | 'bool' | 'date' | 'datetime' | 'select' | 'url' | 'image' | 'email' | 'json'
+  | 'relation' | 'user' | 'term' | 'file' | 'gallery' | 'repeater' | 'richtext' | 'color';
 type I18nLabel = string | { th?: string; en?: string };
 type CustomField = CustomFieldType | {
   type: CustomFieldType;
   label?: I18nLabel;
   required?: boolean;
-  /** number: value range; text/textarea: length. */
+  /** number: value range; text/textarea: length; relation / gallery …: how many; repeater: rows. */
   min?: number;
   max?: number;
   options?: (string | { value: string; label?: I18nLabel })[];
+  /** relation: the content types to choose from ('post', 'page' or site.postType ids); default 'post'. */
+  postType?: string | string[];
+  /** relation / user / term / file: a list of ids. */
+  multiple?: boolean;
+  /** term: the taxonomy; default 'category'. */
+  taxonomy?: string;
+  /** repeater: the fields of a row (no gallery, repeater, json, richtext, user or term inside). */
+  fields?: Record<string, CustomField>;
 };
+
+/** site.taxonomy (CMS 2.1.0). / ชุดหมวดหมู่ */
+interface TaxonomySpec {
+  label: I18nLabel;
+  singular?: I18nLabel;
+  /** The content types whose posts take these terms: 'post', 'page' or site.postType ids. */
+  postTypes: string[];
+  /** Terms have parents (like categories); default false (flat, like tags). */
+  hierarchical?: boolean;
+  /** Archive base /<slug>/<term-slug>; default the id with '-' for '_'. */
+  slug?: string;
+  /** Archive pages and sitemap entries; default true. */
+  public?: boolean;
+  /** Who manages the terms: role slugs or 'cap:<capability>'; default editors and administrators. */
+  access?: { manage?: string[] };
+}
+
+/** A term (db.terms, CMS 2.1.0). / หมวด */
+interface Term {
+  id: number;
+  taxonomy: string;
+  name: string;
+  slug: string;
+  /** Parent term id (0 = top level). */
+  parent: number;
+  description: string;
+  /** Posts having the term. */
+  count: number;
+}
+
+interface TermInput {
+  name?: string;
+  /** Default: from the name. */
+  slug?: string;
+  /** Hierarchical taxonomies only; 0 or null = top level. */
+  parent?: number | null;
+  description?: string;
+}
 
 interface PostTypeSpec {
   label?: I18nLabel;
@@ -786,6 +980,12 @@ interface Site {
   export(name: string, fn: (...args: any[]) => any): void;
   /** A custom post type (admin menu, editor with fields, /<slug>/<post-slug>). In a JS plugin (scope "post-types", CMS 2.0.5) the id must be "<plugin id, - as _>_<name>" (≤ 20 characters), e.g. docs_doc. / ประเภทเนื้อหาใหม่ */
   postType(id: string, spec: PostTypeSpec): void;
+  /**
+   * A taxonomy for one or more content types (CMS 2.1.0): an admin terms screen, a panel in the post
+   * editor, db.terms and, when public, archive pages /<slug>/<term-slug>. In a JS plugin (scope
+   * "taxonomies") the id follows the post type rule, e.g. shop_brand. / ชุดหมวดหมู่ใหม่
+   */
+  taxonomy(id: string, spec: TaxonomySpec): void;
   /** Custom fields for 'post', 'page', a custom type, or '*' = every type, also ones registered later (CMS 2.0.8). / ฟิลด์เพิ่มเติม */
   fields(type: string, fields: Record<string, CustomField>): void;
   /** A background job (jobs.enqueue, site.cron). / งานเบื้องหลัง */
@@ -826,6 +1026,49 @@ interface FetchResponse {
   json<T = any>(): T;
   text(): string;
 }
+
+/** A media library item (CMS 2.1.0). / ไฟล์ในคลังสื่อ */
+interface MediaItem {
+  id: number; url: string; filename: string; mime: string; size: number;
+  /** image | video | audio | document | archive | other */
+  kind: string; ext: string; width: number; height: number; alt: string; authorId: number; createdAt: string;
+}
+
+/**
+ * The media library (CMS 2.1.0). Reading needs scope "media"; upload / update / replace / delete need
+ * "media-write" and the caller's upload_files (own files, or edit_others_posts) — or db.asSystem. The
+ * site's allowed file types and size limit apply. / คลังสื่อ
+ */
+declare const media: {
+  /** Newest first; at most `limit` (default 100, ≤ 500). */
+  list(opts?: { kind?: string; search?: string; ids?: number[]; limit?: number }): MediaItem[];
+  get(id: number): MediaItem | null;
+  /** The file's bytes (≤ 20 MB). */
+  read(id: number): Uint8Array;
+  /** From bytes, base64 or a public http(s) URL (internal addresses refused); runs media.beforeSave. */
+  upload(file: { bytes?: Uint8Array; base64?: string; url?: string; filename?: string; alt?: string }): MediaItem;
+  update(id: number, patch: { alt: string }): MediaItem;
+  /** New content for the same file and URL (same type, e.g. an optimised image); fires media.updated {replaced: true}. */
+  replace(id: number, bytes: Uint8Array): MediaItem;
+  delete(id: number): boolean;
+  /** Scales a JPEG / PNG down to fit (never up) and re-encodes it (JPEG quality 1-100, default 82). No scope. */
+  resize(bytes: Uint8Array, opts: { maxWidth?: number; maxHeight?: number; quality?: number }): { bytes: Uint8Array; format: 'jpeg' | 'png'; width: number; height: number; size: number };
+};
+
+/**
+ * The code's own files (CMS 2.1.0, scope "files"): private ones in the server's data folder, public ones
+ * served at /uploads/plugins/<plugin id or "site">/<path> (jpg, png, gif, webp, pdf, mp3, mp4, webm, json,
+ * txt, csv, css, woff2 only). 100 MB per plugin. Paths: a-z A-Z 0-9 . _ - / without "..". / ไฟล์ของโค้ด
+ */
+declare const files: {
+  put(path: string, data: Uint8Array | string, opts?: { public?: boolean }): { path: string; size: number; public: boolean; url?: string };
+  get(path: string): Uint8Array | null;
+  text(path: string): string | null;
+  list(prefix?: string): { path: string; size: number; public: boolean; url?: string; modifiedAt: string }[];
+  delete(path: string): boolean;
+  /** The URL of a public file (null for a private or missing one). */
+  url(path: string): string | null;
+};
 
 /** Email through the site's SMTP settings (100 / hour by default). / ส่งอีเมล */
 declare const mail: { send(msg: MailMessage): { ok: boolean; cancelled?: boolean } };

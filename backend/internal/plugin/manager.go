@@ -74,6 +74,7 @@ func NewManager(st *store.Store, uploadDir string, plugins ...Plugin) (*Manager,
 	m := &Manager{host: &Host{Store: st, UploadDir: uploadDir}, byID: map[string]*entry{},
 		settings: map[string]cachedValues{}}
 	m.host.mgr = m
+	st.SetEvents(m.Emit) // 2.1.0: the store fires the core events of every write
 	for _, p := range plugins {
 		info := p.Info()
 		if _, dup := m.byID[info.ID]; dup || info.ID == "" {
@@ -170,7 +171,17 @@ func (m *Manager) Activate(id string, userID int64) (Status, error) {
 	if err := m.setActive(id, true); err != nil {
 		return Status{}, err
 	}
+	m.emitActive(id, e.info.Version, true, userID)
 	return m.status(e), nil
+}
+
+// emitActive fires plugin.activated / plugin.deactivated (2.1.0).
+func (m *Manager) emitActive(id, version string, on bool, userID int64) {
+	name := "plugin.deactivated"
+	if on {
+		name = "plugin.activated"
+	}
+	m.Emit(name, map[string]any{"id": id, "version": version, "actor": map[string]any{"id": userID, "source": "admin"}})
 }
 
 // Deactivate switches a plugin off; its data stays in place.
@@ -182,6 +193,7 @@ func (m *Manager) Deactivate(id string) (Status, error) {
 	if err := m.setActive(id, false); err != nil {
 		return Status{}, err
 	}
+	m.emitActive(id, e.info.Version, false, 0)
 	return m.status(e), nil
 }
 

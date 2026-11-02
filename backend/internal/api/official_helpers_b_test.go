@@ -83,7 +83,7 @@ func offBNew(t *testing.T) *offBEnv {
 	resetCodeDB(t, conn, os.Getenv("TEST_CODE_DB_DSN"))
 	code := sitecode.New(st, sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
 		DSN: dsn, CodeDSN: os.Getenv("TEST_CODE_DB_DSN"), Emit: pm.Emit, TypeSlugs: site.SetTypeSlugs,
-		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), Plugins: pm,
+		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), UploadDir: up, Plugins: pm,
 		Mailer: func(m sitecode.MailMessage) error {
 			e.mu.Lock()
 			defer e.mu.Unlock()
@@ -99,13 +99,7 @@ func offBNew(t *testing.T) *offBEnv {
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
 	web.SetCodeHooks(code)
-	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute { // as cmd/server: Site Code + plugin post types
-		var out []site.PostTypeRoute
-		for _, pt := range code.ContentFor(opts).PostTypes {
-			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
-		}
-		return out
-	})
+	wireSiteContent(web, code) // as cmd/server: Site Code + plugin post types and taxonomies
 	pm.Listen(code.OnEvent)
 	mux := http.NewServeMux()
 	a := New(st, authn, up, pm, web)

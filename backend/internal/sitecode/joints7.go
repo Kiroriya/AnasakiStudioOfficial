@@ -424,7 +424,7 @@ func typeIDs(list []PostTypeInfo) []string {
 func withUnits(m Manifest, units []*liveProg) Manifest {
 	var withTypes, withFields []*liveProg
 	for _, lp := range units {
-		if len(lp.prog.Manifest.PostTypes) > 0 {
+		if len(lp.prog.Manifest.PostTypes) > 0 || len(lp.prog.Manifest.Taxonomies) > 0 {
 			withTypes = append(withTypes, lp)
 		}
 		if len(lp.prog.fields) > 0 {
@@ -444,6 +444,16 @@ func withUnits(m Manifest, units []*liveProg) Manifest {
 			}
 		}
 		m.PostTypes = types
+		taxes := append([]TaxonomyInfo(nil), m.Taxonomies...)
+		for _, lp := range withTypes {
+			for _, t := range lp.prog.Manifest.Taxonomies {
+				if m.Taxonomy(t.ID) == nil && taxSlugFree(taxes, types, t) {
+					taxes = append(taxes, t)
+					m.Taxonomies = taxes
+				}
+			}
+		}
+		m.Taxonomies = taxes
 	}
 	fields := map[string][]FieldInfo{}
 	for k, list := range m.Fields {

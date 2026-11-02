@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { DNode } from '../editor/design-types';
 import {
   DesignComponent, Media, Menu, Page, PluginInfo, Post, ServiceHealth, DemoStatus, PostInput, PostType, Revision,
-  Settings, Stats, Term, User, UserList, RolesResponse, RoleInfo, SetupStatus, PublicSite, InstalledPackage, BlockInfo,
+  Settings, Stats, Taxonomy, Term, User, UserList, RolesResponse, RoleInfo, SetupStatus, PublicSite, InstalledPackage, BlockInfo,
   StoreSummary, StoreDetail, StoreCategory, StoreReview,
   SchemaField, ApiToken, ApiTokenCreate,
 } from './models';
@@ -78,6 +78,10 @@ export class Api {
 
   // taxonomy
   terms(taxonomy = 'category') { return this.get<Term[]>('/terms', { taxonomy }); }
+  /** "category" and the site.taxonomy taxonomies (CMS 2.1.0). */
+  taxonomies() { return this.get<Taxonomy[]>('/taxonomies'); }
+  /** {id, name} of users for "user" fields (edit_others_posts; CMS 2.1.0). */
+  userOptions(q: { search?: string; ids?: string }) { return this.get<{ id: number; name: string }[]>('/users/options', q); }
   createTerm(t: Partial<Term>) { return this.post<Term>('/terms', t); }
   updateTerm(id: number, t: Partial<Term>) { return this.put<Term>(`/terms/${id}`, t); }
   deleteTerm(id: number) { return this.del(`/terms/${id}`); }

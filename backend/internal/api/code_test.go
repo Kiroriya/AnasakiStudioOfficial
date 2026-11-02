@@ -62,7 +62,7 @@ func newCodeAPI(t *testing.T, tweak func(*sitecode.Config)) (*client, *sitecode.
 	authn := auth.New("test-secret")
 	cfg := sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
 		DSN: dsn, CodeDSN: os.Getenv("TEST_CODE_DB_DSN"), Emit: pm.Emit, TypeSlugs: site.SetTypeSlugs,
-		SecretKey: "test-site-code-key", KeyDir: t.TempDir()}
+		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), UploadDir: up}
 	if tweak != nil {
 		tweak(&cfg)
 	}
@@ -72,13 +72,7 @@ func newCodeAPI(t *testing.T, tweak func(*sitecode.Config)) (*client, *sitecode.
 	code.RouteTimeout, code.EventTimeout = 500*time.Millisecond, 2*time.Second
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
-	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
-		var out []site.PostTypeRoute
-		for _, pt := range code.ContentFor(opts).PostTypes {
-			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
-		}
-		return out
-	})
+	wireSiteContent(web, code)
 	pm.Listen(code.OnEvent)
 	mux := http.NewServeMux()
 	a := New(st, authn, up, pm, web)
@@ -86,7 +80,26 @@ func newCodeAPI(t *testing.T, tweak func(*sitecode.Config)) (*client, *sitecode.
 	a.Routes(mux)
 	mux.Handle("/", pm.Middleware(web))
 	t.Cleanup(code.WaitEvents)
-	return &client{t: t, h: mux}, code, st
+	return &client{t: t, h: mux, api: a}, code, st
+}
+
+// wireSiteContent gives the public site the custom post types and
+// taxonomies of Site Code and the JS plugins, as cmd/server does.
+func wireSiteContent(web *site.Site, code *sitecode.Engine) {
+	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
+		var out []site.PostTypeRoute
+		for _, pt := range code.ContentFor(opts).PostTypes {
+			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
+		}
+		return out
+	})
+	web.SetTaxonomies(func(opts map[string]string) []site.TaxonomyRoute {
+		var out []site.TaxonomyRoute
+		for _, t := range code.ContentFor(opts).Taxonomies {
+			out = append(out, site.TaxonomyRoute{ID: t.ID, Slug: t.Slug, Public: t.Public, Label: t.Label, PostTypes: t.PostTypes})
+		}
+		return out
+	})
 }
 
 // resetCodeDB drops what earlier tests left in the code database (separate

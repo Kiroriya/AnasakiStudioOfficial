@@ -97,7 +97,7 @@ func main() {
 	}
 	code = sitecode.New(st, sitecode.Config{Disabled: cfg.SiteCodeDisabled, Demo: playground != nil, Auth: authn,
 		Services: plugins.ServicePublicPaths, PostURL: site.PostURL, DSN: cfg.DSN, CodeDSN: cfg.CodeDSN,
-		Emit: plugins.Emit, Mailer: mailer, SecretKey: cfg.SiteCodeSecretKey, KeyDir: cfg.PluginsDir, TypeSlugs: site.SetTypeSlugs,
+		Emit: plugins.Emit, Mailer: mailer, SecretKey: cfg.SiteCodeSecretKey, KeyDir: cfg.PluginsDir, UploadDir: cfg.UploadDir, TypeSlugs: site.SetTypeSlugs,
 		Plugins: plugins})
 	defer code.Close()
 	plugins.SetCodeRuntime(code) // JS plugins ("runtime": "js") run as Site Code units
@@ -105,6 +105,13 @@ func main() {
 		var out []site.PostTypeRoute
 		for _, t := range code.ContentFor(opts).PostTypes {
 			out = append(out, site.PostTypeRoute{Type: t.Type, Slug: t.Slug, Public: t.Public, Label: t.Label})
+		}
+		return out
+	})
+	web.SetTaxonomies(func(opts map[string]string) []site.TaxonomyRoute { // site.taxonomy archives (2.1.0)
+		var out []site.TaxonomyRoute
+		for _, t := range code.ContentFor(opts).Taxonomies {
+			out = append(out, site.TaxonomyRoute{ID: t.ID, Slug: t.Slug, Public: t.Public, Label: t.Label, PostTypes: t.PostTypes})
 		}
 		return out
 	})
@@ -159,6 +166,7 @@ func main() {
 	migCtx, stopMigration := context.WithCancel(context.Background())
 	defer stopMigration()
 	migrator.Start(migCtx)
+	core.StartScheduler(migCtx) // scheduled posts (2.1.0)
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {

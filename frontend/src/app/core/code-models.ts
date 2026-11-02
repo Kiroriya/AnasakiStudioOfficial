@@ -178,7 +178,9 @@ export interface CodeAccessRow {
 export type CodeViewAs = 'anonymous' | 'me' | { groups: string[] };
 
 /** Field types of site.postType({fields}) / site.fields(). */
-export type CodeFieldType = 'text' | 'textarea' | 'number' | 'bool' | 'date' | 'datetime' | 'select' | 'url' | 'image' | 'email' | 'json';
+export type CodeFieldType = 'text' | 'textarea' | 'number' | 'bool' | 'date' | 'datetime' | 'select' | 'url' | 'image' | 'email' | 'json'
+  // CMS 2.1.0
+  | 'relation' | 'user' | 'term' | 'file' | 'gallery' | 'repeater' | 'richtext' | 'color';
 
 /** One custom field declaration; the code may also write just the type name (`place: 'text'`). */
 export interface CodeFieldDef {
@@ -189,6 +191,14 @@ export interface CodeFieldDef {
   max?: number;
   /** select: `['a','b']` or `[{value,label}]`. */
   options?: (string | { value: string; label?: CodeLabel })[];
+  /** relation: the content types to pick from (CMS 2.1.0). */
+  postTypes?: string[];
+  /** relation / user / term / file: a list of ids instead of one. */
+  multiple?: boolean;
+  /** term: the taxonomy ('category' by default). */
+  taxonomy?: string;
+  /** repeater: the fields of each row. */
+  fields?: Record<string, CodeFieldSpec>;
   help?: CodeLabel;
   placeholder?: string;
   default?: unknown;

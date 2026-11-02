@@ -18,6 +18,7 @@ import (
 	"github.com/anasaki/studio/backend/internal/mail"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/plugin"
+	"github.com/anasaki/studio/backend/internal/store"
 )
 
 // secretMask is what GET /settings shows instead of the SMTP password;
@@ -227,7 +228,7 @@ func (a *API) resetPassword(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	if err := a.st.UpdateUser(u, hash); err != nil {
+	if err := a.st.As(store.Actor{ID: u.ID, Source: "password-reset"}).UpdateUser(u, hash); err != nil {
 		serverErr(w, err)
 		return
 	}

@@ -264,11 +264,21 @@ func TestPackageLifecycle(t *testing.T) {
 	m := testManager(t)
 	p := m.pkgs
 	const id = "zz-test-pkg"
+	var events []string
+	m.Listen(func(ev string, p map[string]any) {
+		if strings.HasPrefix(ev, "plugin.") {
+			events = append(events, ev+":"+p["id"].(string)+"@"+p["version"].(string))
+		}
+	})
 	if _, err := m.InstallPackage(lifecycleZip(t, "1.0.0", `"head"`, "a{color:red}"), "upload", ""); err != nil {
 		t.Fatal(err)
 	}
 	if in, err := m.SetPackageActive(id, true); err != nil || !in.Active {
 		t.Fatalf("activate: %v %+v", err, in)
+	}
+	// 2.1.0: plugin.activated / plugin.deactivated
+	if strings.Join(events, ",") != "plugin.activated:zz-test-pkg@1.0.0" {
+		t.Fatalf("events: %v", events)
 	}
 	if got := p.file(p.get(id), "a.css"); got != "a{color:red}" {
 		t.Fatalf("file: %q", got)

@@ -145,3 +145,29 @@ describe('plugin fields (site.fields in a JS plugin)', () => {
     expect(groupFields(undefined)).toEqual({ site: [], plugins: [] });
   });
 });
+
+describe('2.1.0 field types', () => {
+  it('maps relation / term / gallery / repeater options', () => {
+    const f = fieldsToSchema({
+      related: { type: 'relation', postTypes: ['event'], multiple: true },
+      genre: { type: 'term', taxonomy: 'genre' },
+      photos: 'gallery',
+      tickets: { type: 'repeater', max: 3, fields: { name: 'text', price: { type: 'number', min: 0 } } },
+      lead: 'richtext',
+    });
+    expect(f.map(x => x.type)).toEqual(['relation', 'term', 'gallery', 'repeater', 'richtext']);
+    expect(f[0].postTypes).toEqual(['event']);
+    expect(f[0].multiple).toBe(true);
+    expect(f[1].taxonomy).toBe('genre');
+    expect(f[2].multiple).toBe(true);
+    expect(f[3].fields?.map(x => x.key)).toEqual(['name', 'price']);
+    expect(fieldsToSchema({ r: 'relation' })[0].postTypes).toEqual(['post']);
+  });
+  it('treats an empty list as empty and checks colours and repeater rows', () => {
+    const f = fieldsToSchema({ tags: { type: 'relation', multiple: true, required: true }, c: 'color', rows: { type: 'repeater', max: 1, fields: { a: 'text' } } });
+    expect(validateMeta(f, { tags: [], c: 'not a colour!', rows: [{ a: 'x' }, { a: 'y' }] })).toEqual({
+      tags: { code: 'required' }, c: { code: 'color' }, rows: { code: 'max', params: { n: 1 } },
+    });
+    expect(validateMeta(f, { tags: [3], c: '#ff0000', rows: [{ a: 'x' }] })).toEqual({});
+  });
+});

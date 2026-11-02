@@ -73,6 +73,12 @@ var (
 		{regexp.MustCompile(`\bsite\.(head|bodyEnd)\s*\(`), "head-scripts"},
 		{regexp.MustCompile(`\bsite\.(fields|meta|setMeta)\s*\(`), "content-fields"},
 		{regexp.MustCompile(`\bsite\.postType\s*\(`), "post-types"},
+		{regexp.MustCompile(`\bsite\.taxonomy\s*\(`), "taxonomies"},
+		{regexp.MustCompile(`\bdb\.terms\.(list|get)\s*\(`), "content"},
+		{regexp.MustCompile(`\bdb\.terms\.(create|update|delete)\s*\(`), "terms-write"},
+		{regexp.MustCompile(`\bmedia\.(list|get|read)\s*\(`), "media"},
+		{regexp.MustCompile(`\bmedia\.(upload|update|replace|delete)\s*\(`), "media-write"},
+		{regexp.MustCompile(`\bfiles\.(put|get|text|list|delete|url)\s*\(`), "files"},
 		{regexp.MustCompile(`\bhttp\.webhook\s*\(`), "webhooks"},
 		{regexp.MustCompile(`\bsite\.(adminNotice|dashboardWidget)\s*\(`), "admin-pages"},
 	}

@@ -156,6 +156,11 @@ export class Shell {
       path: listRoute(p.type), label: localized(p.label) || p.type, icon: p.icon || '📦', id: 'nav-type-' + p.type,
       desc: typeSource(p) ? this.i18n.t('nav.type.plugin.d', { name: typeSource(p) }) : t('nav.type.d'),
     }));
+    // taxonomies from site.taxonomy whose terms this user may manage (CMS 2.1.0)
+    const taxItems: NavItem[] = this.postTypes.manageableTaxonomies().map(x => ({
+      path: '/terms/' + x.id, label: localized(x.label) || x.id, icon: '🏷', id: 'nav-tax-' + x.id,
+      desc: this.i18n.t('nav.terms.d', { name: x.pluginName || 'Site Code' }),
+    }));
     const adminPages: NavItem[] = this.postTypes.adminPages().map(p => ({
       path: '/x/code/' + p.id, label: localized(p.label) || p.id, desc: t('nav.adminPage.d'), icon: p.icon || '🧰', id: 'nav-code-page-' + p.id,
     }));
@@ -168,6 +173,7 @@ export class Shell {
           item('/pages', 'nav.pages', '📄', 'edit_pages'),
           item('/media', 'nav.media', '🖼', 'upload_files'),
           item('/categories', 'nav.categories', '🏷', 'manage_categories'),
+          ...taxItems,
         ],
       },
       {

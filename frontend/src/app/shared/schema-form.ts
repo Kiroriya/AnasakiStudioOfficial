@@ -3,6 +3,8 @@ import { TPipe, localized } from '../core/i18n';
 import { Media, SchemaField } from '../core/models';
 import { InvalidJson, fromDatetimeLocal, toDatetimeLocal } from '../core/post-type-utils';
 import { MediaPicker } from './media-picker';
+import { RefField } from './ref-field';
+import { RichEditor } from './rich-editor';
 import { SelectValue } from './select-value';
 
 /**
@@ -12,7 +14,7 @@ import { SelectValue } from './select-value';
  */
 @Component({
   selector: 'rea-schema-form',
-  imports: [MediaPicker, TPipe, SelectValue],
+  imports: [MediaPicker, TPipe, SelectValue, RefField, RichEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (f of fields(); track f.key) {
@@ -54,6 +56,36 @@ import { SelectValue } from './select-value';
                     @if (str(f)) { <button type="button" class="btn btn-sm" (click)="set(f, '')">{{ 'post.removeImage' | t }}</button> }
                   </span>
                 }
+                @case ('relation') { <rea-ref-field [field]="f" [value]="val(f)" [inputId]="fid(f)" (changed)="set(f, $event)" /> }
+                @case ('user') { <rea-ref-field [field]="f" [value]="val(f)" [inputId]="fid(f)" (changed)="set(f, $event)" /> }
+                @case ('term') { <rea-ref-field [field]="f" [value]="val(f)" [inputId]="fid(f)" (changed)="set(f, $event)" /> }
+                @case ('file') { <rea-ref-field [field]="f" [value]="val(f)" [inputId]="fid(f)" (changed)="set(f, $event)" /> }
+                @case ('gallery') { <rea-ref-field [field]="f" [value]="val(f)" [inputId]="fid(f)" (changed)="set(f, $event)" /> }
+                @case ('richtext') { <rea-rich-editor [attr.id]="fid(f)" [value]="str(f)" (valueChange)="set(f, $event)" /> }
+                @case ('repeater') {
+                  <div class="repeater" [id]="fid(f)">
+                    @for (row of rows(f); track $index; let i = $index) {
+                      <fieldset class="repeater-row" [attr.data-row]="i">
+                        <legend>#{{ i + 1 }}
+                          @if (i > 0) { <button type="button" class="btn btn-sm" (click)="moveRow(f, i, -1)" [title]="'sf.up' | t">↑</button> }
+                          <button type="button" class="btn btn-sm" (click)="removeRow(f, i)" [title]="'common.delete' | t">✕</button>
+                        </legend>
+                        <rea-schema-form [fields]="f.fields ?? []" [values]="row" [compact]="true" [idPrefix]="fid(f) + '-' + i" (changed)="setRow(f, i, $event)" />
+                      </fieldset>
+                    }
+                    @if (f.max === undefined || rows(f).length < f.max) {
+                      <button type="button" class="btn btn-sm" [id]="fid(f) + '-add'" (click)="addRow(f)">＋ {{ 'sf.addRow' | t }}</button>
+                    }
+                  </div>
+                }
+                @case ('secret') {
+                  <span class="secret-row">
+                    <input type="password" autocomplete="new-password" [id]="fid(f)" [attr.data-secret-set]="isSet(f) ? '1' : null"
+                           [placeholder]="isSet(f) ? ('sf.secretKeep' | t) : (f.placeholder || '')" [value]="str(f)" (input)="set(f, $any($event.target).value)" />
+                    @if (isSet(f)) { <button type="button" class="btn btn-sm" [id]="fid(f) + '-clear'" (click)="clearSecret(f)">{{ 'sf.secretClear' | t }}</button> }
+                  </span>
+                  @if (isSet(f)) { <span class="hint">🔒 {{ 'sf.secretSet' | t }}</span> }
+                }
                 @case ('url') { <input type="url" [id]="fid(f)" [required]="!!f.required" [attr.placeholder]="f.placeholder || 'https://'" [value]="str(f)" (input)="set(f, $any($event.target).value)" /> }
                 @default {
                   <input [id]="fid(f)" [required]="!!f.required" [attr.minlength]="f.min ?? null" [attr.maxlength]="f.max ?? null" [attr.placeholder]="f.placeholder || null"
@@ -74,6 +106,10 @@ import { SelectValue } from './select-value';
   styles: `
     .schema-field { margin-bottom: 4px; }
     .schema-field.compact label { font-size: 12px; margin-bottom: 10px; }
+    .repeater { display: grid; gap: 8px; margin-top: 6px; }
+    .repeater-row { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin: 0; }
+    .repeater-row legend { font-size: 12px; display: flex; gap: 6px; align-items: center; }
+    .secret-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; input { flex: 1; } }
     .color-row { display: flex; gap: 8px; margin-top: 6px; input[type='color'] { width: 44px; padding: 2px; } }
     .image-field { margin-top: 6px; }
     .sf-req { color: #dc2626; }
@@ -92,6 +128,8 @@ export class SchemaForm {
   readonly emptyText = input('');
   /** Selects offer an empty choice (custom fields: not chosen yet). */
   readonly blankOption = input(false);
+  /** Keys of 'secret' fields that have a value on the server (CMS 2.1.0). */
+  readonly secretsSet = input<string[]>([]);
   readonly changed = output<Record<string, unknown>>();
   readonly picking = signal<string | null>(null);
   /** Text of json fields while typed (kept even when it does not parse yet). */
@@ -125,6 +163,25 @@ export class SchemaForm {
   }
 
   set(f: SchemaField, v: unknown) { this.changed.emit({ ...this.values(), [f.key]: v }); }
+
+  rows(f: SchemaField): Record<string, unknown>[] {
+    const v = this.val(f);
+    return Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+  }
+  addRow(f: SchemaField) { this.set(f, [...this.rows(f), {}]); }
+  removeRow(f: SchemaField, i: number) { this.set(f, this.rows(f).filter((_, j) => j !== i)); }
+  setRow(f: SchemaField, i: number, row: Record<string, unknown>) { this.set(f, this.rows(f).map((r, j) => (j === i ? row : r))); }
+  moveRow(f: SchemaField, i: number, d: number) {
+    const rows = [...this.rows(f)];
+    const j = i + d;
+    if (j < 0 || j >= rows.length) return;
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    this.set(f, rows);
+  }
+
+  /** A secret is set unless it was cleared in this form. */
+  isSet(f: SchemaField) { return this.secretsSet().includes(f.key) && this.values()[f.key + '__clear'] !== true; }
+  clearSecret(f: SchemaField) { this.changed.emit({ ...this.values(), [f.key]: '', [f.key + '__clear']: true }); }
 
   picked(m: Media) {
     const key = this.picking();

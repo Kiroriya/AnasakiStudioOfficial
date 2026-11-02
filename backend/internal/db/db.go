@@ -62,6 +62,9 @@ func Migrate(db *sql.DB) error {
 		{"media", "downloads", "BIGINT NOT NULL DEFAULT 0"},
 		{"posts", "pinned", "BOOLEAN NOT NULL DEFAULT FALSE"},
 		{"posts", "sort_order", "INT NOT NULL DEFAULT 0"},
+		// 2.1.0: hierarchical taxonomies (site.taxonomy)
+		{"terms", "parent", "BIGINT NOT NULL DEFAULT 0"},
+		{"terms", "description", "VARCHAR(500) NOT NULL DEFAULT ''"},
 		// Site Code phase 4b: logs of JS plugins carry their unit id
 		{"script_logs", "unit", "VARCHAR(64) NOT NULL DEFAULT 'site'"},
 	}

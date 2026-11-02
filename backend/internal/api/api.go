@@ -42,6 +42,20 @@ type API struct {
 
 // New creates the API and loads the role capabilities from the database
 // (seed.Roles must have run).
+// db is the store acting for the request's user: the events of its writes
+// carry the actor (source "admin", or "api" for a personal access token).
+func (a *API) db(r *http.Request) *store.Store {
+	p := auth.From(r)
+	if p == nil {
+		return a.st.As(store.Actor{Source: "admin"})
+	}
+	src := "admin"
+	if p.TokenID != 0 {
+		src = "api"
+	}
+	return a.st.As(store.Actor{ID: p.ID, Source: src})
+}
+
 func New(st *store.Store, a *auth.Auth, uploadDir string, plugins *plugin.Manager, web *site.Site) *API {
 	api := &API{st: st, auth: a, uploadDir: uploadDir, plugins: plugins, site: web}
 	if err := api.reloadRoles(); err != nil {
@@ -88,9 +102,11 @@ func (a *API) Routes(mux *http.ServeMux) {
 
 	// categories: the post editor (edit_own_posts), the designer (edit_pages) and the categories screen
 	h("GET "+p+"/terms", "", needAny(a.listTerms, auth.CapEditOwnPosts, auth.CapEditPages, auth.CapManageTerms))
-	h("POST "+p+"/terms", auth.CapManageTerms, a.createTerm)
-	h("PUT "+p+"/terms/{id}", auth.CapManageTerms, a.updateTerm)
-	h("DELETE "+p+"/terms/{id}", auth.CapManageTerms, a.deleteTerm)
+	// writes: manage_categories for "category", the taxonomy's access.manage otherwise (2.1.0)
+	h("POST "+p+"/terms", "", a.createTerm)
+	h("PUT "+p+"/terms/{id}", "", a.updateTerm)
+	h("DELETE "+p+"/terms/{id}", "", a.deleteTerm)
+	h("GET "+p+"/taxonomies", "", a.listTaxonomies)
 
 	h("GET "+p+"/media", auth.CapUploadFiles, a.listMedia)
 	h("POST "+p+"/media", auth.CapUploadFiles, a.uploadMedia)
@@ -121,6 +137,8 @@ func (a *API) Routes(mux *http.ServeMux) {
 	h("POST "+p+"/demo/reset", auth.CapManageOptions, a.demoReset)
 
 	h("GET "+p+"/users", auth.CapManageUsers, a.listUsers)
+	// id + display name only, for "user" fields of the post editor (2.1.0)
+	h("GET "+p+"/users/options", auth.CapEditOthersPosts, a.userOptions)
 	h("POST "+p+"/users", auth.CapManageUsers, a.createUser)
 	h("PUT "+p+"/users/{id}", auth.CapManageUsers, a.updateUser)
 	h("DELETE "+p+"/users/{id}", auth.CapManageUsers, a.deleteUser)

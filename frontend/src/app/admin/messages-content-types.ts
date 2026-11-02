@@ -27,6 +27,7 @@ registerMessages({
   'pt.err.email': { th: 'อีเมลไม่ถูกต้อง', en: 'Invalid email address' },
   'pt.err.url': { th: 'ลิงก์ต้องขึ้นต้นด้วย https:// หรือ /', en: 'Links start with https:// or /' },
   'pt.err.date': { th: 'วันที่ไม่ถูกต้อง', en: 'Invalid date' },
+  'pt.err.color': { th: 'สีไม่ถูกต้อง (#rrggbb, rgb(), hsl() หรือชื่อสี)', en: 'Invalid colour (#rrggbb, rgb(), hsl() or a name)' },
   'pt.err.json': { th: 'JSON ไม่ถูกต้อง', en: 'Invalid JSON' },
   'settings.typeTemplates': { th: 'ประเภทเนื้อหาจากโค้ด', en: 'Content types from code' },
   'settings.typeTemplatesHint': { th: 'แม่แบบที่ใช้แสดงแต่ละรายการของประเภทนั้น (ว่าง = ใช้แม่แบบโพสต์)', en: 'Template used for each item of the type (empty = the post template)' },

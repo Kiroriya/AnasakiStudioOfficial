@@ -18,6 +18,10 @@ type Query struct {
 	Category string // term slug, or "current" for archive templates
 	Limit    int
 	Order    string // "newest" | "oldest" | "title"
+	// On a taxonomy archive (2.1.0): the posts of these types having one of
+	// these terms (the term and its children); PostType is "" then.
+	PostTypes []string
+	TermIDs   []int64
 }
 
 // MenuItem is one navigation link.
@@ -677,6 +681,21 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 		if v := getStr(m, "order"); v != "" {
 			q.Order = v
 		}
+	}
+	// On a taxonomy term's archive (2.1.0) "this archive's posts" lists the
+	// posts having the term (archiveTerms / archiveTypes, comma-separated).
+	if terms := r.ctx.Post["archiveTerms"]; terms != "" && (q.PostType == "current" || q.Category == "current") {
+		q.PostType, q.Category = "", ""
+		for _, s := range strings.Split(terms, ",") {
+			if id, err := strconv.ParseInt(s, 10, 64); err == nil {
+				q.TermIDs = append(q.TermIDs, id)
+			}
+		}
+		q.PostTypes = strings.Split(r.ctx.Post["archiveTypes"], ",")
+		if q.Limit > 50 {
+			q.Limit = 50
+		}
+		return r.data.QueryPosts(q)
 	}
 	// On a custom type's archive (/events) the template's "this archive's
 	// posts" list (category "current", or postType "current") shows that type.

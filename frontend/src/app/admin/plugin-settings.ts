@@ -83,7 +83,7 @@ import './messages-platform';
 
     @if (schema().length) {
       <section class="card form-card schema-card">
-        <rea-schema-form [fields]="schema()" [values]="values()" (changed)="values.set($event); dirty.set(true)" />
+        <rea-schema-form [fields]="schema()" [values]="values()" [secretsSet]="secretsSet()" (changed)="values.set($event); dirty.set(true)" />
       </section>
     }
   `,
@@ -107,6 +107,8 @@ export class PluginSettings implements OnInit {
   readonly icon = signal('⚙️');
   readonly schema = signal<SchemaField[]>([]);
   readonly values = signal<Record<string, unknown>>({});
+  /** Secret settings with a value (their value never comes back; CMS 2.1.0). */
+  readonly secretsSet = signal<string[]>([]);
   readonly dirty = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
@@ -126,6 +128,7 @@ export class PluginSettings implements OnInit {
         this.icon.set(p.icon || '📦');
         this.schema.set(p.settingsSchema);
         this.values.set(p.settings ?? {});
+        this.secretsSet.set(p.secretsSet ?? []);
         this.setService(p);
       } else {
         await this.plugins.load();
@@ -185,6 +188,7 @@ export class PluginSettings implements OnInit {
       if (this.pkg) {
         const p = await this.api.savePackageSettings(this.id, this.values());
         this.values.set(p.settings ?? this.values());
+        this.secretsSet.set(p.secretsSet ?? []);
       } else {
         const s = await this.api.savePluginSettings(this.id, this.values());
         this.values.set(s.values ?? this.values());

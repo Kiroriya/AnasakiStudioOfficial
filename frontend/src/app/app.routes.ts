@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard, capGuard, loginGuard, setupGuard } from './core/auth';
 import { pluginPageGuard } from './core/plugins';
-import { postTypeGuard } from './core/post-types';
+import { postTypeGuard, taxonomyGuard } from './core/post-types';
 
 export const routes: Routes = [
   { path: 'setup', canActivate: [setupGuard], loadComponent: () => import('./admin/setup').then(m => m.Setup) },
@@ -32,6 +32,7 @@ export const routes: Routes = [
       { path: 'templates', canActivate: [capGuard('edit_pages')], data: { type: 'template' }, loadComponent: () => import('./admin/content-list').then(m => m.ContentList) },
       { path: 'media', canActivate: [capGuard('upload_files')], loadComponent: () => import('./admin/media-page').then(m => m.MediaPage) },
       { path: 'categories', canActivate: [capGuard('manage_categories')], loadComponent: () => import('./admin/manage-pages').then(m => m.Categories) },
+      { path: 'terms/:taxonomy', canActivate: [taxonomyGuard], loadComponent: () => import('./admin/manage-pages').then(m => m.Categories) },
       { path: 'menus', canActivate: [capGuard('edit_pages')], loadComponent: () => import('./admin/manage-pages').then(m => m.Menus) },
       { path: 'components', canActivate: [capGuard('edit_pages')], loadComponent: () => import('./admin/manage-pages').then(m => m.Components) },
       { path: 'users', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/users-page').then(m => m.Users) },

@@ -156,7 +156,7 @@ func (a *API) deactivatePackage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) setPackageActive(w http.ResponseWriter, r *http.Request, on bool) {
-	opts := plugin.ActiveOptions{ConfirmDestructive: flag(r, "confirmDestructive"), Force: flag(r, "force")}
+	opts := plugin.ActiveOptions{ConfirmDestructive: flag(r, "confirmDestructive"), Force: flag(r, "force"), UserID: auth.From(r).ID}
 	if r.ContentLength > 0 {
 		var in struct {
 			ConfirmDestructive bool `json:"confirmDestructive"`

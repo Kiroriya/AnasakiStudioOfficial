@@ -57,10 +57,23 @@ const (
 	FieldSelect   = "select"
 	FieldURL      = "url"
 	FieldImage    = "image"
+	// FieldSecret (CMS 2.1.0, settings only): an API key or password, stored
+	// encrypted; the admin never gets the value back (an empty input keeps it).
+	FieldSecret = "secret"
 )
 
 var fieldTypes = map[string]bool{FieldText: true, FieldTextarea: true, FieldNumber: true, FieldColor: true,
-	FieldBoolean: true, FieldSelect: true, FieldURL: true, FieldImage: true}
+	FieldBoolean: true, FieldSelect: true, FieldURL: true, FieldImage: true, FieldSecret: true}
+
+// NoSecrets refuses "secret" fields (block props are public).
+func NoSecrets(fields []Field) error {
+	for _, f := range fields {
+		if f.Type == FieldSecret {
+			return fmt.Errorf("field %q: type secret is for settings only", f.Key)
+		}
+	}
+	return nil
+}
 
 // Field is one entry of a settings schema (also used for block props).
 type Field struct {

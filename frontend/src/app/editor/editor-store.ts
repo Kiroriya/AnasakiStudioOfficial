@@ -4,7 +4,7 @@ import { Api, DesignAssets, errorMessage } from '../core/api';
 import { Plugins } from '../core/plugins';
 import { tr } from '../core/i18n';
 import './messages-editor';
-import { BlockInfo, DesignComponent, Media, Menu, Post, Settings, Term } from '../core/models';
+import { BlockInfo, DesignComponent, Media, Menu, Post, PostStatus, Settings, Term } from '../core/models';
 import {
   Breakpoint, DNode, Layout, LayoutMode, Override, Props, Size, Style, cloneWithNewIds, effective, findNode, isAncestor, isContainer, newId, pathTo,
 } from './design-types';
@@ -65,7 +65,7 @@ export class EditorStore {
     this.title.set(title);
     this.dirty.set(true);
   }
-  readonly status = signal<'draft' | 'publish'>('draft');
+  readonly status = signal<PostStatus>('draft');
 
   readonly doc = signal<DNode>(emptyRoot());
   /** Primary selection (the last clicked layer) — drives the Design panel. */
@@ -280,9 +280,9 @@ export class EditorStore {
   }
 
   /** Set when a save was refused because someone else saved a newer version (collab.ts shows the dialog). */
-  readonly conflict = signal<{ by: string; byId: number; at: string; status?: 'draft' | 'publish' } | null>(null);
+  readonly conflict = signal<{ by: string; byId: number; at: string; status?: PostStatus } | null>(null);
 
-  async save(status?: 'draft' | 'publish', opts?: { force?: boolean }) {
+  async save(status?: PostStatus, opts?: { force?: boolean }) {
     this.saving.set(true);
     let moved: [Post, Post] | null = null;
     // optimistic concurrency: the server answers 409 when the stored version is newer than the one loaded

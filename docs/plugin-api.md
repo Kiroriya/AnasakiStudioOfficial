@@ -25,6 +25,7 @@ admin, and returned by `GET /api/public/site` (`version`).
 | **2.0.5** | JS plugins register post types: `site.postType` with the `post-types` scope (§3.5) |
 | **2.0.6** | plugin capabilities: manifest `capabilities`, ticked per role in Users → Roles; `cap:<capability>` access entries, `site.can`, post type `caps` (§2.1) |
 | **2.0.8** | `site.fields('*', fields)` — fields on every content type (also other plugins' types); a page result names the post it shows: `{page: {title, html, postId}}`, so page hooks (`page.meta`) see that post |
+| **2.1.0** | media and files from code (`media.*`, `files.*`, `request.files()`, filter `media.beforeSave`, §3.2a); custom field types `relation`, `user`, `term`, `file`, `gallery`, `repeater`, `richtext`, `color` (site-code.md); settings of type `secret` (encrypted, never shown again; [plugins.md §1.4](plugins.md)); taxonomies: `site.taxonomy`, `db.terms`, `PostInput.terms`, terms screens and term archives (§3.6); scheduled posts in core (status `scheduled`, `publishedAt`); `db.posts` writes every post field (`authorId`, `publishedAt`, `imageId`, `pinned`, `sortOrder`, `design`) and lists by `status` / `authorId` / `ids`; the store fires the core events for every write, with `actor` and `previous` (§3.4) |
 
 Versions 2.0.1 and 2.0.2 changed no plugin API.
 
@@ -118,6 +119,11 @@ until it is approved again (`reconsent`). All since 2.0.0.
 | `content-write` | `db.posts.create / update / delete`, `db.asSystem` |
 | `content-fields` | `site.fields`, `site.meta`, `site.setMeta` (post meta `<id>.<key>`, a panel in the post editor) |
 | `post-types` | `site.postType` — the plugin's own content types (§3.5; since 2.0.5) |
+| `taxonomies` | `site.taxonomy` — the plugin's own taxonomies (§3.6; since 2.1.0) |
+| `terms-write` | `db.terms.create / update / delete` — `category` and the plugin's own taxonomies (since 2.1.0) |
+| `media` | `media.list / get / read` — the media library (since 2.1.0) |
+| `media-write` | `media.upload / update / replace / delete` (since 2.1.0) |
+| `files` | `files.*` — the plugin's own files, 100 MB (since 2.1.0) |
 | `mail` | `mail.send`; `site.info().adminEmail` |
 | `http` | `http.fetch` to `code.hosts` that the administrator also allows |
 | `webhooks` | `http.webhook` to any public URL |
@@ -207,6 +213,7 @@ actions `/_a/<id>:<name>`, collections `code:<id>:<name>`, admin pages `<id>:<pa
 | `site.visitor(fn)` · `site.visitorGroups(groups)` — site members | `visitor` | 2.0.0 |
 | `site.fields(type, fields)` · `site.meta(postId)` · `site.setMeta(postId, values)` — type `'*'` = every type since 2.0.8 | `content-fields` | 2.0.0 |
 | `site.postType(id, spec)` — a content type, §3.5 | `post-types` | 2.0.5 |
+| `site.taxonomy(id, spec)` — a taxonomy (categories, tags, brands …), §3.6 | `taxonomies` | 2.1.0 |
 | `site.job(name, opts?, fn)` · `site.cron(expr, target)` | `jobs` | 2.0.0 |
 | `site.adminPage(id, spec)` — §5 | `admin-pages` | 2.0.0 |
 | `site.dashboardWidget(id, spec)` — §5 | `admin-pages` | 2.0.0 |
@@ -235,10 +242,30 @@ cookies, body, json(), rawBody?, ip, host}`, `response.setCookie(name, value, op
 | `db.transaction(fn)` · `db.raw(sql, params)` (no SELECT/FROM/JOIN fragments) | `db` | 2.0.0 |
 | `db.docs(name)` — JSON document collections | `db` | 2.0.0 |
 | `db.posts.list / get` | `content` | 2.0.0 |
+| `db.posts.list({status, authorId, ids})` — `status` `'draft' / 'publish' / 'scheduled' / 'any'` (only `publish` without the right to see drafts) | `content` | 2.1.0 |
 | `db.posts.create / update / delete` · `db.asSystem(fn)` | `content-write` | 2.0.0 |
+| `db.terms.list({taxonomy, parent?, search?, postId?, ids?, slugs?, limit?})` · `db.terms.get(idOrSlug, {taxonomy})` | `content` | 2.1.0 |
+| `db.terms.create({taxonomy, name, slug?, parent?, description?})` · `update(id, patch)` · `delete(id)` (children move up) | `terms-write` | 2.1.0 |
+| `db.posts.create / update` with `terms: {<taxonomy>: (id \| slug)[]}` (replaces that taxonomy's terms); results have `terms: {<taxonomy>: [{id, slug, name, parent}]}` | `content-write` | 2.1.0 |
+| `db.posts.create / update` with `authorId`, `publishedAt` (future = scheduled, past = back-dated), `imageId`, `pinned`, `sortOrder` (these three and `authorId` need the right to edit others' posts), `design` (needs `edit_pages`) — post results add `authorId`, `imageId`, `pinned`, `sortOrder`, `createdAt` | `content-write` | 2.1.0 |
 | migrations `migrations/NNN_name.ts` with `migration({up, down})` — `schema.create / table / drop / rename / hasTable / hasColumn`, columns incl. `.binary()` / `.collation()` | `db` | 2.0.0 |
 
 Plugins never get `db.query` or `schema.raw`.
+
+### 3.2a Media and files — since 2.1.0
+
+| call | scope | since |
+|---|---|---|
+| `media.list({kind?, search?, ids?, limit?})` · `media.get(id)` · `media.read(id)` → `Uint8Array` (≤ 20 MB) | `media` | 2.1.0 |
+| `media.upload({bytes \| base64 \| url, filename, alt?})` — the site's file types and size limit, content checked against the extension, `media.beforeSave` runs; `url` must be a public http(s) address | `media-write` | 2.1.0 |
+| `media.update(id, {alt})` · `media.replace(id, bytes)` (same URL and type; `media.updated` with `replaced: true`) · `media.delete(id)` | `media-write` | 2.1.0 |
+| `media.resize(bytes, {maxWidth?, maxHeight?, quality?})` → `{bytes, format, width, height, size}` — JPEG / PNG, down only | — | 2.1.0 |
+| `files.put(path, data, {public?})` · `files.get / text / list / delete / url` — private files in the server's data folder, public ones at `/uploads/plugins/<id>/<path>` (images, pdf, audio/video, json, txt, csv, css, woff2); 100 MB per plugin | `files` | 2.1.0 |
+| `request.files()` → `[{field, filename, type, size, bytes}]` · `request.form()` — multipart bodies (route `maxBody`) | `routes` | 2.1.0 |
+
+Writing media needs the caller's `upload_files` (their own files, or `edit_others_posts`), or
+`db.asSystem`. An image optimiser: `site.on('media.uploaded', (m) => db.asSystem(() => { const r =
+media.resize(media.read(m.id), {maxWidth: 1920}); if (r.size < m.size) media.replace(m.id, r.bytes) }))`.
 
 ### 3.3 `http`, `mail`, `jobs`, `plugins`, utilities
 
@@ -260,8 +287,37 @@ Core events (`site.on`, service `events`, package `webhooks`) — 2.0.0: `post.p
 `post.deleted`, `user.created`, `media.uploaded`. Every other event belongs to the plugin that emits it
 (`<id>.…`, or the name it declares in `code.eventAliases`).
 
+Since 2.1.0 the store fires the core events for **every** write — the admin, the REST API, Site Code and
+JS plugins (`db.posts`), the scheduler — after the change is committed, so a handler that reads the post
+sees it saved. Every payload has `actor: {id, source}` (`id` 0 = no user; `source` `admin`, `api`, `code`,
+`plugin:<id>`, `scheduler`, `setup`, `password-reset` or `system`). New in 2.1.0:
+
+| event | when | payload besides the object's fields |
+|---|---|---|
+| `post.created` | a post / page / custom type entry was created | — |
+| `post.updated` | it was saved again | `previous: {title, slug, status, authorId, publishedAt}` |
+| `post.statusChanged` | the status changed (WordPress `transition_post_status`) | `from` (`''` for a new post), `to` |
+| `post.scheduled` | it was scheduled, or its time moved | — |
+| `post.unpublished` | a published post went back to draft or scheduled | — |
+| `user.updated` | profile, role or status changed (also bulk actions) | `previous: {email, name, role, status}`, `passwordChanged` |
+| `user.roleChanged` | the role changed | `from`, `to` |
+| `user.deleted` | a user was deleted | `reassignedTo` |
+| `media.updated` · `media.deleted` | alt text changed · a file was deleted | `previous: {alt}` (updated) |
+| `term.created` · `term.updated` · `term.deleted` | categories / tags | `previous: {name, slug}` (updated) |
+| `settings.updated` | site settings saved in the admin | `keys` (never the values) |
+| `plugin.activated` · `plugin.deactivated` | a plugin was switched on / off | `id`, `version` |
+
+Post payloads: `id, type, title, slug, status, url, authorId, publishedAt` (`post.saved` adds `isNew`).
+User payloads: `id, email, name, role, status`. Media: `id, filename, url, mime, size, kind, width, height,
+alt, authorId`. Terms: `id, taxonomy, name, slug`. Sample content of the setup wizard fires no events.
+
+**Scheduled posts (2.1.0).** A post saved with status `scheduled`, or `publish` with a future `publishedAt`,
+waits; the core checks every 30 seconds and publishes it (`post.published`, actor source `scheduler`).
+It is not public until then (`db.posts.get` / `list` show it only to users who may edit the type).
+
 Core filters (scope `filters-core`) — 2.0.0: `post.content`, `post.beforeSave`, `page.head`, `page.meta`,
-`collection.items`, `action.input`, `action.result`, `mail.beforeSend`, `sitemap.urls`, `robots.txt`.
+`collection.items`, `action.input`, `action.result`, `mail.beforeSend`, `sitemap.urls`, `robots.txt`;
+2.1.0: `media.beforeSave` (`{filename, alt}`, ctx `{mime, size, kind, source}`; return `{error}` to refuse a file).
 Once any plugin filters `sitemap.urls` or `robots.txt`, the core serves `/sitemap.xml` and `/robots.txt`
 (cached sitemap). Filters run by ascending `priority`, then plugin load order, Site Code last.
 
@@ -312,6 +368,33 @@ The spec is the Site Code one ([site-code.md](site-code.md) "Post types and fiel
   Site Code types.
 - **Deactivate / uninstall**: the posts stay in the database (also with "delete data"), hidden from the admin
   (the API answers 400 for the type) until the plugin is active again.
+
+### 3.6 Taxonomies — since 2.1.0
+
+```ts
+site.postType('shop_product', { label: 'Products', slug: 'products' })
+site.taxonomy('shop_brand', {
+  label: { th: 'แบรนด์', en: 'Brands' },
+  singular: { th: 'แบรนด์', en: 'Brand' },
+  postTypes: ['shop_product'],      // 'post', 'page' or content types
+  hierarchical: true,               // parent terms (like categories); false = flat (like tags)
+  slug: 'brands',                   // archive /brands/<term-slug>; default: the id with '-'
+  public: true,                     // false = no archive pages
+  access: { manage: ['editor'] },   // who manages the terms; default editors + administrators; 'cap:<capability>' works
+})
+```
+
+- A plugin's taxonomy ids follow the post type rule: `<plugin id with _>_<name>`, 2–20 characters.
+- The admin gets a **terms screen** (`/terms/<id>`, in the sidebar for users who may manage it) with parent and
+  description, and a **panel in the post editor** of each listed type. `GET /api/v1/taxonomies` lists
+  `category` and the registered ones with `canManage`; REST posts take `terms: {<taxonomy>: [ids]}`.
+- Public taxonomies have archive pages `/<slug>/<term-slug>` with the posts having the term or one of its
+  children; the site's archive template is used when there is one (its "this archive's posts" list shows them),
+  and the sitemap lists the terms in use.
+- `db.terms` writes are limited to `category` and the code's **own** taxonomies; the caller needs the right to
+  manage the terms (`manage_categories` for `category`) or `db.asSystem`. Terms fire `term.created / updated /
+  deleted`.
+- `PostInput.terms` accepts ids or slugs of existing terms; a taxonomy must list the post's type.
 
 ## 4. Page hooks (public site) — since 2.0.0
 

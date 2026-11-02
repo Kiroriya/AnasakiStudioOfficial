@@ -3,19 +3,16 @@ package api
 import (
 	"errors"
 	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,111 +21,20 @@ import (
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/demo"
-	"github.com/anasaki/studio/backend/internal/kses"
+	"github.com/anasaki/studio/backend/internal/media"
 	"github.com/anasaki/studio/backend/internal/model"
-	"github.com/anasaki/studio/backend/internal/store"
 )
 
-// deniedExt can never be uploaded, whatever allowed_upload_types says.
-var deniedExt = kses.DeniedExt
-
-// extMime maps extensions to the stored/served content type (the OS mime
-// table differs between Windows and Linux, so the common ones are pinned).
-var extMime = map[string]string{
-	"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp",
-	"svg": "image/svg+xml", "mp4": "video/mp4", "webm": "video/webm", "mp3": "audio/mpeg", "wav": "audio/wav",
-	"ogg": "audio/ogg", "pdf": "application/pdf", "doc": "application/msword",
-	"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	"xls":  "application/vnd.ms-excel", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	"ppt": "application/vnd.ms-powerpoint", "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-	"odt": "application/vnd.oasis.opendocument.text", "ods": "application/vnd.oasis.opendocument.spreadsheet",
-	"odp": "application/vnd.oasis.opendocument.presentation", "txt": "text/plain", "csv": "text/csv",
-	"rtf": "application/rtf", "zip": "application/zip", "rar": "application/vnd.rar", "7z": "application/x-7z-compressed",
-}
-
-var extRe = regexp.MustCompile(`^[a-z0-9]{1,10}$`)
-
-// parseUploadTypes normalises a comma separated extension list; the message
-// is non-empty when an entry is invalid or always denied.
-func parseUploadTypes(v string) ([]string, string) {
-	seen := map[string]bool{}
-	out := []string{}
-	for _, e := range strings.Split(v, ",") {
-		e = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(e)), ".")
-		if e == "" || seen[e] {
-			continue
-		}
-		if !extRe.MatchString(e) {
-			return nil, "นามสกุลไฟล์ไม่ถูกต้อง: " + e
-		}
-		if deniedExt[e] {
-			return nil, "ไม่อนุญาตให้อัปโหลดไฟล์ ." + e + " เพื่อความปลอดภัย"
-		}
-		seen[e] = true
-		out = append(out, e)
-	}
-	if len(out) == 0 {
-		return nil, "กรุณาระบุนามสกุลไฟล์ที่อนุญาตอย่างน้อย 1 รายการ"
-	}
-	return out, ""
-}
-
-// uploadAllowed decides whether a file with ext may be uploaded; "" = ok.
-func uploadAllowed(ext string, allowed []string, canUnfiltered bool) string {
-	if ext == "" || deniedExt[ext] {
-		return "ไม่อนุญาตให้อัปโหลดไฟล์ประเภทนี้"
-	}
-	ok := false
-	for _, a := range allowed {
-		if a == ext {
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		return "ไม่รองรับไฟล์ ." + ext + " (ตั้งค่าได้ที่ การตั้งค่า → ไฟล์ที่อนุญาต)"
-	}
-	if ext == "svg" && !canUnfiltered {
-		return "เฉพาะผู้ดูแลระบบหรือบรรณาธิการเท่านั้นที่อัปโหลดไฟล์ SVG ได้"
-	}
-	return ""
-}
-
-// contentMatches rejects files whose bytes contradict their extension
-// (e.g. an HTML page renamed to .jpg).
-func contentMatches(ext, sniffed string) bool {
-	switch model.FileKind(ext) {
-	case "image":
-		return ext == "svg" || strings.HasPrefix(sniffed, "image/")
-	}
-	if strings.HasPrefix(sniffed, "text/html") {
-		return ext == "txt" || ext == "csv" || ext == "md"
-	}
-	return true
-}
-
-func mimeFor(ext string) string {
-	if m, ok := extMime[ext]; ok {
-		return m
-	}
-	if m := mime.TypeByExtension("." + ext); m != "" {
-		return strings.Split(m, ";")[0]
-	}
-	return "application/octet-stream"
-}
+// The file rules live in internal/media (shared with Site Code, 2.1.0).
+var (
+	parseUploadTypes = media.ParseTypes
+	uploadAllowed    = media.Allowed
+	contentMatches   = media.ContentMatches
+)
 
 func (a *API) uploadLimits() (maxMB int64, types []string) {
 	opts, _ := a.st.Options()
-	o := withDefaults(opts)
-	maxMB, _ = strconv.ParseInt(o["max_upload_mb"], 10, 64)
-	if maxMB < 1 || maxMB > 512 {
-		maxMB = 32
-	}
-	types, msg := parseUploadTypes(o["allowed_upload_types"])
-	if msg != "" {
-		types, _ = parseUploadTypes(DefaultUploadTypes)
-	}
-	return maxMB, types
+	return media.Limits(withDefaults(opts))
 }
 
 func (a *API) listMedia(w http.ResponseWriter, r *http.Request) {
@@ -195,61 +101,29 @@ func (a *API) uploadMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 // saveUpload checks a file (by extension and content) and stores it in the
-// media library, answering 201 with the new media item.
+// media library (media.beforeSave filters run first), answering 201 with the
+// new media item.
 func (a *API) saveUpload(w http.ResponseWriter, r *http.Request, f io.ReadSeeker, filename, alt string, types []string) {
 	me := auth.From(r)
-	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
-	if msg := uploadAllowed(ext, types, me.Can(auth.CapUnfilteredHTML)); msg != "" {
-		status := http.StatusBadRequest
-		if ext == "svg" {
-			status = http.StatusForbidden
-		}
-		writeErr(w, status, msg)
-		return
+	source := "upload"
+	if strings.HasSuffix(r.URL.Path, "/import") {
+		source = "import"
 	}
-	head := make([]byte, 512)
-	n, _ := io.ReadFull(f, head)
-	if !contentMatches(ext, http.DetectContentType(head[:n])) {
-		writeErr(w, http.StatusBadRequest, "เนื้อหาไฟล์ไม่ตรงกับนามสกุล ."+ext)
-		return
+	var filter media.Filter
+	if a.code != nil {
+		filter = func(m *media.Meta) error { return a.code.MediaBeforeSave(m, principalUser(me)) }
 	}
-
-	base := store.Slugify(strings.TrimSuffix(filename, filepath.Ext(filename)))
-	dir := time.Now().Format("2006/01")
-	if err := os.MkdirAll(filepath.Join(a.uploadDir, dir), 0o755); err != nil {
-		serverErr(w, err)
-		return
-	}
-	name := fmt.Sprintf("%s-%d.%s", base, time.Now().UnixNano()%1e9, ext)
-	dst, err := os.Create(filepath.Join(a.uploadDir, dir, name))
+	m, err := media.Save(a.db(r), a.uploadDir, media.Input{File: f, Filename: filename, Alt: alt, AuthorID: me.ID,
+		Types: types, Unfiltered: me.Can(auth.CapUnfilteredHTML), Source: source}, filter)
 	if err != nil {
-		serverErr(w, err)
-		return
-	}
-	defer dst.Close()
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		serverErr(w, err)
-		return
-	}
-	size, err := io.Copy(dst, f)
-	if err != nil {
-		serverErr(w, err)
-		return
-	}
-	m := &model.Media{Filename: filepath.Base(filename), URL: "/uploads/" + dir + "/" + name, Mime: mimeFor(ext),
-		Size: size, AuthorID: me.ID, Alt: alt}
-	if model.FileKind(ext) == "image" {
-		if _, err := f.Seek(0, io.SeekStart); err == nil {
-			if cfg, _, err := image.DecodeConfig(f); err == nil {
-				m.Width, m.Height = cfg.Width, cfg.Height
-			}
+		var me *media.Error
+		if errors.As(err, &me) {
+			writeErr(w, me.Status, me.Msg)
+			return
 		}
-	}
-	if err := a.st.CreateMedia(m); err != nil {
 		serverErr(w, err)
 		return
 	}
-	a.plugins.Emit("media.uploaded", map[string]any{"id": m.ID, "filename": m.Filename, "url": m.URL, "mime": m.Mime, "size": m.Size})
 	writeJSON(w, http.StatusCreated, m)
 }
 
@@ -329,10 +203,8 @@ func importName(u *url.URL, contentType string) string {
 	}
 	if filepath.Ext(name) == "" {
 		ct := strings.TrimSpace(strings.Split(contentType, ";")[0])
-		for ext, m := range extMime {
-			if m == ct && ext != "jpeg" {
-				return name + "." + ext
-			}
+		if ext := media.ExtFor(ct); ext != "" {
+			return name + "." + ext
 		}
 	}
 	return name

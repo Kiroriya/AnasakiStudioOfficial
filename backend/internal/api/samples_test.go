@@ -93,7 +93,7 @@ func newSampleAPI(t *testing.T) *sampleEnv {
 	resetCodeDB(t, conn, os.Getenv("TEST_CODE_DB_DSN"))
 	code := sitecode.New(st, sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
 		DSN: dsn, CodeDSN: os.Getenv("TEST_CODE_DB_DSN"), Emit: pm.Emit, TypeSlugs: site.SetTypeSlugs,
-		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), Plugins: pm,
+		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), UploadDir: up, Plugins: pm,
 		Mailer: func(m sitecode.MailMessage) error {
 			se.mu.Lock()
 			defer se.mu.Unlock()
@@ -106,6 +106,7 @@ func newSampleAPI(t *testing.T) *sampleEnv {
 	code.RouteTimeout, code.EventTimeout = 2*time.Second, 3*time.Second
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
+	wireSiteContent(web, code)
 	pm.Listen(code.OnEvent)
 	mux := http.NewServeMux()
 	a := New(st, authn, up, pm, web)

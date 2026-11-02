@@ -14,12 +14,13 @@ import (
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/demo"
+	"github.com/anasaki/studio/backend/internal/media"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/site"
 )
 
 // DefaultUploadTypes is the default allowed_upload_types option.
-const DefaultUploadTypes = "jpg,jpeg,png,gif,webp,svg,mp4,webm,mp3,wav,ogg,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,txt,csv,rtf,zip,rar,7z"
+const DefaultUploadTypes = media.DefaultUploadTypes
 
 // settingDefaults lists every whitelisted setting with its default value.
 var settingDefaults = map[string]string{
@@ -318,7 +319,7 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
-	if err := a.st.SetOptions(in); err != nil {
+	if err := a.db(r).SaveSettings(in); err != nil {
 		serverErr(w, err)
 		return
 	}

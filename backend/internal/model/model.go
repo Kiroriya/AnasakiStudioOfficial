@@ -39,7 +39,35 @@ const (
 
 	StatusDraft   = "draft"
 	StatusPublish = "publish"
+	// StatusScheduled is a post waiting for its PublishedAt (2.1.0); the core
+	// scheduler publishes it then (WordPress "future"). Not public until then.
+	StatusScheduled = "scheduled"
 )
+
+// ValidStatus reports whether s is a post status a client may set.
+func ValidStatus(s string) bool {
+	return s == StatusDraft || s == StatusPublish || s == StatusScheduled
+}
+
+// ResolveSchedule settles publish vs scheduled from PublishedAt: "publish"
+// with a date in the future becomes "scheduled", "scheduled" whose date has
+// come (or has none) becomes "publish". Drafts are left alone.
+func (p *Post) ResolveSchedule(now time.Time) {
+	switch p.Status {
+	case StatusPublish:
+		if p.PublishedAt != nil && p.PublishedAt.After(now) {
+			p.Status = StatusScheduled
+		}
+	case StatusScheduled:
+		if p.PublishedAt == nil || !p.PublishedAt.After(now) {
+			p.Status = StatusPublish
+			if p.PublishedAt == nil {
+				t := now
+				p.PublishedAt = &t
+			}
+		}
+	}
+}
 
 type User struct {
 	ID          int64      `json:"id"`
@@ -91,11 +119,14 @@ type Post struct {
 	AuthorID        int64           `json:"authorId"`
 	AuthorName      string          `json:"authorName"`
 	Categories      []Term          `json:"categories"`
-	Pinned          bool            `json:"pinned"`    // shown first in post lists (WordPress "sticky")
-	SortOrder       int             `json:"sortOrder"` // position for the "manual" order
-	CreatedAt       time.Time       `json:"createdAt"`
-	UpdatedAt       time.Time       `json:"updatedAt"`
-	PublishedAt     *time.Time      `json:"publishedAt"`
+	// Terms are the post's terms of every taxonomy, by taxonomy id (2.1.0);
+	// Categories is Terms["category"].
+	Terms       map[string][]Term `json:"terms"`
+	Pinned      bool              `json:"pinned"`    // shown first in post lists (WordPress "sticky")
+	SortOrder   int               `json:"sortOrder"` // position for the "manual" order
+	CreatedAt   time.Time         `json:"createdAt"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+	PublishedAt *time.Time        `json:"publishedAt"`
 	// Meta holds the custom fields (post_meta: site.postType / site.fields of
 	// Site Code); {} when there are none.
 	Meta map[string]any `json:"meta"`
@@ -119,6 +150,20 @@ type Term struct {
 	Name     string `json:"name"`
 	Slug     string `json:"slug"`
 	Count    int    `json:"count"`
+	// Parent is the parent term's id in a hierarchical taxonomy (0 = top level); 2.1.0.
+	Parent      int64  `json:"parent"`
+	Description string `json:"description"`
+}
+
+// TermFilter is used by db.terms.list (2.1.0).
+type TermFilter struct {
+	Taxonomy string
+	Parent   *int64 // only the children of this term (0 = top level)
+	Search   string
+	PostID   int64   // only the terms of this post
+	IDs      []int64 // only these terms
+	Slugs    []string
+	Limit    int
 }
 
 type Media struct {
@@ -158,7 +203,11 @@ type PostFilter struct {
 	Search   string
 	Category string // term slug
 	AuthorID int64
-	Order    string // newest | oldest | title | updated | manual
+	IDs      []int64 // only these posts (2.1.0: db.posts.list({ids}))
+	// 2.1.0: posts of any of these types (with Type ""), posts having any of these terms
+	Types   []string
+	TermIDs []int64
+	Order   string // newest | oldest | title | updated | manual
 	// PinnedFirst lists pinned posts before the others (public post lists).
 	PinnedFirst bool
 	// NoContent leaves the post bodies out (Content is ""): lists that only

@@ -4,7 +4,8 @@ import { Api, SITE_ORIGIN, errorMessage } from '../core/api';
 import { Auth } from '../core/auth';
 import { Dialog } from '../core/dialog';
 import { I18n, TPipe, localized } from '../core/i18n';
-import { BUILTIN_POST_TYPES, Media, Post, PostInput, PostStatus, Revision, Term } from '../core/models';
+import { BUILTIN_POST_TYPES, Media, Post, PostInput, PostStatus, Revision, Taxonomy, Term } from '../core/models';
+import { termTree } from '../core/terms';
 import { Plugins } from '../core/plugins';
 import { PostTypes } from '../core/post-types';
 import { editRoute, metaErrorsFromApi, pickMeta, supportsOf, templateOption, typePrefix, validateMeta } from '../core/post-type-utils';
@@ -36,7 +37,7 @@ import './messages-content-types';
       <div class="head-actions">
         @if (post()?.status === 'publish') { <a class="btn" [href]="viewUrl()" target="_blank">↗ {{ 'common.view' | t }}</a> }
         <button class="btn" id="post-save-draft" [disabled]="busy() || locked()" (click)="save('draft')" [title]="'post.draftHint' | t">💾 {{ 'post.saveDraft' | t }}</button>
-        <button class="btn btn-primary" id="post-publish" [disabled]="busy() || locked()" (click)="save('publish')">🚀 {{ (post()?.status === 'publish' ? 'post.update' : 'post.publish') | t }}</button>
+        <button class="btn btn-primary" id="post-publish" [disabled]="busy() || locked()" (click)="save('publish')">{{ future() ? '⏰' : '🚀' }} {{ (future() ? 'post.schedule' : post()?.status === 'publish' ? 'post.update' : 'post.publish') | t }}</button>
       </div>
     </header>
     @if (error()) { <p class="alert">{{ error() }}</p> }
@@ -75,10 +76,16 @@ import './messages-content-types';
       <aside class="editor-side">
         <section class="card">
           <h4>{{ 'post.publishBox' | t }}</h4>
-          <p><span class="badge" [class.badge-live]="post()?.status === 'publish'">● {{ (post()?.status === 'publish' ? 'common.published' : 'post.notLive') | t }}</span></p>
+          <p><span class="badge" id="post-status-badge" [attr.data-status]="post()?.status || 'draft'" [class.badge-live]="post()?.status === 'publish'">{{ post()?.status === 'scheduled' ? '⏰' : '●' }} {{ (post()?.status === 'publish' ? 'common.published' : post()?.status === 'scheduled' ? 'post.scheduledBadge' : 'post.notLive') | t }}</span></p>
           @if (post(); as p) {
             @if (p.publishedAt) { <p class="muted small">{{ i18n.date(p.publishedAt, true) }}</p> }
             <p class="muted small">{{ 'common.by' | t: { name: p.authorName } }}</p>
+          }
+          @if (mayPublish()) {
+            <label class="block small">{{ 'post.publishAt' | t }}
+              <input type="datetime-local" id="post-publish-at" [value]="publishAt()" (input)="publishAt.set(val($event))" />
+              <span class="hint">{{ 'post.publishAtHint' | t }}</span>
+            </label>
           }
           @if (auth.can('edit_others_posts')) {
             <label class="check" [title]="'post.pinHint' | t"><input type="checkbox" [checked]="pinned()" (change)="pinned.set($any($event.target).checked)" /> 📌 {{ 'post.pin' | t }}</label>
@@ -112,6 +119,23 @@ import './messages-content-types';
             </div>
           }
         </section>
+        }
+
+        @for (tx of taxes(); track tx.id) {
+          <section class="card tax-card" [attr.data-taxonomy]="tx.id" [id]="'post-tax-' + tx.id">
+            <h4>🏷 {{ txLabel(tx) }}</h4>
+            <div class="check-list">
+              @for (o of txTree(tx.id); track o.term.id) {
+                <label class="check" [style.padding-left.px]="o.depth * 16"><input type="checkbox" [attr.data-term]="o.term.slug" [checked]="txHas(tx.id, o.term.id)" (change)="txToggle(tx.id, o.term.id)" /> {{ o.term.name }}</label>
+              } @empty { <p class="muted small">{{ 'terms.empty' | t }}</p> }
+            </div>
+            @if (tx.canManage) {
+              <div class="inline-add">
+                <input #newTerm [placeholder]="txLabel(tx)" [attr.data-new-term]="tx.id" />
+                <button class="btn btn-sm" (click)="txAdd(tx.id, newTerm)">{{ 'common.add' | t }}</button>
+              </div>
+            }
+          </section>
         }
 
         @if (supports().has('image')) {
@@ -149,7 +173,7 @@ export class PostEdit implements OnInit {
   /** A published post can only be changed by someone who may publish (the server refuses otherwise). */
   /** Publishing: a custom type's own rule (canPublish, CMS 2.0.6), else publish_posts (the server decides too). */
   readonly mayPublish = computed(() => this.pt()?.canPublish ?? this.auth.can('publish_posts'));
-  readonly locked = computed(() => this.post()?.status === 'publish' && !this.mayPublish());
+  readonly locked = computed(() => !!this.post() && this.post()!.status !== 'draft' && !this.mayPublish());
   readonly i18n = inject(I18n);
   readonly plugins = inject(Plugins);
   private postTypes = inject(PostTypes);
@@ -190,6 +214,17 @@ export class PostEdit implements OnInit {
   readonly revisions = signal<Revision[]>([]);
   readonly picking = signal(false);
   readonly pinned = signal(false);
+  /** Taxonomies of this type from site.taxonomy (CMS 2.1.0; "category" has its own box). */
+  readonly taxes = computed(() => this.postTypes.taxonomiesOf(this.type()));
+  /** Their terms, and the ids chosen per taxonomy. */
+  readonly txTerms = signal<Record<string, Term[]>>({});
+  readonly txSel = signal<Record<string, Set<number>>>({});
+  /** The publish date box (datetime-local, the browser's time zone); '' = now / unchanged. */
+  readonly publishAt = signal('');
+  /** A publish date in the future: "Publish" schedules the post. */
+  /** The box as loaded: the date is sent only when it was changed (it has minutes, the server seconds). */
+  private publishAt0 = '';
+  readonly future = computed(() => { const t = Date.parse(this.publishAt()); return !isNaN(t) && t > Date.now(); });
   /** The post template's id (to open "how every post looks" in the designer). */
   readonly templateId = signal(0);
   readonly busy = signal(false);
@@ -198,6 +233,7 @@ export class PostEdit implements OnInit {
   async ngOnInit() {
     this.plugins.load();
     void this.postTypes.ensureLoaded();
+    void this.loadTaxTerms();
     this.api.settings().then(s => this.templateId.set(Number(s[templateOption(this.type())] || s['post_template_id']) || 0)).catch(() => undefined);
     // categories are optional for editing: a failure here must not stop the post from loading
     this.api.terms().then(t => this.terms.set(t)).catch(e => this.error.set(errorMessage(e)));
@@ -222,6 +258,11 @@ export class PostEdit implements OnInit {
     this.featuredId.set(p.featuredMediaId);
     this.featured.set(p.featuredImage);
     this.pinned.set(!!p.pinned);
+    const sel: Record<string, Set<number>> = {};
+    for (const [tax, list] of Object.entries(p.terms ?? {})) if (tax !== 'category') sel[tax] = new Set(list.map(t => t.id));
+    this.txSel.set(sel);
+    this.publishAt.set(p.publishedAt ? toLocalInput(p.publishedAt) : '');
+    this.publishAt0 = this.publishAt();
     this.meta.set({ ...(p.meta ?? {}) });
     this.fieldErrors.set({});
   }
@@ -244,6 +285,34 @@ export class PostEdit implements OnInit {
     for (const [k, er] of Object.entries(errs)) msgs[k] = this.i18n.t('pt.err.' + er.code, er.params);
     this.fieldErrors.set(msgs);
     return !Object.keys(msgs).length;
+  }
+
+  txLabel(tx: Taxonomy) { this.i18n.locale(); return localized(tx.label) || tx.id; }
+  txTree(tax: string) { return termTree(this.txTerms()[tax] ?? []); }
+  txHas(tax: string, id: number) { return !!this.txSel()[tax]?.has(id); }
+  txToggle(tax: string, id: number) {
+    this.txSel.update(all => {
+      const s = new Set(all[tax] ?? []);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return { ...all, [tax]: s };
+    });
+  }
+  private async loadTaxTerms() {
+    await this.postTypes.ensureLoaded();
+    const out: Record<string, Term[]> = {};
+    await Promise.all(this.taxes().map(async tx => { out[tx.id] = await this.api.terms(tx.id).catch(() => []); }));
+    this.txTerms.set(out);
+  }
+  async txAdd(tax: string, input: HTMLInputElement) {
+    if (!input.value.trim()) return;
+    try {
+      const t = await this.api.createTerm({ name: input.value.trim(), taxonomy: tax });
+      this.txTerms.update(all => ({ ...all, [tax]: [...(all[tax] ?? []), t] }));
+      this.txToggle(tax, t.id);
+      input.value = '';
+    } catch (e) {
+      this.error.set(errorMessage(e));
+    }
   }
 
   toggleCat(id: number) {
@@ -283,6 +352,8 @@ export class PostEdit implements OnInit {
       excerpt: this.excerpt(), status, categoryIds: [...this.cats()],
       featuredMediaId: this.featuredId() ?? undefined, clearFeatured: this.featuredId() === null,
       ...(this.auth.can('edit_others_posts') ? { pinned: this.pinned() } : {}),
+      ...(this.taxes().length ? { terms: Object.fromEntries(this.taxes().map(tx => [tx.id, [...(this.txSel()[tx.id] ?? [])]])) } : {}),
+      ...(this.mayPublish() && this.publishAt() !== this.publishAt0 && !isNaN(Date.parse(this.publishAt())) ? { publishedAt: new Date(this.publishAt()).toISOString() } : {}),
       ...(this.fields().length ? { meta: pickMeta(this.fields(), this.meta()) } : {}),
     };
     try {
@@ -292,13 +363,13 @@ export class PostEdit implements OnInit {
       if (created) {
         // /posts/new → /posts/:id is another route, so a fresh editor loads the saved post
         // (with its SEO and revisions); this instance stops here.
-        Dialog.toast(this.i18n.t(p.status === 'publish' ? 'post.publishedMsg' : 'post.draftMsg'));
+        Dialog.toast(this.savedMsg(p));
         await this.router.navigate(editRoute(this.type(), p.id), { replaceUrl: true });
         return;
       }
       this.fill(p);
       this.revisions.set(await this.api.revisions(p.id));
-      Dialog.toast(this.i18n.t(p.status === 'publish' ? 'post.publishedMsg' : 'post.draftMsg'));
+      Dialog.toast(this.savedMsg(p));
     } catch (e) {
       this.error.set(errorMessage(e));
       const fieldMsgs = metaErrorsFromApi(e);
@@ -306,6 +377,11 @@ export class PostEdit implements OnInit {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private savedMsg(p: Post) {
+    if (p.status === 'scheduled') return this.i18n.t('post.scheduledMsg', { when: this.i18n.date(p.publishedAt!, true) });
+    return this.i18n.t(p.status === 'publish' ? 'post.publishedMsg' : 'post.draftMsg');
   }
 
   async restore(r: Revision) {
@@ -317,4 +393,12 @@ export class PostEdit implements OnInit {
       this.error.set(errorMessage(e));
     }
   }
+}
+
+/** An ISO date as the value of a datetime-local input (local time, minutes). */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }

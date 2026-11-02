@@ -126,6 +126,7 @@ func RegisterUnit(bundle string, reserved map[string]bool, h *host, timeout time
 	probs = append(probs, p.registerBindings(v)...)
 	probs = append(probs, p.registerHooks(v)...)
 	probs = append(probs, p.registerContent(v, reserved)...)
+	probs = append(probs, p.registerTaxonomies(v, reserved)...)
 	probs = append(probs, p.registerJobs(v)...)
 	probs = append(probs, p.registerAdminPages(v)...)
 	probs = append(probs, p.registerExports(v)...)
@@ -207,6 +208,8 @@ func (v *vm) requestValueP(r *http.Request, params map[string]string) goja.Value
 		m["rawBodyBase64"] = base64.StdEncoding.EncodeToString(raw)
 	}
 	req := v.toJS(m).ToObject(v.rt)
+	_ = req.Set("files", v.requestFiles(r)) // multipart bodies (2.1.0)
+	_ = req.Set("form", v.requestForm(r))
 	_ = req.Set("json", func(goja.FunctionCall) goja.Value {
 		out, err := v.parse(goja.Undefined(), v.rt.ToValue(body))
 		if err != nil {

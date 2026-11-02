@@ -67,6 +67,7 @@ export function humanizeKey(key: string): string {
 const FIELD_TYPES: Record<string, SchemaField['type']> = {
   text: 'text', textarea: 'textarea', number: 'number', bool: 'boolean', boolean: 'boolean', date: 'date', datetime: 'datetime',
   select: 'select', url: 'url', image: 'image', email: 'email', json: 'json',
+  relation: 'relation', user: 'user', term: 'term', file: 'file', gallery: 'gallery', repeater: 'repeater', richtext: 'richtext', color: 'color',
 };
 
 function labelOf(l: CodeLabel | undefined, fallback: string): SchemaField['label'] {
@@ -89,6 +90,10 @@ export function fieldsToSchema(fields: Record<string, CodeFieldSpec> | null | un
     if (f.type === 'select') {
       f.options = (d.options ?? []).map(o => (typeof o === 'string' ? { value: o, label: o } : { value: String(o.value), label: labelOf(o.label, String(o.value)) }));
     }
+    if (f.type === 'relation') f.postTypes = d.postTypes?.length ? d.postTypes : ['post'];
+    if (f.type === 'term') f.taxonomy = d.taxonomy || 'category';
+    if (d.multiple || f.type === 'gallery') f.multiple = true;
+    if (f.type === 'repeater') f.fields = fieldsToSchema(d.fields);
     return f;
   });
 }
@@ -116,10 +121,10 @@ export function groupFields(fields: Record<string, CodeFieldSpec> | null | undef
   };
 }
 
-export type MetaErrorCode = 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'number' | 'option' | 'email' | 'url' | 'date' | 'json';
+export type MetaErrorCode = 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'number' | 'option' | 'email' | 'url' | 'date' | 'json' | 'color';
 export interface MetaError { code: MetaErrorCode; params?: Record<string, string | number> }
 
-const isEmpty = (v: unknown) => v === undefined || v === null || v === '';
+const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
 
 /**
  * Client-side check before saving (the server validates again and its
@@ -153,6 +158,12 @@ export function validateMeta(fields: SchemaField[], values: Record<string, unkno
         break;
       case 'datetime':
         if (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(String(v))) errs[f.key] = { code: 'date' };
+        break;
+      case 'color':
+        if (!/^(#[0-9a-fA-F]{3,8}|(rgb|rgba|hsl|hsla)\([0-9.,%\s/]+\)|[a-zA-Z]{3,20}|transparent)$/.test(String(v).trim())) errs[f.key] = { code: 'color' };
+        break;
+      case 'repeater':
+        if (Array.isArray(v) && f.max !== undefined && v.length > f.max) errs[f.key] = { code: 'max', params: { n: f.max } };
         break;
       case 'json':
         if (v instanceof InvalidJson) errs[f.key] = { code: 'json' };

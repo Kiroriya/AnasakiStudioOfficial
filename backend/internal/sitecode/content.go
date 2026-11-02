@@ -1,13 +1,16 @@
 package sitecode
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dop251/goja"
 
 	"github.com/anasaki/studio/backend/internal/auth"
+	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/kses"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/store"
@@ -19,8 +22,7 @@ import (
 // ContentStore is what db.posts writes (store.Store).
 type ContentStore interface {
 	PostStore
-	CreatePost(p *model.Post, termIDs []int64) error
-	UpdatePost(p *model.Post, termIDs []int64, editorID int64) error
+	SavePost(p *model.Post, isNew bool, o store.PostSave) error
 	DeletePost(id int64) error
 	UniqueSlug(typ, slug string, exceptID int64) (string, error)
 	SetPostMeta(id int64, meta map[string]any) error
@@ -103,13 +105,43 @@ func (v *vm) contentStore() ContentStore {
 	if !ok || cs == nil {
 		v.throw("db.posts: เขียนเนื้อหาไม่ได้ในสภาพแวดล้อมนี้")
 	}
+	// 2.1.0: the store fires the post events, attributed to this code
+	if st, ok := cs.(*store.Store); ok {
+		return st.As(v.actor())
+	}
 	return cs
+}
+
+// actor is who writes: the signed-in user (0 for a visitor or db.asSystem)
+// and the code unit ("code" for Site Code, "plugin:<id>" for a JS plugin).
+func (v *vm) actor() store.Actor {
+	a := store.Actor{Source: "code"}
+	if v.u != nil && v.u.Plugin {
+		a.Source = "plugin:" + v.u.ID
+	}
+	if v.user != nil && !v.system {
+		a.ID = v.user.ID
+	}
+	return a
 }
 
 // postFields is what code may set on a post.
 type postFields struct {
 	typ, title, slug, status, excerpt, content *string
 	meta                                       map[string]any
+	// 2.1.0: the rest of a post (nil: unchanged). clearImage / clearPublished
+	// are imageId: null / publishedAt: null.
+	authorID, imageID, sortOrder *int64
+	pinned                       *bool
+	publishedAt                  *time.Time
+	clearImage, clearPublished   bool
+	design                       json.RawMessage
+	terms                        goja.Value // {taxonomy: (id | slug)[]}, resolved once the type is known
+}
+
+// userCan: system code, or a signed-in caller with capability cap.
+func (v *vm) userCan(cap string) bool {
+	return v.system || (v.user != nil && v.user.Can(cap))
 }
 
 func (v *vm) readPostFields(x goja.Value, what string) postFields {
@@ -128,6 +160,51 @@ func (v *vm) readPostFields(x goja.Value, what string) postFields {
 	}
 	pf.typ, pf.title, pf.slug, pf.status = str("type"), str("title"), str("slug"), str("status")
 	pf.excerpt, pf.content = str("excerpt"), str("content")
+	set := func(k string) (goja.Value, bool) { // present (null counts)
+		val := o.Get(k)
+		return val, val != nil && !goja.IsUndefined(val)
+	}
+	num := func(k string, min int64) *int64 {
+		val, ok := set(k)
+		if !ok || goja.IsNull(val) {
+			return nil
+		}
+		f := val.ToFloat()
+		if f != float64(int64(f)) || int64(f) < min {
+			v.throw("%s: %s ต้องเป็นจำนวนเต็มตั้งแต่ %d", what, k, min)
+		}
+		n := int64(f)
+		return &n
+	}
+	pf.authorID, pf.sortOrder = num("authorId", 1), num("sortOrder", 0)
+	if val, ok := set("imageId"); ok {
+		if pf.clearImage = goja.IsNull(val) || val.ToFloat() == 0; !pf.clearImage {
+			pf.imageID = num("imageId", 1)
+		}
+	}
+	if val, ok := set("pinned"); ok && !goja.IsNull(val) {
+		b := val.ToBoolean()
+		pf.pinned = &b
+	}
+	if val, ok := set("publishedAt"); ok {
+		if pf.clearPublished = goja.IsNull(val); !pf.clearPublished {
+			t, ok := v.timeArg(val)
+			if !ok {
+				v.throw("%s: publishedAt ต้องเป็น Date หรือข้อความ ISO 8601 เช่น '2026-12-01T09:00:00+07:00'", what)
+			}
+			pf.publishedAt = &t
+		}
+	}
+	if val, ok := set("terms"); ok && !goja.IsNull(val) {
+		pf.terms = val
+	}
+	if val, ok := set("design"); ok && !goja.IsNull(val) {
+		s, ok, err := v.toJSON(val)
+		if err != nil || !ok {
+			v.throw("%s: design ต้องเป็น object ของดีไซน์", what)
+		}
+		pf.design = json.RawMessage(s)
+	}
 	if m := o.Get("meta"); m != nil && !goja.IsUndefined(m) && !goja.IsNull(m) {
 		s, ok, err := v.toJSON(m)
 		if err != nil || !ok || jsonUnmarshal(s, &pf.meta) != nil {
@@ -135,6 +212,28 @@ func (v *vm) readPostFields(x goja.Value, what string) postFields {
 		}
 	}
 	return pf
+}
+
+// timeArg reads a Date, an ISO 8601 string or epoch milliseconds.
+func (v *vm) timeArg(x goja.Value) (time.Time, bool) {
+	if o, ok := x.(*goja.Object); ok && o.ClassName() == "Date" {
+		if d, ok := o.Export().(time.Time); ok {
+			return d.UTC(), true
+		}
+	}
+	switch e := x.Export().(type) {
+	case string:
+		for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04", "2006-01-02"} {
+			if t, err := time.Parse(layout, strings.TrimSpace(e)); err == nil {
+				return t.UTC(), true
+			}
+		}
+	case int64:
+		return time.UnixMilli(e).UTC(), true
+	case float64:
+		return time.UnixMilli(int64(e)).UTC(), true
+	}
+	return time.Time{}, false
 }
 
 // postValueMap is the post.beforeSave value of p.
@@ -179,7 +278,7 @@ func applyPostMap(p *model.Post, m map[string]any) {
 	if s, ok := m["slug"].(string); ok {
 		p.Slug = s
 	}
-	if s, ok := m["status"].(string); ok && (s == model.StatusDraft || s == model.StatusPublish) {
+	if s, ok := m["status"].(string); ok && model.ValidStatus(s) {
 		p.Status = s
 	}
 	if s, ok := m["excerpt"].(string); ok {
@@ -194,18 +293,6 @@ func (v *vm) sanitizeFor(p *model.Post) {
 	if !v.system && !v.user.Can(auth.CapUnfilteredHTML) {
 		p.Content = kses.SanitizeHTML(p.Content)
 	}
-}
-
-func (v *vm) emitPost(event string, p *model.Post) {
-	if v.h.e == nil {
-		return
-	}
-	url := ""
-	if v.h.postURL != nil {
-		url = v.h.postURL(p)
-	}
-	payload := map[string]any{"id": p.ID, "type": p.Type, "title": p.Title, "slug": p.Slug, "status": p.Status, "url": url}
-	v.h.e.emitCore(event, payload)
 }
 
 func (v *vm) postsCreate(c goja.FunctionCall) goja.Value {
@@ -230,7 +317,7 @@ func (v *vm) postsCreate(c goja.FunctionCall) goja.Value {
 	}
 	v.applyFields(p, pf)
 	meta := v.writeMeta(p, pf.meta, nil, true, what)
-	return v.savePost(cs, p, meta, true, "", what)
+	return v.savePost(cs, p, meta, v.postTerms(pf.terms, p.Type, what), true, what)
 }
 
 func (v *vm) applyFields(p *model.Post, pf postFields) {
@@ -241,10 +328,70 @@ func (v *vm) applyFields(p *model.Post, pf postFields) {
 		p.Slug = *pf.slug
 	}
 	if pf.status != nil {
-		if *pf.status != model.StatusDraft && *pf.status != model.StatusPublish {
-			v.throw("db.posts: status ต้องเป็น 'draft' หรือ 'publish'")
+		if !model.ValidStatus(*pf.status) {
+			v.throw("db.posts: status ต้องเป็น 'draft', 'publish' หรือ 'scheduled'")
 		}
 		p.Status = *pf.status
+	}
+	// fields that change other people's view of a post: the same rights as in the admin
+	others := v.userCan(auth.CapEditOthersPosts)
+	if pf.authorID != nil {
+		if !others {
+			v.fail("db.posts: เปลี่ยนผู้เขียนต้องมีสิทธิ์แก้ไขโพสต์ของผู้อื่น")
+		}
+		if us, ok := v.h.posts.(interface {
+			UserByID(int64) (*model.User, error)
+		}); ok {
+			if _, err := us.UserByID(*pf.authorID); err != nil {
+				v.fail("db.posts: ไม่พบผู้ใช้ #%d (authorId)", *pf.authorID)
+			}
+		}
+		p.AuthorID = *pf.authorID
+	}
+	if pf.pinned != nil {
+		if !others {
+			v.fail("db.posts: ปักหมุดต้องมีสิทธิ์แก้ไขโพสต์ของผู้อื่น")
+		}
+		p.Pinned = *pf.pinned
+	}
+	if pf.sortOrder != nil {
+		if !others {
+			v.fail("db.posts: sortOrder ต้องมีสิทธิ์แก้ไขโพสต์ของผู้อื่น")
+		}
+		p.SortOrder = int(*pf.sortOrder)
+	}
+	if pf.clearImage {
+		p.FeaturedMediaID = nil
+	} else if pf.imageID != nil {
+		if ms, ok := v.h.posts.(interface {
+			GetMedia(int64) (*model.Media, error)
+		}); ok {
+			if _, err := ms.GetMedia(*pf.imageID); err != nil {
+				v.fail("db.posts: ไม่พบไฟล์สื่อ #%d (imageId)", *pf.imageID)
+			}
+		}
+		p.FeaturedMediaID = pf.imageID
+	}
+	if pf.clearPublished {
+		p.PublishedAt = nil
+	} else if pf.publishedAt != nil {
+		t := *pf.publishedAt
+		p.PublishedAt = &t
+	}
+	if pf.design != nil {
+		if !v.userCan(auth.CapEditPages) {
+			v.fail("db.posts: แก้ดีไซน์ต้องมีสิทธิ์แก้ไขหน้าเว็บ")
+		}
+		if _, err := design.Parse(pf.design); err != nil {
+			v.throw("db.posts: design ไม่ถูกต้อง: %s", err.Error())
+		}
+		if len(design.ChangedCodeBlocks(pf.design, p.Design)) > 0 && !v.userCan(auth.CapEditScripts) {
+			v.fail("db.posts: บล็อกโค้ดในดีไซน์ต้องมีสิทธิ์แก้สคริปต์")
+		}
+		p.Design = pf.design
+		if !v.userCan(auth.CapUnfilteredHTML) {
+			p.Design = design.StripRawHTML(p.Design)
+		}
 	}
 	if pf.excerpt != nil {
 		p.Excerpt = *pf.excerpt
@@ -270,11 +417,15 @@ func (v *vm) writeMeta(p *model.Post, in, existing map[string]any, isNew bool, w
 	return clean
 }
 
-func (v *vm) savePost(cs ContentStore, p *model.Post, meta map[string]any, isNew bool, was, what string) goja.Value {
+func (v *vm) savePost(cs ContentStore, p *model.Post, meta map[string]any, terms map[string][]int64, isNew bool, what string) goja.Value {
 	meta = v.beforeSaveNested(p, meta, isNew, what)
-	if p.Status == model.StatusPublish && !v.mayPublish(p.Type) {
+	if p.Status != model.StatusDraft && !v.mayPublish(p.Type) {
 		p.Status = model.StatusDraft
 	}
+	if p.Status == model.StatusScheduled && p.PublishedAt == nil {
+		v.throw("%s: status 'scheduled' ต้องระบุ publishedAt", what)
+	}
+
 	if p.Title == "" {
 		p.Title = "(ไม่มีชื่อ)"
 	}
@@ -291,33 +442,22 @@ func (v *vm) savePost(cs ContentStore, p *model.Post, meta map[string]any, isNew
 	if p.Slug, err = cs.UniqueSlug(p.Type, slug, except); err != nil {
 		v.fail("%s: บันทึกไม่สำเร็จ", what)
 	}
-	if isNew {
-		err = cs.CreatePost(p, nil)
-	} else {
+	// the post, its fields and the events (post.saved, post.published, …) in one store call
+	o := store.PostSave{Meta: meta, Terms: terms}
+	if !isNew {
 		v.sess.forgetPost(p.ID)
-		editor := int64(0)
 		if v.user != nil {
-			editor = v.user.ID
+			o.EditorID = v.user.ID
 		} else if v.h.e != nil {
-			editor = v.h.e.systemAuthor()
+			o.EditorID = v.h.e.systemAuthor()
 		}
-		err = cs.UpdatePost(p, nil, editor)
 	}
-	if err != nil {
+	if err = cs.SavePost(p, isNew, o); err != nil {
 		v.fail("%s: บันทึกไม่สำเร็จ: %s", what, err.Error())
-	}
-	if len(meta) > 0 {
-		if err := cs.SetPostMeta(p.ID, meta); err != nil {
-			v.fail("%s: บันทึกฟิลด์ไม่สำเร็จ", what)
-		}
 	}
 	saved, err := cs.GetPost(p.ID)
 	if err != nil {
 		v.fail("%s: อ่านโพสต์ที่บันทึกไม่สำเร็จ", what)
-	}
-	v.emitPost("post.saved", saved)
-	if saved.Status == model.StatusPublish && was != model.StatusPublish {
-		v.emitPost("post.published", saved)
 	}
 	return v.toJS(v.postJSON(saved))
 }
@@ -349,35 +489,31 @@ func (v *vm) postsUpdate(c goja.FunctionCall) goja.Value {
 	const what = "db.posts.update"
 	cs := v.contentStore()
 	p := v.postByArg(cs, c.Argument(0), what)
-	if !v.mayEdit(p.Type, p.AuthorID) || (p.Status == model.StatusPublish && !v.mayPublish(p.Type)) {
+	if !v.mayEdit(p.Type, p.AuthorID) || (p.Status != model.StatusDraft && !v.mayPublish(p.Type)) {
 		v.fail("%s: ไม่มีสิทธิ์แก้ไขโพสต์นี้", what)
 	}
 	pf := v.readPostFields(c.Argument(1), what)
 	if pf.typ != nil && *pf.typ != p.Type {
 		v.throw("%s: เปลี่ยนประเภทของโพสต์ไม่ได้", what)
 	}
-	was := p.Status
 	if pf.slug == nil {
 		pf.slug = &p.Slug
 	}
 	v.applyFields(p, pf)
 	meta := v.writeMeta(p, pf.meta, p.Meta, false, what)
-	return v.savePost(cs, p, meta, false, was, what)
+	return v.savePost(cs, p, meta, v.postTerms(pf.terms, p.Type, what), false, what)
 }
 
 func (v *vm) postsDelete(c goja.FunctionCall) goja.Value {
 	const what = "db.posts.delete"
 	cs := v.contentStore()
 	p := v.postByArg(cs, c.Argument(0), what)
-	if !v.mayEdit(p.Type, p.AuthorID) || (p.Status == model.StatusPublish && !v.mayPublish(p.Type)) {
+	if !v.mayEdit(p.Type, p.AuthorID) || (p.Status != model.StatusDraft && !v.mayPublish(p.Type)) {
 		v.fail("%s: ไม่มีสิทธิ์ลบโพสต์นี้", what)
 	}
 	v.sess.forgetPost(p.ID)
-	if err := cs.DeletePost(p.ID); err != nil {
+	if err := cs.DeletePost(p.ID); err != nil { // fires post.deleted
 		v.fail("%s: ลบไม่สำเร็จ", what)
-	}
-	if v.h.e != nil {
-		v.h.e.emitCore("post.deleted", map[string]any{"id": p.ID, "type": p.Type, "title": p.Title, "slug": p.Slug})
 	}
 	return v.rt.ToValue(true)
 }
@@ -386,7 +522,10 @@ func (v *vm) postsDelete(c goja.FunctionCall) goja.Value {
 // caller's file:line.
 func (v *vm) dbAsSystem(c goja.FunctionCall) goja.Value {
 	v.handlerOnly("db.asSystem")
-	v.need("content-write", "db.asSystem")
+	// system rights for the writes the unit may make at all (2.1.0: also media and terms)
+	if !v.u.can("media-write") && !v.u.can("terms-write") {
+		v.need("content-write", "db.asSystem")
+	}
 	fn, ok := goja.AssertFunction(c.Argument(0))
 	if !ok {
 		v.throw("db.asSystem: ต้องส่งฟังก์ชัน เช่น db.asSystem(() => db.posts.create({...}))")

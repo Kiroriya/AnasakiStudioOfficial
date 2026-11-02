@@ -106,6 +106,7 @@ type client struct {
 	t     *testing.T
 	h     http.Handler
 	token string
+	api   *API // the server behind h (newCodeAPI), for calls that are not HTTP (scheduler)
 }
 
 func (c *client) do(method, path string, body any) (int, map[string]any) {
@@ -129,7 +130,7 @@ func (c *client) do(method, path string, body any) (int, map[string]any) {
 	return rec.Code, out
 }
 
-func (c *client) as(token string) *client { return &client{t: c.t, h: c.h, token: token} }
+func (c *client) as(token string) *client { return &client{t: c.t, h: c.h, token: token, api: c.api} }
 
 func newTestAPI(t *testing.T) (*client, *store.Store) {
 	dsn := os.Getenv("TEST_DB_DSN")

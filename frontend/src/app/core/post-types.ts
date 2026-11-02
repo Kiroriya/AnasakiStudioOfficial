@@ -3,7 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { Api } from './api';
 import { Auth } from './auth';
 import { CodeAdminPage, CodeFieldSpec, CodePostType } from './code-models';
-import { SchemaField } from './models';
+import { SchemaField, Taxonomy } from './models';
 import { PluginFieldGroup, asList, fieldsToSchema, groupFields, normalizeAdminPages, normalizePostTypes } from './post-type-utils';
 
 /**
@@ -22,6 +22,10 @@ export class PostTypes {
   readonly extraFields = signal<Record<string, Record<string, CodeFieldSpec>>>({});
   readonly visitorGroups = signal<string[]>([]);
   readonly adminPages = signal<CodeAdminPage[]>([]);
+  /** "category" and the site.taxonomy taxonomies (CMS 2.1.0; [] on an older server). */
+  readonly taxonomies = signal<Taxonomy[]>([]);
+  /** Registered taxonomies whose terms the user may manage (sidebar items). */
+  readonly manageableTaxonomies = computed(() => this.taxonomies().filter(t => !t.builtin && t.canManage));
   /** Types the signed-in user may edit (sidebar items). */
   readonly editable = computed(() => this.list().filter(p => p.canEdit !== false));
   private loading: Promise<void> | null = null;
@@ -35,6 +39,11 @@ export class PostTypes {
   async ensureLoaded() { if (!this.loaded) await this.load(); }
 
   get(type: string): CodePostType | undefined { return this.list().find(p => p.type === type); }
+
+  taxonomy(id: string): Taxonomy | undefined { return this.taxonomies().find(t => t.id === id); }
+
+  /** Registered taxonomies (not "category") that apply to posts of a type. */
+  taxonomiesOf(type: string): Taxonomy[] { return this.taxonomies().filter(t => !t.builtin && t.postTypes.includes(type)); }
 
   /** Field declarations of a type: its own fields, plus site.fields(type, …). */
   fieldSpecs(type: string): Record<string, CodeFieldSpec> {
@@ -66,8 +75,21 @@ export class PostTypes {
     this.extraFields.set(fields && typeof fields === 'object' && !Array.isArray(fields) ? (fields as Record<string, Record<string, CodeFieldSpec>>) : {});
     this.visitorGroups.set(asList<unknown>(groups, ['groups']).filter((g): g is string => typeof g === 'string' && !!g));
     this.adminPages.set(normalizeAdminPages(pages));
+    const taxes = await this.api.taxonomies().catch(() => null);
+    this.taxonomies.set(Array.isArray(taxes) ? taxes : []);
   }
 }
+
+/** /terms/:taxonomy — a registered taxonomy whose terms the user may manage (CMS 2.1.0). */
+export const taxonomyGuard: CanActivateFn = async route => {
+  const auth = inject(Auth);
+  const types = inject(PostTypes);
+  const router = inject(Router);
+  await auth.restore();
+  await types.ensureLoaded();
+  const t = types.taxonomy(route.paramMap.get('taxonomy') ?? '');
+  return (!!t && !t.builtin && t.canManage) || router.parseUrl('/');
+};
 
 /** /content/:type/… — only types the live code registers and the user may edit. */
 export const postTypeGuard: CanActivateFn = async route => {

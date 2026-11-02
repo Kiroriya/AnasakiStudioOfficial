@@ -14,6 +14,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/anasaki/studio/backend/internal/auth"
+	"github.com/anasaki/studio/backend/internal/kses"
 )
 
 // Phase 4a: custom post types (site.postType) and custom fields
@@ -34,6 +35,13 @@ type FieldInfo struct {
 	Min      *float64          `json:"min,omitempty"`
 	Max      *float64          `json:"max,omitempty"`
 	Options  []FieldOption     `json:"options,omitempty"`
+	// 2.1.0 field types: relation (PostTypes, Multiple), user / file
+	// (Multiple), term (Taxonomy, Multiple), gallery, repeater (Fields: one
+	// level of simple fields; Max = rows), richtext, color.
+	PostTypes []string    `json:"postTypes,omitempty"`
+	Multiple  bool        `json:"multiple,omitempty"`
+	Taxonomy  string      `json:"taxonomy,omitempty"`
+	Fields    []FieldInfo `json:"fields,omitempty"`
 	// Plugin / PluginName: a JS plugin's field (site.fields, phase 7); its
 	// key is "<plugin>.<key>" and the editor shows it in that plugin's panel.
 	Plugin     string `json:"plugin,omitempty"`
@@ -92,7 +100,12 @@ var (
 	typeSlugRe    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
 	metaKeyRe     = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{0,39}$`)
 	metaFieldType = map[string]bool{"text": true, "textarea": true, "number": true, "bool": true, "date": true, "datetime": true,
-		"select": true, "url": true, "image": true, "email": true, "json": true}
+		"select": true, "url": true, "image": true, "email": true, "json": true,
+		// 2.1.0
+		"relation": true, "user": true, "term": true, "file": true, "gallery": true, "repeater": true, "richtext": true, "color": true}
+	// repeaterSubType: what a repeater row may hold (no nesting)
+	repeaterSubType = map[string]bool{"text": true, "textarea": true, "number": true, "bool": true, "date": true, "datetime": true,
+		"select": true, "url": true, "image": true, "email": true, "file": true, "color": true, "relation": true}
 	supportsAll = map[string]bool{"title": true, "content": true, "excerpt": true, "image": true, "categories": true}
 	// builtinTypes cannot be redefined by site.postType.
 	builtinTypes = map[string]bool{"post": true, "page": true, "template": true, "revision": true, "attachment": true,
@@ -164,7 +177,7 @@ func (v *vm) fieldMap(x goja.Value, what string) []FieldInfo {
 			f.Type = optString(fo, "type")
 		}
 		if !metaFieldType[f.Type] {
-			v.throw("%s: ฟิลด์ %s ต้องมี type เป็น text, textarea, number, bool, date, datetime, select, url, image, email หรือ json", what, k)
+			v.throw("%s: ฟิลด์ %s ต้องมี type เป็น text, textarea, richtext, number, bool, date, datetime, select, url, image, email, color, json, relation, user, term, file, gallery หรือ repeater", what, k)
 		}
 		f.Label = map[string]string{"th": k, "en": k}
 		if spec != nil {
@@ -207,12 +220,72 @@ func (v *vm) fieldMap(x goja.Value, what string) []FieldInfo {
 		if f.Type == "select" && len(f.Options) == 0 {
 			v.throw("%s: ฟิลด์ %s เป็น select ต้องมี options", what, k)
 		}
+		v.fieldExtras(&f, spec, what)
 		out = append(out, f)
 		if len(out) > maxFields {
 			v.throw("%s: มีฟิลด์ได้ไม่เกิน %d ฟิลด์", what, maxFields)
 		}
 	}
 	return out
+}
+
+// fieldExtras reads the options of the 2.1.0 field types.
+func (v *vm) fieldExtras(f *FieldInfo, spec *goja.Object, what string) {
+	k := f.Key
+	if spec != nil {
+		if m := spec.Get("multiple"); m != nil && !goja.IsUndefined(m) {
+			f.Multiple = m.ToBoolean()
+		}
+	}
+	switch f.Type {
+	case "relation":
+		if spec != nil {
+			if pt := spec.Get("postType"); pt != nil && !goja.IsUndefined(pt) && !goja.IsNull(pt) {
+				if one, ok := pt.Export().(string); ok {
+					f.PostTypes = []string{one}
+				} else if err := v.rt.ExportTo(pt, &f.PostTypes); err != nil {
+					v.throw("%s: ฟิลด์ %s: postType ต้องเป็นชื่อประเภทหรือ array", what, k)
+				}
+			}
+		}
+		if len(f.PostTypes) == 0 {
+			f.PostTypes = []string{"post"}
+		}
+		for _, t := range f.PostTypes {
+			if t != "post" && t != "page" && !postTypeRe.MatchString(t) {
+				v.throw("%s: ฟิลด์ %s: postType %q ไม่ใช่ชื่อประเภทเนื้อหา", what, k, t)
+			}
+		}
+	case "term":
+		f.Taxonomy = CategoryTaxonomy
+		if spec != nil {
+			if t := optString(spec, "taxonomy"); t != "" {
+				f.Taxonomy = t
+			}
+		}
+		if f.Taxonomy != CategoryTaxonomy && !postTypeRe.MatchString(f.Taxonomy) {
+			v.throw("%s: ฟิลด์ %s: taxonomy %q ไม่ถูกต้อง", what, k, f.Taxonomy)
+		}
+	case "gallery":
+		f.Multiple = true
+	case "repeater":
+		var sub goja.Value
+		if spec != nil {
+			sub = spec.Get("fields")
+		}
+		if sub == nil || goja.IsUndefined(sub) || goja.IsNull(sub) {
+			v.throw("%s: ฟิลด์ %s เป็น repeater ต้องมี fields เช่น { name: 'text', qty: 'number' }", what, k)
+		}
+		f.Fields = v.fieldMap(sub, what+"."+k)
+		if len(f.Fields) == 0 || len(f.Fields) > 20 {
+			v.throw("%s: ฟิลด์ %s: repeater มีได้ 1-20 ฟิลด์ย่อย", what, k)
+		}
+		for _, s := range f.Fields {
+			if !repeaterSubType[s.Type] {
+				v.throw("%s: ฟิลด์ %s.%s: ใน repeater ใช้ type %s ไม่ได้", what, k, s.Key, s.Type)
+			}
+		}
+	}
 }
 
 func (v *vm) sitePostType(c goja.FunctionCall) goja.Value {
@@ -672,8 +745,132 @@ func metaValue(f FieldInfo, raw any) (any, error) {
 		return nil, bad("ต้องเป็นลิงก์รูปหรือรหัสสื่อ")
 	case "json":
 		return raw, nil
+	case "richtext":
+		s, ok := str()
+		if !ok {
+			return nil, bad("ต้องเป็นข้อความ")
+		}
+		if len(s) > 100000 {
+			return nil, bad("ยาวเกิน 100000 ตัวอักษร")
+		}
+		return kses.SanitizeHTML(s), nil
+	case "color":
+		s, ok := str()
+		if !ok || !colorRe.MatchString(strings.TrimSpace(s)) {
+			return nil, bad("สีต้องเป็น #rrggbb, rgb(), hsl() หรือชื่อสี")
+		}
+		return strings.TrimSpace(s), nil
+	case "relation", "user", "term", "file", "gallery":
+		return idsValue(f, raw, bad)
+	case "repeater":
+		return repeaterValue(f, raw, bad)
 	}
 	return nil, bad("ชนิดฟิลด์ไม่รู้จัก")
+}
+
+var colorRe = regexp.MustCompile(`^(#[0-9a-fA-F]{3,8}|(rgb|rgba|hsl|hsla)\([0-9.,%\s/]+\)|[a-zA-Z]{3,20}|transparent)$`)
+
+// idsValue: one id (a number) or, for multiple / gallery, a list of ids (≤ 100,
+// duplicates dropped, order kept). An empty list removes the value.
+func idsValue(f FieldInfo, raw any, bad func(string) error) (any, error) {
+	one := func(x any) (float64, bool) {
+		switch n := normScalar(x).(type) {
+		case float64:
+			return n, n > 0 && n == float64(int64(n))
+		case string:
+			v, err := strconv.ParseInt(strings.TrimSpace(n), 10, 64)
+			return float64(v), err == nil && v > 0
+		}
+		return 0, false
+	}
+	if !f.Multiple {
+		if list, ok := raw.([]any); ok && len(list) == 1 {
+			raw = list[0]
+		}
+		n, ok := one(raw)
+		if !ok {
+			return nil, bad("ต้องเป็นรหัส (จำนวนเต็มบวก)")
+		}
+		return n, nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		if n, ok := one(raw); ok {
+			list = []any{n}
+		} else {
+			return nil, bad("ต้องเป็นรายการรหัส")
+		}
+	}
+	if len(list) > 100 {
+		return nil, bad("เลือกได้ไม่เกิน 100 รายการ")
+	}
+	out, seen := []any{}, map[float64]bool{}
+	for _, x := range list {
+		n, ok := one(x)
+		if !ok {
+			return nil, bad("ต้องเป็นรายการรหัส (จำนวนเต็มบวก)")
+		}
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	if f.Max != nil && float64(len(out)) > *f.Max {
+		return nil, bad(fmt.Sprintf("เลือกได้ไม่เกิน %v รายการ", *f.Max))
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// repeaterValue: a list of rows (≤ Max, default 100); each row's values are
+// checked against the sub-fields (required ones included); empty rows drop.
+func repeaterValue(f FieldInfo, raw any, bad func(string) error) (any, error) {
+	list, ok := raw.([]any)
+	if !ok {
+		return nil, bad("ต้องเป็นรายการแถว")
+	}
+	limit := 100.0
+	if f.Max != nil {
+		limit = *f.Max
+	}
+	out := []any{}
+	for i, r := range list {
+		row, ok := r.(map[string]any)
+		if !ok {
+			return nil, bad(fmt.Sprintf("แถว %d ต้องเป็น object", i+1))
+		}
+		clean := map[string]any{}
+		for _, s := range f.Fields {
+			v, err := metaValue(s, row[s.Key])
+			if err != nil {
+				return nil, bad(fmt.Sprintf("แถว %d: %s", i+1, err.(*MetaError).Msg))
+			}
+			if v != nil {
+				clean[s.Key] = v
+			}
+		}
+		if len(clean) == 0 {
+			continue
+		}
+		for _, s := range f.Fields {
+			if _, has := clean[s.Key]; s.Required && !has {
+				return nil, bad(fmt.Sprintf("แถว %d: กรุณากรอก %s", i+1, fieldLabel(s)))
+			}
+		}
+		out = append(out, clean)
+	}
+	if float64(len(out)) > limit {
+		return nil, bad(fmt.Sprintf("มีได้ไม่เกิน %v แถว", limit))
+	}
+	if f.Min != nil && float64(len(out)) < *f.Min {
+		return nil, bad(fmt.Sprintf("ต้องมีอย่างน้อย %v แถว", *f.Min))
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 // FieldsObject renders fields as the JSON object the admin's schema form
@@ -696,7 +893,14 @@ func FieldsObject(list []FieldInfo) json.RawMessage {
 			Options    []FieldOption     `json:"options,omitempty"`
 			Plugin     string            `json:"plugin,omitempty"`
 			PluginName string            `json:"pluginName,omitempty"`
-		}{f.Type, f.Label, f.Required, f.Min, f.Max, f.Options, f.Plugin, f.PluginName}
+			PostTypes  []string          `json:"postTypes,omitempty"`
+			Multiple   bool              `json:"multiple,omitempty"`
+			Taxonomy   string            `json:"taxonomy,omitempty"`
+			Fields     json.RawMessage   `json:"fields,omitempty"`
+		}{f.Type, f.Label, f.Required, f.Min, f.Max, f.Options, f.Plugin, f.PluginName, f.PostTypes, f.Multiple, f.Taxonomy, nil}
+		if len(f.Fields) > 0 {
+			spec.Fields = FieldsObject(f.Fields)
+		}
 		v, _ := json.Marshal(spec)
 		b.Write(k)
 		b.WriteByte(':')

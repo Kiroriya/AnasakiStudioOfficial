@@ -74,7 +74,13 @@ type HookRow struct {
 // coreEvents are the events the CMS emits itself (events of plugins, even
 // under an alias, are declared by the plugins: code.hooks / eventAliases).
 var coreEvents = map[string]bool{"post.published": true, "post.saved": true, "post.deleted": true, "user.created": true,
-	"media.uploaded": true}
+	"media.uploaded": true,
+	// 2.1.0: fired by the store for every write (payload "actor": {id, source}; updates carry "previous")
+	"post.created": true, "post.updated": true, "post.statusChanged": true, "post.scheduled": true, "post.unpublished": true,
+	"user.updated": true, "user.roleChanged": true, "user.deleted": true,
+	"media.updated": true, "media.deleted": true,
+	"term.created": true, "term.updated": true, "term.deleted": true,
+	"settings.updated": true, "plugin.activated": true, "plugin.deactivated": true}
 
 // Hooks lists every filter and event subscribed or declared by the units:
 // subscribers by ascending priority, then unit load order (Site Code last),

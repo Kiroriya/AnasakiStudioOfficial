@@ -3,13 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
+	"github.com/anasaki/studio/backend/internal/media"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/site"
 	"github.com/anasaki/studio/backend/internal/store"
@@ -21,6 +20,10 @@ func (a *API) listTerms(w http.ResponseWriter, r *http.Request) {
 	tax := r.URL.Query().Get("taxonomy")
 	if tax == "" {
 		tax = "category"
+	}
+	if !a.knownTaxonomy(tax) {
+		writeErr(w, http.StatusBadRequest, "ไม่มีชุดหมวดนี้")
+		return
 	}
 	ts, err := a.st.ListTerms(tax)
 	if err != nil {
@@ -38,19 +41,60 @@ func (a *API) createTerm(w http.ResponseWriter, r *http.Request) {
 	if t.Taxonomy == "" {
 		t.Taxonomy = "category"
 	}
-	a.saveTerm(w, &t, http.StatusCreated)
+	a.saveTerm(w, r, &t, http.StatusCreated)
 }
 
 func (a *API) updateTerm(w http.ResponseWriter, r *http.Request) {
-	var t model.Term
+	old, err := a.st.GetTerm(pathID(r, "id"))
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	t := *old
 	if !readJSON(w, r, &t) {
 		return
 	}
-	t.ID = pathID(r, "id")
-	a.saveTerm(w, &t, http.StatusOK)
+	t.ID, t.Taxonomy = old.ID, old.Taxonomy // a term never changes taxonomy
+	a.saveTerm(w, r, &t, http.StatusOK)
 }
 
-func (a *API) saveTerm(w http.ResponseWriter, t *model.Term, status int) {
+// termWriteDenied answers 400/403 unless the caller may write terms of tax.
+func (a *API) termWriteDenied(w http.ResponseWriter, r *http.Request, tax string) bool {
+	if !a.knownTaxonomy(tax) {
+		writeErr(w, http.StatusBadRequest, "ไม่มีชุดหมวดนี้")
+		return true
+	}
+	if !a.canManageTerms(auth.From(r), tax) {
+		writeErr(w, http.StatusForbidden, "คุณไม่มีสิทธิ์จัดการหมวดหมู่ชุดนี้")
+		return true
+	}
+	return false
+}
+
+func (a *API) saveTerm(w http.ResponseWriter, r *http.Request, t *model.Term, status int) {
+	if a.termWriteDenied(w, r, t.Taxonomy) {
+		return
+	}
+	if t.Parent != 0 {
+		tx := a.taxonomy(t.Taxonomy)
+		if tx == nil || !tx.Hierarchical {
+			writeErr(w, http.StatusBadRequest, "ชุดหมวดนี้ไม่มีลำดับชั้น")
+			return
+		}
+		if p, err := a.st.GetTerm(t.Parent); err != nil || p.Taxonomy != t.Taxonomy {
+			writeErr(w, http.StatusBadRequest, "ไม่พบหมวดแม่")
+			return
+		}
+		if t.ID != 0 {
+			if loop, _ := a.st.TermAncestorOf(t.ID, t.Parent); loop {
+				writeErr(w, http.StatusBadRequest, "ตั้งหมวดแม่เป็นตัวเองหรือหมวดลูกของตัวเองไม่ได้")
+				return
+			}
+		}
+	}
+	if len([]rune(t.Description)) > 500 {
+		t.Description = string([]rune(t.Description)[:500])
+	}
 	t.Name = strings.TrimSpace(t.Name)
 	if t.Name == "" {
 		writeErr(w, http.StatusBadRequest, "กรุณาใส่ชื่อ")
@@ -62,9 +106,9 @@ func (a *API) saveTerm(w http.ResponseWriter, t *model.Term, status int) {
 	t.Slug = store.Slugify(t.Slug)
 	var err error
 	if t.ID == 0 {
-		err = a.st.CreateTerm(t)
+		err = a.db(r).CreateTerm(t)
 	} else {
-		err = a.st.UpdateTerm(t)
+		err = a.db(r).UpdateTerm(t)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate") {
@@ -78,7 +122,15 @@ func (a *API) saveTerm(w http.ResponseWriter, t *model.Term, status int) {
 }
 
 func (a *API) deleteTerm(w http.ResponseWriter, r *http.Request) {
-	if err := a.st.DeleteTerm(pathID(r, "id")); err != nil {
+	t, err := a.st.GetTerm(pathID(r, "id"))
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	if a.termWriteDenied(w, r, t.Taxonomy) {
+		return
+	}
+	if err := a.db(r).DeleteTerm(t.ID); err != nil {
 		serverErr(w, err)
 		return
 	}
@@ -110,7 +162,7 @@ func (a *API) updateMedia(w http.ResponseWriter, r *http.Request) {
 	if m == nil {
 		return
 	}
-	if err := a.st.UpdateMediaAlt(m.ID, in.Alt); err != nil {
+	if err := a.db(r).UpdateMediaAlt(m.ID, in.Alt); err != nil {
 		serverErr(w, err)
 		return
 	}
@@ -123,12 +175,9 @@ func (a *API) deleteMedia(w http.ResponseWriter, r *http.Request) {
 	if m == nil {
 		return
 	}
-	if err := a.st.DeleteMedia(m.ID); err != nil {
+	if err := media.Delete(a.db(r), a.uploadDir, m); err != nil {
 		serverErr(w, err)
 		return
-	}
-	if rel, ok := strings.CutPrefix(m.URL, "/uploads/"); ok && !strings.Contains(rel, "..") {
-		_ = os.Remove(filepath.Join(a.uploadDir, filepath.FromSlash(rel)))
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

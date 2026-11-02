@@ -4,66 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/anasaki/studio/backend/internal/model"
 )
-
-// ---------------- Terms (categories / tags) ----------------
-
-func (s *Store) ListTerms(taxonomy string) ([]model.Term, error) {
-	rows, err := s.DB.Query(`SELECT t.id, t.taxonomy, t.name, t.slug, COUNT(pt.post_id) FROM terms t
-		LEFT JOIN post_terms pt ON pt.term_id = t.id WHERE t.taxonomy = ? GROUP BY t.id, t.taxonomy, t.name, t.slug
-		ORDER BY t.name`, taxonomy)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []model.Term{}
-	for rows.Next() {
-		var t model.Term
-		if err := rows.Scan(&t.ID, &t.Taxonomy, &t.Name, &t.Slug, &t.Count); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) TermBySlug(taxonomy, slug string) (*model.Term, error) {
-	var t model.Term
-	err := s.DB.QueryRow(`SELECT id, taxonomy, name, slug FROM terms WHERE taxonomy=? AND slug=?`, taxonomy, slug).
-		Scan(&t.ID, &t.Taxonomy, &t.Name, &t.Slug)
-	if err != nil {
-		return nil, notFound(err)
-	}
-	return &t, nil
-}
-
-func (s *Store) CreateTerm(t *model.Term) error {
-	res, err := s.DB.Exec(`INSERT INTO terms (taxonomy, name, slug) VALUES (?,?,?)`, t.Taxonomy, t.Name, t.Slug)
-	if err != nil {
-		return err
-	}
-	t.ID, _ = res.LastInsertId()
-	return nil
-}
-
-func (s *Store) UpdateTerm(t *model.Term) error {
-	_, err := s.DB.Exec(`UPDATE terms SET name=?, slug=? WHERE id=?`, t.Name, t.Slug, t.ID)
-	return err
-}
-
-func (s *Store) DeleteTerm(id int64) error {
-	return s.inTx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(`DELETE FROM post_terms WHERE term_id=?`, id); err != nil {
-			return err
-		}
-		_, err := tx.Exec(`DELETE FROM terms WHERE id=?`, id)
-		return err
-	})
-}
 
 // ---------------- Media ----------------
 
@@ -123,15 +69,50 @@ func (s *Store) CreateMedia(m *model.Media) error {
 	}
 	m.ID, _ = res.LastInsertId()
 	FillMediaKind(m)
+	s.fire("media.uploaded", mediaPayload(m))
 	return nil
 }
 
 func (s *Store) UpdateMediaAlt(id int64, alt string) error {
-	_, err := s.DB.Exec(`UPDATE media SET alt=? WHERE id=?`, alt, id)
+	old, err := s.GetMedia(id)
+	if err != nil {
+		return err
+	}
+	if _, err := s.DB.Exec(`UPDATE media SET alt=? WHERE id=?`, alt, id); err != nil {
+		return err
+	}
+	m := *old
+	m.Alt = alt
+	pl := mediaPayload(&m)
+	pl["previous"] = map[string]any{"alt": old.Alt}
+	s.fire("media.updated", pl)
+	return nil
+}
+
+// UpdateMediaFile stores a replaced file's size and image size (media.replace,
+// 2.1.0); fires media.updated with replaced: true.
+func (s *Store) UpdateMediaFile(m, old *model.Media) error {
+	if _, err := s.DB.Exec(`UPDATE media SET size=?, width=?, height=? WHERE id=?`, m.Size, m.Width, m.Height, m.ID); err != nil {
+		return err
+	}
+	pl := mediaPayload(m)
+	pl["replaced"] = true
+	pl["previous"] = map[string]any{"alt": old.Alt, "size": old.Size, "width": old.Width, "height": old.Height}
+	s.fire("media.updated", pl)
+	return nil
+}
+
+// DeleteMedia removes the row (the caller removes the file); fires media.deleted.
+func (s *Store) DeleteMedia(id int64) error {
+	old, _ := s.GetMedia(id)
+	err := s.deleteMedia(id)
+	if err == nil && old != nil {
+		s.fire("media.deleted", mediaPayload(old))
+	}
 	return err
 }
 
-func (s *Store) DeleteMedia(id int64) error {
+func (s *Store) deleteMedia(id int64) error {
 	return s.inTx(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`UPDATE posts SET featured_media_id=NULL WHERE featured_media_id=?`, id); err != nil {
 			return err
@@ -378,6 +359,27 @@ func cloneOptions(m map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// SaveSettings writes options changed by a person (the admin Settings
+// screens) and fires settings.updated with the changed keys — never the
+// values, which can hold passwords. SetOptions is for internal state.
+func (s *Store) SaveSettings(opts map[string]string) error {
+	before, _ := s.Options()
+	if err := s.SetOptions(opts); err != nil {
+		return err
+	}
+	keys := []string{}
+	for k, v := range opts {
+		if before[k] != v {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) > 0 {
+		sort.Strings(keys)
+		s.fire("settings.updated", map[string]any{"keys": keys})
+	}
+	return nil
 }
 
 func (s *Store) SetOptions(opts map[string]string) error {

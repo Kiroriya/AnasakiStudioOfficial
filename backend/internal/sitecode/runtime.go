@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -121,11 +122,15 @@ type vm struct {
 	visitors []*regVisitor
 	vgroups  []string
 	ptypes   []*regPostType
-	pfields  []*regFields
-	jobDefs  []*regJob
-	crons    []*regCron
-	apages   []*regAdminPage
-	exps     []*regExport // site.export (phase 4b)
+	taxes    []*regTaxonomy // site.taxonomy (2.1.0)
+	// request.files() / form(): the parsed multipart body of formReq (2.1.0)
+	form    *multipart.Form
+	formReq *http.Request
+	pfields []*regFields
+	jobDefs []*regJob
+	crons   []*regCron
+	apages  []*regAdminPage
+	exps    []*regExport // site.export (phase 4b)
 	// phase 6: site.middleware / afterResponse / head / bodyEnd
 	mws, afters, heads, bodyEnds []*regHook
 	xdepth                       int // nesting of cross-unit calls into this VM
@@ -265,6 +270,7 @@ func (v *vm) install() {
 		"visitor":       v.siteVisitor,
 		"visitorGroups": v.siteVisitorGroups,
 		"postType":      v.sitePostType,
+		"taxonomy":      v.siteTaxonomy,
 		"fields":        v.siteFields,
 		"job":           v.siteJob,
 		"cron":          v.siteCron,
@@ -332,10 +338,24 @@ func (v *vm) install() {
 		"delete": v.postsDelete,
 	}))
 	_ = db.Set("asSystem", v.dbAsSystem)
+	_ = db.Set("terms", obj(map[string]func(goja.FunctionCall) goja.Value{ // 2.1.0
+		"list":   v.termsList,
+		"get":    v.termsGet,
+		"create": v.termsCreate,
+		"update": v.termsUpdate,
+		"delete": v.termsDelete,
+	}))
 	v.installDB(db)
 	_ = rt.Set("db", db)
 	_ = rt.Set("migration", v.migrationGlobal)
 
+	_ = rt.Set("media", obj(map[string]func(goja.FunctionCall) goja.Value{ // 2.1.0
+		"list": v.mediaList, "get": v.mediaGet, "read": v.mediaRead, "upload": v.mediaUpload,
+		"update": v.mediaUpdate, "replace": v.mediaReplace, "delete": v.mediaDelete, "resize": v.mediaResize,
+	}))
+	_ = rt.Set("files", obj(map[string]func(goja.FunctionCall) goja.Value{ // 2.1.0
+		"put": v.filesPut, "get": v.filesGet, "text": v.filesText, "list": v.filesList, "delete": v.filesDelete, "url": v.filesURL,
+	}))
 	_ = rt.Set("mail", obj(map[string]func(goja.FunctionCall) goja.Value{"send": v.mailSend}))
 	_ = rt.Set("http", obj(map[string]func(goja.FunctionCall) goja.Value{"fetch": v.httpFetch, "webhook": v.httpWebhook}))
 	_ = rt.Set("jobs", obj(map[string]func(goja.FunctionCall) goja.Value{"enqueue": v.jobsEnqueue}))
@@ -708,7 +728,11 @@ func (v *vm) postsList(c goja.FunctionCall) goja.Value {
 	}
 	f.Offset = (page - 1) * f.Limit
 	v.metaFilter(o, &f)
+	v.listFilter(o, &f)
 	if !v.canSeeDrafts(typ) {
+		if f.Status != "" && f.Status != model.StatusPublish {
+			return v.toJS(map[string]any{"items": []any{}, "total": 0})
+		}
 		f.Status = model.StatusPublish
 	}
 	posts, total, err := v.h.posts.ListPosts(f)
@@ -720,6 +744,48 @@ func (v *vm) postsList(c goja.FunctionCall) goja.Value {
 		items = append(items, v.postJSON(p))
 	}
 	return v.toJS(map[string]any{"items": items, "total": total})
+}
+
+// listFilter reads db.posts.list({status, authorId, ids}) (2.1.0).
+func (v *vm) listFilter(o *goja.Object, f *model.PostFilter) {
+	if o == nil {
+		return
+	}
+	if st := optString(o, "status"); st != "" && st != "any" {
+		if !model.ValidStatus(st) {
+			v.throw("db.posts.list: status ต้องเป็น 'draft', 'publish', 'scheduled' หรือ 'any'")
+		}
+		f.Status = st
+	}
+	if a := optString(o, "authorId"); a != "" {
+		n, err := strconv.ParseInt(a, 10, 64)
+		if err != nil || n < 1 {
+			v.throw("db.posts.list: authorId ต้องเป็นจำนวนเต็มบวก")
+		}
+		f.AuthorID = n
+	}
+	if x := o.Get("ids"); x != nil && !goja.IsUndefined(x) && !goja.IsNull(x) {
+		list, ok := x.Export().([]any)
+		if !ok || len(list) > 200 {
+			v.throw("db.posts.list: ids ต้องเป็น array ของ id (ไม่เกิน 200)")
+		}
+		f.IDs = make([]int64, 0, len(list))
+		for _, e := range list {
+			var id int64
+			switch n := e.(type) {
+			case int64:
+				id = n
+			case float64:
+				id = int64(n)
+			case string:
+				id, _ = strconv.ParseInt(n, 10, 64)
+			}
+			if id < 1 {
+				v.throw("db.posts.list: ids ต้องเป็น id ของโพสต์ (จำนวนเต็มบวก)")
+			}
+			f.IDs = append(f.IDs, id)
+		}
+	}
 }
 
 func (v *vm) postsGet(c goja.FunctionCall) goja.Value {
@@ -756,6 +822,26 @@ func (v *vm) postsGet(c goja.FunctionCall) goja.Value {
 	return v.toJS(v.postJSON(p))
 }
 
+// termsJSON is a post's terms by taxonomy: {category: [{id, slug, name}], …}.
+func termsJSON(terms map[string][]model.Term) map[string]any {
+	out := map[string]any{}
+	for tax, list := range terms {
+		l := make([]map[string]any, 0, len(list))
+		for _, t := range list {
+			l = append(l, map[string]any{"id": t.ID, "slug": t.Slug, "name": t.Name, "parent": t.Parent})
+		}
+		out[tax] = l
+	}
+	return out
+}
+
+func idOrNil(id *int64) any {
+	if id == nil {
+		return nil
+	}
+	return *id
+}
+
 func timeOrNil(t *time.Time) any {
 	if t == nil {
 		return nil
@@ -784,6 +870,10 @@ func (v *vm) postJSON(p *model.Post) map[string]any {
 		"excerpt": p.Excerpt, "content": kses.SanitizeHTML(p.Content), "image": p.FeaturedImage,
 		"category": category, "categories": cats, "author": p.AuthorName,
 		"publishedAt": timeOrNil(p.PublishedAt), "updatedAt": p.UpdatedAt.UTC().Format(time.RFC3339), "meta": metaOrEmpty(p.Meta),
+		// 2.1.0
+		"terms":    termsJSON(p.Terms),
+		"authorId": p.AuthorID, "imageId": idOrNil(p.FeaturedMediaID), "pinned": p.Pinned, "sortOrder": p.SortOrder,
+		"createdAt": p.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

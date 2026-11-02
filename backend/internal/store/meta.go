@@ -72,6 +72,14 @@ func (s *Store) SetPostMeta(id int64, meta map[string]any) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err := setMetaTx(tx, id, meta); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// setMetaTx writes meta inside tx (a nil value removes the key).
+func setMetaTx(tx *sql.Tx, id int64, meta map[string]any) error {
 	for k, v := range meta {
 		if v == nil {
 			if _, err := tx.Exec(`DELETE FROM post_meta WHERE post_id = ? AND meta_key = ?`, id, k); err != nil {
@@ -88,7 +96,7 @@ func (s *Store) SetPostMeta(id int64, meta map[string]any) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 var metaOps = map[string]string{"=": "=", "!=": "=", "<": "<", "<=": "<=", ">": ">", ">=": ">="}

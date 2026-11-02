@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS terms (
   taxonomy VARCHAR(32)  NOT NULL,
   name     VARCHAR(191) NOT NULL,
   slug     VARCHAR(191) NOT NULL,
+  parent   BIGINT       NOT NULL DEFAULT 0,
+  description VARCHAR(500) NOT NULL DEFAULT '',
   UNIQUE KEY uq_terms_tax_slug (taxonomy, slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

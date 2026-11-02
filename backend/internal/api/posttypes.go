@@ -119,8 +119,8 @@ func (a *API) prepareSave(w http.ResponseWriter, me *auth.Principal, p *model.Po
 	if s, ok := out["slug"].(string); ok {
 		p.Slug = s
 	}
-	if s, ok := out["status"].(string); ok && (s == model.StatusDraft || s == model.StatusPublish) {
-		if s == model.StatusPublish && !a.canPublish(me, p.Type) {
+	if s, ok := out["status"].(string); ok && model.ValidStatus(s) {
+		if s != model.StatusDraft && !a.canPublish(me, p.Type) {
 			s = model.StatusDraft
 		}
 		p.Status = s

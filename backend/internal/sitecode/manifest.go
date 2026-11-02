@@ -33,9 +33,11 @@ type Manifest struct {
 	VisitorGroups []string               `json:"visitorGroups"`
 	PostTypes     []PostTypeInfo         `json:"postTypes"`
 	Fields        map[string][]FieldInfo `json:"fields"`
-	Jobs          []JobInfo              `json:"jobs"`
-	Crons         []CronInfo             `json:"crons"`
-	AdminPages    []AdminPageInfo        `json:"adminPages"`
+	// 2.1.0: site.taxonomy
+	Taxonomies []TaxonomyInfo  `json:"taxonomies"`
+	Jobs       []JobInfo       `json:"jobs"`
+	Crons      []CronInfo      `json:"crons"`
+	AdminPages []AdminPageInfo `json:"adminPages"`
 
 	// phase 4b: site.export names
 	Exports []string `json:"exports"`
@@ -75,6 +77,9 @@ func (m *Manifest) normalize() {
 	}
 	if m.PostTypes == nil {
 		m.PostTypes = []PostTypeInfo{}
+	}
+	if m.Taxonomies == nil {
+		m.Taxonomies = []TaxonomyInfo{}
 	}
 	if m.Fields == nil {
 		m.Fields = map[string][]FieldInfo{}

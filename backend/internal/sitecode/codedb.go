@@ -239,7 +239,7 @@ func (d *Data) viewSQL() map[string]string {
 	return map[string]string{
 		"core_posts": `SELECT id, type, title, slug, status, excerpt, author_id, featured_media_id, published_at, created_at, updated_at FROM ` +
 			c + "`posts` WHERE status = 'publish'",
-		"core_terms":      `SELECT id, taxonomy, name, slug FROM ` + c + "`terms`",
+		"core_terms":      `SELECT id, taxonomy, name, slug, parent FROM ` + c + "`terms`",
 		"core_post_terms": `SELECT pt.post_id, pt.term_id FROM ` + c + "`post_terms` pt JOIN " + c + "`posts` p ON p.id = pt.post_id WHERE p.status = 'publish'",
 		"core_users":      `SELECT id, name, email, role, status, created_at FROM ` + c + "`users`",
 	}

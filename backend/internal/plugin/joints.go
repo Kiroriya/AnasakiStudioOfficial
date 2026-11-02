@@ -7,7 +7,6 @@ package plugin
 // designer blocks a plugin registers in code (site.block).
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/anasaki/studio/backend/internal/design"
@@ -59,7 +58,10 @@ func (m *Manager) MergePackageSettings(id string, patch map[string]any) (Values,
 	if err != nil {
 		return nil, err
 	}
-	b, _ := json.Marshal(v)
+	b, err := m.pkgs.sealedJSON(k.mf.Settings, v)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := m.pkgs.db.Exec(`UPDATE plugin_packages SET settings=? WHERE id=?`, b, id); err != nil {
 		return nil, err
 	}

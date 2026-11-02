@@ -77,7 +77,7 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
           @for (p of recent(); track p.id) {
             <li>
               <a [routerLink]="['/posts', p.id]">{{ p.title }}</a>
-              <span class="badge" [class.badge-live]="p.status === 'publish'">{{ (p.status === 'publish' ? 'common.published' : 'common.draft') | t }}</span>
+              <span class="badge" [class.badge-live]="p.status === 'publish'">{{ (p.status === 'publish' ? 'common.published' : p.status === 'scheduled' ? 'post.scheduledBadge' : 'common.draft') | t }}</span>
             </li>
           } @empty { <li class="muted">{{ 'dash.noPosts' | t }}</li> }
         </ul>

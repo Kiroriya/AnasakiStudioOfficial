@@ -430,6 +430,9 @@ func (mf *Manifest) Validate(files map[string][]byte) error {
 			if err := ValidateSchema(b.Props); err != nil {
 				return pkgErr("manifest: block %s props: %v", b.Type, err)
 			}
+			if err := NoSecrets(b.Props); err != nil {
+				return pkgErr("manifest: block %s props: %v", b.Type, err)
+			}
 		}
 	}
 	if len(mf.Webhooks) > 0 {

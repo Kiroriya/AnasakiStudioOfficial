@@ -138,6 +138,19 @@ log.debug/info/warn/error(...args); console.log(...args);   // → the Logs scre
 (forms plugin) and any event a service plugin emits (`<plugin>.<event>`). Handlers run after the fact,
 each in its own VM, 10 s limit; failures are logged.
 
+Since 2.1.0 the core fires its events for every write, whoever makes it (admin, REST API, Site Code, JS
+plugins, the scheduler), each with `actor: {id, source}`; updates carry `previous`. Added: `post.created`,
+`post.updated`, `post.statusChanged`, `post.scheduled`, `post.unpublished`, `user.updated`,
+`user.roleChanged`, `user.deleted`, `media.updated`, `media.deleted`, `term.created`, `term.updated`,
+`term.deleted`, `settings.updated` (changed keys only), `plugin.activated`, `plugin.deactivated` — see
+`docs/plugin-api.md` §3.4 for the payloads.
+
+```ts
+site.on('post.updated', (p) => {
+  if (p.previous.slug !== p.slug) log.info('moved', p.previous.slug, '→', p.slug, 'by', p.actor.source);
+});
+```
+
 ### db.posts
 
 Read-only in phase 1. Anonymous callers (and event handlers) see **published** posts/pages only; drafts
@@ -543,6 +556,13 @@ site.fields('post', { readingTime: 'number' });
   (options), url (https://… or /path), image (URL or media id), email, json`; `required`, `min`/`max` (number
   value / text length), `options` (strings or `{value, label}`). Invalid values → 400
   `{error, fields: {<key>: message}}` (Thai). Unknown keys are dropped; `""`/`null` removes a value.
+- Since 2.1.0 also: `relation` (post ids; `postType: 'event'` or a list, default `post`), `user` (user
+  ids), `term` (term ids; `taxonomy`, default `category`), `file` (a media id), `gallery` (media ids),
+  `repeater` (rows of `fields: {name: 'text', price: 'number'}`, no nesting; `max` rows), `richtext`
+  (HTML, sanitised like post content) and `color`. `multiple: true` makes relation / user / term / file a
+  list (at most 100, duplicates dropped; `max` limits it). The editor shows search pickers, the media
+  picker and repeatable rows; the values are ids — read the items with `db.posts.list({ids})`,
+  `db.terms.list({ids})`.
 - Stored in `post_meta(post_id, meta_key, value JSON)`, deleted with the post, included in backups
   (`posts[].meta` in `data.json`).
 - Admin API: the existing `/api/v1/posts` endpoints — `GET /posts?type=event`, `Post.meta`, `POST/PUT /posts`
@@ -573,7 +593,10 @@ site.fields('post', { readingTime: 'number' });
 
 `db.posts.create(post)`, `db.posts.update(id, patch)`, `db.posts.delete(id)` — checked against the caller's
 capabilities like the admin (a visitor or anonymous caller is refused; contributors' posts stay drafts),
-run `post.beforeSave`, validate `meta`, emit `post.saved` / `post.published` / `post.deleted`.
+run `post.beforeSave`, validate `meta`; the store fires `post.created` / `post.updated` / `post.saved` /
+`post.published` / `post.deleted` (actor source `code`). Since 2.1.0 a post may also set `authorId`,
+`publishedAt` (a future date schedules it: status `scheduled`), `imageId`, `pinned`, `sortOrder` and `design`,
+and `db.posts.list` filters by `status` (`'any'` for every status), `authorId` and `ids`.
 `db.asSystem(() => …)` runs the callback with system rights (author = first administrator) and is audited as
 `as_system` with the caller's `file:line`.
 

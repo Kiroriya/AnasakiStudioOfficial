@@ -51,6 +51,8 @@ type Config struct {
 	// is empty (PLUGINS_DIR).
 	SecretKey string
 	KeyDir    string
+	// UploadDir is the media library's folder (media.*, public files.*; 2.1.0).
+	UploadDir string
 	// TypeSlugs receives the public URL prefixes of custom post types
 	// (site.SetTypeSlugs) whenever the live version changes.
 	TypeSlugs func(map[string]string)

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/kses"
 	"github.com/anasaki/studio/backend/internal/model"
-	"github.com/anasaki/studio/backend/internal/site"
 	"github.com/anasaki/studio/backend/internal/sitecode"
 	"github.com/anasaki/studio/backend/internal/store"
 )
@@ -67,7 +67,7 @@ func (a *API) canPublish(p *auth.Principal, typ string) bool {
 // left it unless the user may publish too (a contributor can't rewrite or
 // remove it after an editor approved it).
 func (a *API) canModify(p *auth.Principal, post *model.Post) bool {
-	return a.canEdit(p, post) && (post.Status != model.StatusPublish || a.canPublish(p, post.Type))
+	return a.canEdit(p, post) && (post.Status == model.StatusDraft || a.canPublish(p, post.Type))
 }
 
 const msgPublishedLocked = "เนื้อหานี้เผยแพร่แล้ว ต้องมีสิทธิ์เผยแพร่จึงจะแก้ไขหรือลบได้"
@@ -156,9 +156,15 @@ type postInput struct {
 	FeaturedMediaID *int64          `json:"featuredMediaId"`
 	ClearFeatured   bool            `json:"clearFeatured"`
 	CategoryIDs     []int64         `json:"categoryIds"`
-	AuthorID        *int64          `json:"authorId"`
-	Pinned          *bool           `json:"pinned"`
-	BaseUpdatedAt   *time.Time      `json:"baseUpdatedAt"` // designer: the version it loaded (409 when stale)
+	// Terms sets the post's terms per taxonomy (2.1.0): {"<taxonomy>": [ids]};
+	// a taxonomy left out is unchanged.
+	Terms    map[string][]int64 `json:"terms"`
+	AuthorID *int64             `json:"authorId"`
+	Pinned   *bool              `json:"pinned"`
+	// PublishedAt sets the publish date (2.1.0): in the future with status
+	// "publish" or "scheduled" the post waits for it; in the past it back-dates.
+	PublishedAt   *time.Time `json:"publishedAt"`
+	BaseUpdatedAt *time.Time `json:"baseUpdatedAt"` // designer: the version it loaded (409 when stale)
 	// Meta sets custom fields (site.postType / site.fields); "" or null removes one.
 	Meta map[string]any `json:"meta"`
 }
@@ -172,13 +178,20 @@ func (in *postInput) apply(p *model.Post, me *auth.Principal, canPublish bool) s
 		p.Slug = *in.Slug
 	}
 	if in.Status != nil {
-		if *in.Status != model.StatusDraft && *in.Status != model.StatusPublish {
+		if !model.ValidStatus(*in.Status) {
 			return "สถานะไม่ถูกต้อง"
 		}
 		p.Status = *in.Status
-		if p.Status == model.StatusPublish && !canPublish {
+		if p.Status != model.StatusDraft && !canPublish {
 			p.Status = model.StatusDraft // contributors submit drafts for review
 		}
+	}
+	if in.PublishedAt != nil && canPublish {
+		t := in.PublishedAt.UTC()
+		p.PublishedAt = &t
+	}
+	if p.Status == model.StatusScheduled && p.PublishedAt == nil {
+		return "ตั้งเวลาเผยแพร่ต้องระบุวันเวลา (publishedAt)"
 	}
 	if in.Excerpt != nil {
 		p.Excerpt = *in.Excerpt
@@ -256,16 +269,15 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	if err := a.st.CreatePost(p, in.CategoryIDs); err != nil {
+	terms, msg := a.termSets(p.Type, &in)
+	if msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	if err := a.db(r).SavePost(p, true, store.PostSave{Terms: terms, Meta: meta}); err != nil {
 		serverErr(w, err)
 		return
 	}
-	if err := a.st.SetPostMeta(p.ID, meta); err != nil {
-		serverErr(w, err)
-		return
-	}
-	a.emitSaved(p)
-	a.emitPublished(p, "")
 	a.respondPost(w, p.ID, http.StatusCreated)
 }
 
@@ -286,7 +298,7 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 	if a.saveConflict(w, "post", p.ID, in.BaseUpdatedAt, p.UpdatedAt) {
 		return
 	}
-	was, storedDesign := p.Status, p.Design
+	storedDesign := p.Design
 	if msg := in.apply(p, me, a.canPublish(me, p.Type)); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
@@ -308,33 +320,17 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := a.st.UpdatePost(p, in.CategoryIDs, me.ID); err != nil {
-		serverErr(w, err)
+	terms, msg := a.termSets(p.Type, &in)
+	if msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
-	if err := a.st.SetPostMeta(p.ID, meta); err != nil {
+	if err := a.db(r).SavePost(p, false, store.PostSave{Terms: terms, Meta: meta, EditorID: me.ID}); err != nil {
 		serverErr(w, err)
 		return
 	}
 	a.noteSaved("post", p.ID, me, time.Now())
-	a.emitSaved(p)
-	a.emitPublished(p, was)
 	a.respondPost(w, p.ID, http.StatusOK)
-}
-
-// emitSaved fires post.saved after a post/page was created or saved.
-func (a *API) emitSaved(p *model.Post) {
-	a.plugins.Emit("post.saved", map[string]any{"id": p.ID, "type": p.Type, "title": p.Title,
-		"slug": p.Slug, "status": p.Status, "url": site.PostURL(p)})
-}
-
-// emitPublished fires post.published when p has just become published.
-func (a *API) emitPublished(p *model.Post, previous string) {
-	if p.Status != model.StatusPublish || previous == model.StatusPublish {
-		return
-	}
-	a.plugins.Emit("post.published", map[string]any{"id": p.ID, "type": p.Type, "title": p.Title,
-		"slug": p.Slug, "url": site.PostURL(p)})
 }
 
 func (a *API) respondPost(w http.ResponseWriter, id int64, status int) {
@@ -355,11 +351,10 @@ func (a *API) deletePost(w http.ResponseWriter, r *http.Request) {
 	if a.denyModify(w, auth.From(r), p) {
 		return
 	}
-	if err := a.st.DeletePost(p.ID); err != nil {
+	if err := a.db(r).DeletePost(p.ID); err != nil {
 		serverErr(w, err)
 		return
 	}
-	a.plugins.Emit("post.deleted", map[string]any{"id": p.ID, "type": p.Type, "title": p.Title, "slug": p.Slug})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -381,19 +376,16 @@ func (a *API) duplicatePost(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	ids := make([]int64, 0, len(src.Categories))
-	for _, t := range src.Categories {
-		ids = append(ids, t.ID)
+	ids := []int64{}
+	for _, list := range src.Terms {
+		for _, t := range list {
+			ids = append(ids, t.ID)
+		}
 	}
-	if err := a.st.CreatePost(&cp, ids); err != nil {
+	if err := a.db(r).SavePost(&cp, true, store.PostSave{TermIDs: ids, Meta: src.Meta}); err != nil {
 		serverErr(w, err)
 		return
 	}
-	if err := a.st.SetPostMeta(cp.ID, src.Meta); err != nil {
-		serverErr(w, err)
-		return
-	}
-	a.emitSaved(&cp)
 	a.respondPost(w, cp.ID, http.StatusCreated)
 }
 
@@ -495,12 +487,29 @@ func (a *API) restoreRevision(w http.ResponseWriter, r *http.Request) {
 			p.Design = design.StripRawHTML(p.Design)
 		}
 	}
-	if err := a.st.UpdatePost(p, nil, me.ID); err != nil {
+	if err := a.db(r).UpdatePost(p, nil, me.ID); err != nil {
 		serverErr(w, err)
 		return
 	}
-	a.emitSaved(p)
 	a.respondPost(w, p.ID, http.StatusOK)
+}
+
+// termSets is the terms to store per taxonomy: in.terms (each taxonomy must
+// apply to the type) plus categoryIds, kept for the types that use categories.
+func (a *API) termSets(typ string, in *postInput) (map[string][]int64, string) {
+	if msg := a.postTermsInput(typ, in.Terms); msg != "" {
+		return nil, msg
+	}
+	out := map[string][]int64{}
+	for tax, ids := range in.Terms {
+		out[tax] = ids
+	}
+	if in.CategoryIDs != nil && slices.Contains(a.manifest().TaxonomiesOf(typ), "category") {
+		if _, set := out["category"]; !set {
+			out["category"] = in.CategoryIDs
+		}
+	}
+	return out, ""
 }
 
 // sanitizeHTML is the analogue of wp_kses for users without unfiltered_html.

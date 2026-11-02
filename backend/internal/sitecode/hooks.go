@@ -4,12 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/dop251/goja"
+
+	"github.com/anasaki/studio/backend/internal/media"
+	"github.com/anasaki/studio/backend/internal/model"
 )
 
 // Phase 4a: filters (site.filter / site.applyFilter), custom events
@@ -21,6 +25,8 @@ var coreFilters = map[string]bool{
 	"action.input": true, "action.result": true, "mail.beforeSend": true,
 	// phase 6: head meta of every page, and /sitemap.xml + /robots.txt (served by core when filtered)
 	"page.meta": true, "sitemap.urls": true, "robots.txt": true,
+	// 2.1.0: before a file joins the media library (rename, alt text, refuse)
+	"media.beforeSave": true,
 }
 
 // renderFilters run while a page renders: 50 ms per filter.
@@ -599,6 +605,51 @@ func (s *Session) SetVisitor(vis map[string]any) {
 	s.vis = &visitorState{done: true, val: vis}
 	if s.v != nil {
 		s.v.vis = s.vis
+	}
+}
+
+// MediaBeforeSave runs the media.beforeSave filters for a file uploaded in
+// the admin (2.1.0): value {filename, alt}, ctx {mime, size, kind, source,
+// user}; a filter may change filename (same extension) and alt, or return
+// {error: 'message'} to refuse the file.
+func (e *Engine) MediaBeforeSave(m *media.Meta, user *User) error {
+	opts, err := e.st.Options()
+	if err != nil {
+		return nil
+	}
+	req, _ := http.NewRequest(http.MethodPost, "http://site.local/", nil)
+	s := e.LiveSession(req, opts)
+	if s == nil || !s.HasFilter("media.beforeSave") {
+		return nil
+	}
+	s.user = user
+	defer s.Close()
+	res := s.ApplyFilter("media.beforeSave", map[string]any{"filename": m.Filename, "alt": m.Alt}, mediaCtx(m))
+	applyMediaMeta(m, res)
+	if out, ok := res.(map[string]any); ok {
+		if msg, ok := out["error"].(string); ok && msg != "" {
+			return errors.New(msg)
+		}
+	}
+	return nil
+}
+
+func mediaCtx(m *media.Meta) map[string]any {
+	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(m.Filename)), ".")
+	return map[string]any{"mime": m.Mime, "size": m.Size, "kind": model.FileKind(ext), "source": m.Source}
+}
+
+// applyMediaMeta copies filename / alt of a media.beforeSave result.
+func applyMediaMeta(m *media.Meta, res any) {
+	out, ok := res.(map[string]any)
+	if !ok {
+		return
+	}
+	if s, ok := out["filename"].(string); ok && strings.TrimSpace(s) != "" {
+		m.Filename = clip(strings.TrimSpace(s), 200)
+	}
+	if s, ok := out["alt"].(string); ok {
+		m.Alt = clip(s, 255)
 	}
 }
 

@@ -1,0 +1,24 @@
+{
+  "id": "catalog",
+  "name": "Catalog",
+  "version": "1.0.0",
+  "description": "Example JS plugin (CMS 2.1.0): a product catalogue — a Products content type with price, gallery, related products and a specs table, Product categories (hierarchical) and Brands taxonomies with archive pages, a JSON import, and a product feed for headless clients protected by an API key stored as a secret setting.",
+  "author": "Anasaki Studio",
+  "icon": "🛍️",
+  "category": "ecommerce",
+  "tags": ["shop", "products", "catalog", "taxonomy", "headless"],
+  "license": "MIT",
+  "minCore": "2.1.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "feedKey", "type": "secret", "label": { "th": "API key ของฟีดสินค้า", "en": "Product feed API key" },
+      "help": { "th": "ส่งใน header X-Api-Key เพื่ออ่าน /catalog/feed.json — เว้นว่าง = ปิดฟีด", "en": "Send it as the X-Api-Key header to read /catalog/feed.json; empty = no feed" } },
+    { "key": "currency", "type": "text", "default": "THB", "maxLength": 3, "label": { "th": "สกุลเงิน", "en": "Currency" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["content", "content-write", "routes", "post-types", "taxonomies", "terms-write"],
+    "routes": ["/catalog"]
+  }
+}

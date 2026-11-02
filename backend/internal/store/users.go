@@ -51,6 +51,7 @@ func (s *Store) CreateUser(u *model.User, hash string) error {
 		return err
 	}
 	u.ID, _ = res.LastInsertId()
+	s.fire("user.created", userPayload(u))
 	return nil
 }
 
@@ -199,7 +200,33 @@ func (s *Store) UserCounts() (map[string]int, error) {
 }
 
 // UpdateUser updates profile fields; hash is changed only when non-empty.
+// It fires user.updated (with previous role/status/email/name) and
+// user.roleChanged when the role changed.
 func (s *Store) UpdateUser(u *model.User, hash string) error {
+	old, err := s.UserByID(u.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.updateUser(u, hash); err != nil {
+		return err
+	}
+	s.fireUserUpdated(u, old, hash != "")
+	return nil
+}
+
+func (s *Store) fireUserUpdated(u, old *model.User, password bool) {
+	pl := userPayload(u)
+	pl["previous"] = map[string]any{"email": old.Email, "name": old.Name, "role": old.Role, "status": old.Status}
+	pl["passwordChanged"] = password
+	s.fire("user.updated", pl)
+	if old.Role != u.Role {
+		rc := userPayload(u)
+		rc["from"], rc["to"] = old.Role, u.Role
+		s.fire("user.roleChanged", rc)
+	}
+}
+
+func (s *Store) updateUser(u *model.User, hash string) error {
 	defaults(u)
 	q := `UPDATE users SET email=?, name=?, first_name=?, last_name=?, bio=?, website=?, avatar=?, role=?, status=?, locale=?`
 	args := []any{u.Email, u.Name, u.FirstName, u.LastName, u.Bio, u.Website, u.Avatar, u.Role, u.Status, u.Locale}
@@ -239,6 +266,19 @@ func (s *Store) updateUsers(ids []int64, set string, v any) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
+	var before []*model.User
+	for _, id := range ids {
+		if u, err := s.UserByID(id); err == nil {
+			before = append(before, u)
+		}
+	}
+	defer func() {
+		for _, old := range before {
+			if u, err := s.UserByID(old.ID); err == nil && (u.Role != old.Role || u.Status != old.Status) {
+				s.fireUserUpdated(u, old, false)
+			}
+		}
+	}()
 	args := []any{v}
 	for _, id := range ids {
 		args = append(args, id)
@@ -259,6 +299,20 @@ func (s *Store) TouchLogin(id int64) error {
 // DeleteUser removes a user and reassigns their content, like WordPress'
 // "attribute all content to" option.
 func (s *Store) DeleteUser(id, reassignTo int64) error {
+	old, err := s.UserByID(id)
+	if err != nil {
+		return err
+	}
+	if err := s.deleteUser(id, reassignTo); err != nil {
+		return err
+	}
+	pl := userPayload(old)
+	pl["reassignedTo"] = reassignTo
+	s.fire("user.deleted", pl)
+	return nil
+}
+
+func (s *Store) deleteUser(id, reassignTo int64) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err

@@ -51,6 +51,7 @@ type Site struct {
 	sessions func(r *http.Request, opts map[string]string) design.CodeSession
 	// postTypes lists Site Code's custom post types (nil = none).
 	postTypes func(opts map[string]string) []PostTypeRoute
+	taxes     func(opts map[string]string) []TaxonomyRoute // site.taxonomy (2.1.0)
 	// hooks are Site Code's request hooks (site.middleware,
 	// site.afterResponse; phase 6). nil = none.
 	hooks CodeHooks
@@ -97,6 +98,7 @@ func (s *Site) SetDemo(on bool) { s.demo = on }
 func New(st *store.Store, plugins Plugins) *Site {
 	s := &Site{st: st, plugins: plugins}
 	if st != nil {
+		st.SetPostURL(PostURL) // the "url" of post event payloads
 		if opts, err := st.Options(); err == nil {
 			SetBases(opts)
 		}
@@ -261,8 +263,12 @@ func (s *Source) Media(id int64) *design.MediaInfo {
 }
 
 func (s *Source) QueryPosts(q design.Query) []design.PostCtx {
-	posts, _, err := s.st.ListPosts(model.PostFilter{Type: q.PostType, Status: model.StatusPublish,
-		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true})
+	f := model.PostFilter{Type: q.PostType, Status: model.StatusPublish,
+		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true}
+	if q.TermIDs != nil { // a taxonomy term's archive (2.1.0)
+		f.Type, f.Types, f.TermIDs = "", q.PostTypes, q.TermIDs
+	}
+	posts, _, err := s.st.ListPosts(f)
 	if err != nil {
 		log.Printf("query posts: %v", err)
 		return nil
@@ -440,6 +446,8 @@ func (s *Site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	types := s.customTypes(opts)
 
 	switch {
+	case len(parts) == 2 && taxBySlug(s.taxonomies(opts), parts[0]) != nil:
+		s.termArchive(pw, opts, taxBySlug(s.taxonomies(opts), parts[0]), parts[1])
 	case len(parts) == 2 && typeBySlug(types, parts[0]) != nil:
 		s.singleCustom(pw, opts, typeBySlug(types, parts[0]), parts[1])
 	case len(parts) == 1 && typeBySlug(types, parts[0]) != nil:

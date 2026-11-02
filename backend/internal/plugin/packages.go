@@ -19,6 +19,7 @@ import (
 
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
+	"github.com/anasaki/studio/backend/internal/secretbox"
 )
 
 // ErrUnknownPackage is returned for a package id that is not installed.
@@ -51,11 +52,14 @@ type Installed struct {
 	// Publisher is the Store publisher id the package is bound to (set by
 	// the first install from the Store; "" = unknown). Updates from another
 	// publisher are refused (audit H-2).
-	Publisher      string           `json:"publisher,omitempty"`
-	InstalledAt    time.Time        `json:"installedAt"`
-	SettingsSchema []Field          `json:"settingsSchema"`
-	Settings       Values           `json:"settings"`
-	Blocks         []InstalledBlock `json:"blocks"`
+	Publisher      string    `json:"publisher,omitempty"`
+	InstalledAt    time.Time `json:"installedAt"`
+	SettingsSchema []Field   `json:"settingsSchema"`
+	Settings       Values    `json:"settings"`
+	// SecretsSet lists the settings of type "secret" that have a value
+	// (Settings has "" for them; 2.1.0).
+	SecretsSet []string         `json:"secretsSet,omitempty"`
+	Blocks     []InstalledBlock `json:"blocks"`
 	// Service is set when the plugin ships a server program (service plugin).
 	Service *ServiceView `json:"service,omitempty"`
 	// Reconsent is set when an upgrade asked for permissions, service API
@@ -206,7 +210,8 @@ type pkg struct {
 type packages struct {
 	m    *Manager
 	db   *sql.DB
-	root string // PLUGINS_DIR
+	root string         // PLUGINS_DIR
+	box  *secretbox.Box // settings of type "secret" (2.1.0)
 
 	mu       sync.Mutex
 	list     []*pkg
@@ -242,7 +247,7 @@ func newPackages(m *Manager) (*packages, error) {
 	if root == "" {
 		root = "./plugins-data"
 	}
-	return &packages{m: m, db: db, root: root, files: map[string]string{},
+	return &packages{m: m, db: db, root: root, files: map[string]string{}, box: secretbox.New(os.Getenv("SITE_CODE_SECRET_KEY"), root),
 		client: NewWebhookClient(5 * time.Second)}, nil
 }
 
@@ -292,7 +297,7 @@ func (p *packages) all() []*pkg {
 			}
 		}
 		list = append(list, &pkg{mf: &mf, version: ver, active: active, source: src, installedAt: at,
-			settings: Sanitize(mf.Settings, stored), dir: filepath.Join(p.root, id, ver), serviceURL: svcURL, secret: secret,
+			settings: Sanitize(mf.Settings, p.openSecrets(id, mf.Settings, stored)), dir: filepath.Join(p.root, id, ver), serviceURL: svcURL, secret: secret,
 			reconsent: rc, codeError: codeErr, publisher: publisher})
 	}
 	sort.Slice(list, func(i, j int) bool { return strings.ToLower(list[i].mf.Name) < strings.ToLower(list[j].mf.Name) })
@@ -350,7 +355,8 @@ func (k *pkg) view() Installed {
 	mf := k.mf
 	in := Installed{ID: mf.ID, Name: mf.Name, Version: k.version, Description: mf.Description, Author: mf.Author,
 		Icon: mf.Icon, Category: mf.Category, Permissions: mf.Permissions, Active: k.active, Source: k.source, Publisher: k.publisher,
-		InstalledAt: k.installedAt, SettingsSchema: mf.Settings, Settings: k.settings, Blocks: []InstalledBlock{}}
+		InstalledAt: k.installedAt, SettingsSchema: mf.Settings, Settings: maskSecrets(mf.Settings, k.settings), Blocks: []InstalledBlock{}}
+	in.SecretsSet = secretsSet(mf.Settings, k.settings)
 	if ip := mf.IconPath(); ip != "" {
 		in.Icon = ""
 		in.IconURL = "/plugin-assets/" + mf.ID + "/" + ip + "?v=" + k.version
@@ -615,7 +621,10 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 		settings = Defaults(mf.Settings)
 	}
 	mfJSON, _ := json.Marshal(mf)
-	setJSON, _ := json.Marshal(settings)
+	setJSON, err := p.sealedJSON(mf.Settings, settings)
+	if err != nil {
+		return Installed{}, err
+	}
 	consent := ""
 	if rc != nil {
 		b, _ := json.Marshal(rc)
@@ -675,8 +684,9 @@ func (m *Manager) InstallPackageWith(data []byte, source, wantID string, opts In
 
 // ActiveOptions are the administrator's answers when switching a package.
 type ActiveOptions struct {
-	ConfirmDestructive bool // activation: allow destructive migrations
-	Force              bool // deactivation: also switch off the plugins that require it
+	ConfirmDestructive bool  // activation: allow destructive migrations
+	Force              bool  // deactivation: also switch off the plugins that require it
+	UserID             int64 // who switched it (the event's actor)
 }
 
 // SetPackageActive switches a package on or off. Switching it on approves
@@ -718,6 +728,7 @@ func (m *Manager) SetPackageActiveWith(id string, on bool, opts ActiveOptions) (
 	if jsChanged && m.code != nil {
 		m.code.UnitsChanged()
 	}
+	m.emitActive(id, k.version, on, opts.UserID)
 	if k := m.pkgs.get(id); on && k != nil && k.isWasm() {
 		go func() { // compile now so the first visitor doesn't wait
 			if _, err := wasm.module(m.pkgs, k); err != nil {
@@ -833,7 +844,10 @@ func (m *Manager) ImportPackageSettings(id string, in map[string]any) (Installed
 			cur[f.Key] = v[f.Key]
 		}
 	}
-	b, _ := json.Marshal(cur)
+	b, err := m.pkgs.sealedJSON(k.mf.Settings, cur)
+	if err != nil {
+		return Installed{}, err
+	}
 	if _, err := m.pkgs.db.Exec(`UPDATE plugin_packages SET settings=? WHERE id=?`, b, id); err != nil {
 		return Installed{}, err
 	}
@@ -851,11 +865,16 @@ func (m *Manager) SetPackageSettings(id string, in map[string]any) (Installed, e
 	if k == nil {
 		return Installed{}, ErrUnknownPackage
 	}
+	// a secret left empty keeps its value: the admin never gets it back to resend
+	in = keepSecrets(k.mf.Settings, in, k.settings)
 	v, err := Validate(k.mf.Settings, in)
 	if err != nil {
 		return Installed{}, err
 	}
-	b, _ := json.Marshal(v)
+	b, err := m.pkgs.sealedJSON(k.mf.Settings, v)
+	if err != nil {
+		return Installed{}, err
+	}
 	if _, err := m.pkgs.db.Exec(`UPDATE plugin_packages SET settings=? WHERE id=?`, b, id); err != nil {
 		return Installed{}, err
 	}
@@ -894,7 +913,7 @@ func (p *packages) bodyEndHTML(pi PageInfo) string {
 		if k.mf.BodyEnd == "" || !k.mf.HasPermission("bodyEnd") {
 			continue
 		}
-		b.WriteString(RenderTemplate(p.file(k, k.mf.BodyEnd), TemplateData{Settings: k.settings,
+		b.WriteString(RenderTemplate(p.file(k, k.mf.BodyEnd), TemplateData{Settings: maskSecrets(k.mf.Settings, k.settings),
 			Site: pi.Site, Post: pagePost(pi)}))
 	}
 	return b.String()
@@ -935,7 +954,7 @@ func (p *packages) renderBlock(c design.BlockCall) (string, string, bool) {
 			html, css := p.renderServiceBlock(k, b, c)
 			return html, css, true
 		}
-		html := RenderTemplate(p.file(k, b.Template), TemplateData{Settings: k.settings,
+		html := RenderTemplate(p.file(k, b.Template), TemplateData{Settings: maskSecrets(k.mf.Settings, k.settings),
 			Props: Sanitize(b.Props, c.Values), Site: c.Site, Post: c.Post, Item: c.Item})
 		css := ""
 		if b.CSS != "" {
