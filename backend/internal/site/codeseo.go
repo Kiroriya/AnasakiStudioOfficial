@@ -386,7 +386,14 @@ func SitemapXML(base string, entries []any) ([]byte, error) {
 func (s *Site) sitemapEntries(opts map[string]string) []map[string]any {
 	homeID, _ := strconv.ParseInt(opts["home_page_id"], 10, 64)
 	out := []map[string]any{{"loc": "/"}}
-	for _, typ := range []string{model.TypePage, model.TypePost} {
+	types := []string{model.TypePage, model.TypePost}
+	for _, t := range s.customTypes(opts) { // 2.0.8: public custom types (Site Code / plugins): archive + posts
+		if t.Public && t.Slug != "" {
+			out = append(out, map[string]any{"loc": "/" + t.Slug, "type": "archive"})
+			types = append(types, t.Type)
+		}
+	}
+	for _, typ := range types {
 		for off := 0; off < 20000; off += 200 {
 			posts, _, err := s.st.ListPosts(model.PostFilter{Type: typ, Status: model.StatusPublish, Order: "oldest", NoContent: true,
 				Limit: 200, Offset: off})

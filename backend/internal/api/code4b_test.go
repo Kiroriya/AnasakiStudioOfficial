@@ -79,6 +79,7 @@ func newPluginAPIWith(t *testing.T, tweak func(*sitecode.Config)) *pluginEnv {
 		t.Fatal(err)
 	}
 	web := site.New(st, pm)
+	pm.SetPages(web) // as cmd/server: route results {page} use the site's layout
 	authn := auth.New("test-secret")
 	resetCodeDB(t, conn, os.Getenv("TEST_CODE_DB_DSN"))
 	cfg := sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
@@ -94,6 +95,13 @@ func newPluginAPIWith(t *testing.T, tweak func(*sitecode.Config)) *pluginEnv {
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
 	web.SetCodeHooks(code)
+	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute { // as cmd/server: Site Code + plugin post types
+		var out []site.PostTypeRoute
+		for _, pt := range code.ContentFor(opts).PostTypes {
+			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
+		}
+		return out
+	})
 	pm.Listen(code.OnEvent)
 	mux := http.NewServeMux()
 	a := New(st, authn, up, pm, web)

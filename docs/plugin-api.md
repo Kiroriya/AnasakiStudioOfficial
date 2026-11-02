@@ -24,6 +24,7 @@ admin, and returned by `GET /api/public/site` (`version`).
 | **2.0.4** | `AK.pickMedia` and the `ak:pick-media` message; reserved paths from the installed plugins' routes (`GET /api/v1/settings/reserved-paths`); setup-wizard recommendations from the Store |
 | **2.0.5** | JS plugins register post types: `site.postType` with the `post-types` scope (§3.5) |
 | **2.0.6** | plugin capabilities: manifest `capabilities`, ticked per role in Users → Roles; `cap:<capability>` access entries, `site.can`, post type `caps` (§2.1) |
+| **2.0.8** | `site.fields('*', fields)` — fields on every content type (also other plugins' types); a page result names the post it shows: `{page: {title, html, postId}}`, so page hooks (`page.meta`) see that post |
 
 Versions 2.0.1 and 2.0.2 changed no plugin API.
 
@@ -204,7 +205,7 @@ actions `/_a/<id>:<name>`, collections `code:<id>:<name>`, admin pages `<id>:<pa
 | `site.export(name, fn)` — public functions (`code.exports`) | — | 2.0.0 |
 | `site.formatter(name, fn)` — used as `{{ v \| <id>:<name> }}` | — | 2.0.0 |
 | `site.visitor(fn)` · `site.visitorGroups(groups)` — site members | `visitor` | 2.0.0 |
-| `site.fields(type, fields)` · `site.meta(postId)` · `site.setMeta(postId, values)` | `content-fields` | 2.0.0 |
+| `site.fields(type, fields)` · `site.meta(postId)` · `site.setMeta(postId, values)` — type `'*'` = every type since 2.0.8 | `content-fields` | 2.0.0 |
 | `site.postType(id, spec)` — a content type, §3.5 | `post-types` | 2.0.5 |
 | `site.job(name, opts?, fn)` · `site.cron(expr, target)` | `jobs` | 2.0.0 |
 | `site.adminPage(id, spec)` — §5 | `admin-pages` | 2.0.0 |

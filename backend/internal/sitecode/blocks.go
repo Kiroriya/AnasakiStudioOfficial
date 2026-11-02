@@ -379,6 +379,11 @@ func (v *vm) pageResponse(o *goja.Object) (*Response, error) {
 	}
 	po := o.Get("page").ToObject(v.rt)
 	pg := &PageResult{Title: clip(optString(po, "title"), 300), HTML: optString(po, "html")}
+	if id := po.Get("postId"); id != nil && !goja.IsUndefined(id) && !goja.IsNull(id) {
+		if n := id.ToInteger(); n > 0 {
+			pg.PostID = n
+		}
+	}
 	if len(pg.HTML) > MaxBinaryBody {
 		return nil, &RunError{Message: "page.html ใหญ่เกินไป"}
 	}

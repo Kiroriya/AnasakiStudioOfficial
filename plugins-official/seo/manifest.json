@@ -1,7 +1,7 @@
 {
   "id": "seo",
   "name": "SEO",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Search and social meta tags (title template, description, Open Graph, Twitter cards, canonical), per-page overrides with search previews, /sitemap.xml and /robots.txt. / แท็ก meta, Open Graph, Twitter, ปรับแต่ง SEO รายหน้า, sitemap.xml และ robots.txt อัตโนมัติ",
   "author": "Anasaki Studio",
   "icon": "🔍",
@@ -29,7 +29,10 @@
     { "key": "defaultImage", "type": "image",
       "label": { "th": "รูปแชร์เริ่มต้น (og:image)", "en": "Default share image" } },
     { "key": "twitterHandle", "type": "text", "maxLength": 40, "placeholder": "@yourbrand",
-      "label": { "th": "บัญชี X/Twitter", "en": "Twitter handle" } }
+      "label": { "th": "บัญชี X/Twitter", "en": "Twitter handle" } },
+    { "key": "structuredData", "type": "boolean", "default": true,
+      "label": { "th": "ข้อมูลโครงสร้าง (JSON-LD) สำหรับ Google", "en": "Structured data (JSON-LD) for search engines" },
+      "help": { "th": "WebSite, WebPage และ Article/BlogPosting ในทุกหน้า", "en": "WebSite, WebPage and Article / BlogPosting on every page" } }
   ],
   "code": {
     "entry": "code/main.ts",

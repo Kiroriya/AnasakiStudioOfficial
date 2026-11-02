@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/plugin"
@@ -159,13 +160,25 @@ func PostURL(p *model.Post) string {
 	return "/" + url.PathEscape(p.Slug)
 }
 
+// configuredURL is the public address set by the owner (option site_url, else
+// SITE_URL): behind a proxy that does not pass the scheme (TLS ended at a CDN)
+// the request alone would give http:// in canonical, sitemap and og:image URLs.
+func configuredURL(opts map[string]string) string {
+	for _, u := range []string{opts["site_url"], config.Env("SITE_URL", "")} {
+		if u = strings.TrimRight(strings.TrimSpace(u), "/"); strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+			return u
+		}
+	}
+	return ""
+}
+
 // CategoryURL returns a category archive's public path.
 func CategoryURL(slug string) string { return "/" + CategoryBase() + "/" + url.PathEscape(slug) }
 
 // BaseURL returns scheme://host of the site: option site_url when set, else
-// derived from the request.
+// the SITE_URL environment variable, else derived from the request.
 func BaseURL(opts map[string]string, r *http.Request) string {
-	if u := strings.TrimRight(strings.TrimSpace(opts["site_url"]), "/"); strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+	if u := configuredURL(opts); u != "" {
 		return u
 	}
 	if r == nil {

@@ -1,4 +1,4 @@
-# Docs (`docs`) — official plugin 1.1.0
+# Docs (`docs`) — official plugin 1.1.2
 
 ## ภาษาไทย
 
@@ -35,7 +35,8 @@ Docusaurus): เมนูด้านซ้ายแบ่งตามหมว�
   (ชื่อแท็บจาก `title` หรือชื่อภาษา — แท็บที่เลือกจำไว้ทั้งเว็บ) · เมนูด้านข้างพับแต่ละหมวดได้ (จำไว้ในเบราว์เซอร์)
   · สีตามธีมของเว็บ รวมถึง `--c-bg` ถ้าธีมหรือปลั๊กอินโหมดมืดตั้งไว้
 - **SEO** — `page.meta` (คำโปรยเป็น description, canonical, `og:type`) ทำงานร่วมกับปลั๊กอิน SEO (รูปแบบชื่อหน้า) และเพิ่ม
-  `/docs`, หน้าผลิตภัณฑ์ และทุกบทความใน `/sitemap.xml`
+  `/docs`, หน้าผลิตภัณฑ์ และทุกบทความใน `/sitemap.xml` (ลิงก์เดิมที่ redirect แล้วถูกตัดออก) · BreadcrumbList (JSON-LD) ในหน้าผลิตภัณฑ์และบทความ ·
+  บน CMS 2.0.8+ แผง SEO อยู่ในหน้าแก้ไขบทความ และค่า SEO รายบทความใช้กับหน้าเว็บ (`postId`)
 - **เปลี่ยนเส้นทางจากลิงก์เดิม** (`legacyRedirects`) — เช่นย้ายบทความจาก `/blog/...` มา `/docs/...` ลิงก์เดิมยังใช้ได้ (301,
   ไม่สนใจ `/` ท้าย, query string ตามไปด้วย, เฉพาะ GET/HEAD)
 - **หน้า "เอกสาร (ตั้งค่า)" ในหลังบ้าน** (บรรณาธิการและผู้ดูแลระบบ): รายการบทความแยกตามผลิตภัณฑ์/หมวด (สถานะ ปุ่มแก้ไข) —
@@ -94,7 +95,8 @@ using the theme's colours and fonts.
   `title` or the language; the picked tab is remembered site-wide). Sidebar sections collapse (remembered per browser). Colours
   follow the site's theme, including `--c-bg` when a theme or a dark-mode plugin sets it.
 - **SEO**: `page.meta` (excerpt as description, canonical, `og:type`) — works with the SEO plugin's title template — and `/docs`,
-  the product pages and every doc in `/sitemap.xml`.
+  the product pages and every doc in `/sitemap.xml` (old addresses that now redirect are left out) · a BreadcrumbList (JSON-LD) on
+  product pages and articles · on CMS 2.0.8+ the SEO panel is in the doc editor and its values apply to the article (`postId`).
 - **Legacy redirects** (`legacyRedirects`): old links keep working after content moves (301, trailing slash ignored, query kept,
   GET/HEAD only).
 - **Admin page "Docs hub"** (editors and administrators): docs grouped by product / section (status, edit links) — **drag ⠿ to

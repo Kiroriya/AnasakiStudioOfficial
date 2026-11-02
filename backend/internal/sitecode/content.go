@@ -46,7 +46,7 @@ func (v *vm) fieldsFor(typ string) []FieldInfo {
 		out = append(out, t.Fields...)
 	}
 	for _, f := range v.pfields {
-		if f.typ == typ {
+		if f.typ == typ || (f.typ == AllTypes && typ != "") {
 			out = append(out, f.fields...)
 		}
 	}

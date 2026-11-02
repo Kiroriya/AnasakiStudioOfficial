@@ -1,4 +1,4 @@
-# SEO (`seo`) — official plugin 2.0.1
+# SEO (`seo`) — official plugin 2.0.3
 
 ## ภาษาไทย
 
@@ -34,6 +34,8 @@
 `{title, description, image, noindex}`, หรืออ่าน `post.meta['seo.title']` จาก `db.posts`
 
 **สิทธิ์ (CMS 2.0.6+):** `seo.manage` — หน้า SEO และค่าเริ่มต้นทั้งเว็บ · `seo.edit_meta` — แก้ SEO รายหน้าในหน้า SEO (ค่าเริ่มต้น: ผู้ดูแลระบบ) — ปรับได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ · CMS รุ่นก่อนหน้าใช้รายการตำแหน่งแบบเดิม
+
+**ตั้งแต่ 2.0.3 (CMS 2.0.8+):** แผง SEO อยู่ในทุกประเภทเนื้อหา รวมประเภทของปลั๊กอินอื่น (เช่นบทความ Docs) และหน้าที่ปลั๊กอินแสดงโพสต์ (`postId`) ได้ค่า SEO ของโพสต์นั้น · หน้า noindex ของทุกประเภทถูกตัดออกจาก sitemap · `og:type` ที่ปลั๊กอินเจ้าของหน้าตั้งไว้ (เช่น article) ไม่ถูกทับ · รูปแชร์ที่อยู่บนโดเมนของเว็บใช้ https ตามหน้าเว็บ · **ข้อมูลโครงสร้าง JSON-LD** (WebSite, WebPage, BlogPosting/Article) ทุกหน้า ปิดได้ที่การตั้งค่า "ข้อมูลโครงสร้าง (JSON-LD)"
 
 ## English
 
@@ -72,3 +74,5 @@ presses "Clean up old data".
 `post.meta['seo.title']` from `db.posts`.
 
 **Permissions (CMS 2.0.6+):** `seo.manage` — the SEO page and site-wide defaults · `seo.edit_meta` — per-page SEO on the SEO page (default: administrators) — change them in Users → Roles · older CMS versions keep the former role list
+
+**Since 2.0.3 (CMS 2.0.8+):** the SEO panel is on every content type, other plugins' types included (e.g. Docs articles), and a plugin page that names the post it shows (`postId`) gets that post's SEO values · noindex posts of every type are left out of the sitemap · an `og:type` set by the plugin serving the page (e.g. article) is kept · a share image on the site's own host takes the page's scheme (https) · **structured data (JSON-LD)**: WebSite, WebPage and BlogPosting / Article on every page (setting "Structured data", on by default).

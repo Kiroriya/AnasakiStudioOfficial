@@ -54,7 +54,7 @@ func TestOfficialDocs(t *testing.T) {
 	if err := json.Unmarshal([]byte(files["manifest.json"]), &mf); err != nil {
 		t.Fatal(err)
 	}
-	if mf["id"] != "docs" || mf["version"] != "1.1.0" || mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["minCore"] != "2.0.5" {
+	if mf["id"] != "docs" || mf["version"] != "1.1.2" || mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["minCore"] != "2.0.5" {
 		t.Fatalf("manifest: %v", mf)
 	}
 	if s := files["README.md"]; !strings.Contains(s, "## ภาษาไทย") || !strings.Contains(s, "## English") {
@@ -77,7 +77,7 @@ func TestOfficialDocs(t *testing.T) {
 
 	// admin page (editors and administrators) + import
 	html, call := adminPage(t, e.toSample(), admin, "docs:docs", "")
-	offBContains(t, "admin page", html, `id="docs-data"`, `src="/plugin-assets/docs/assets/admin.js?v=1.1.0" defer`, `data-tab="import"`, `"canSettings":true`)
+	offBContains(t, "admin page", html, `id="docs-data"`, `src="/plugin-assets/docs/assets/admin.js?v=1.1.2" defer`, `data-tab="import"`, `"canSettings":true`)
 	if code, _ := user("Au", "author").do("POST", "/api/v1/code/admin-pages/docs:docs/ticket", map[string]any{}); code == 200 {
 		t.Fatal("author may open the docs admin page")
 	}
@@ -144,7 +144,7 @@ func TestOfficialDocs(t *testing.T) {
 
 	// hub
 	h := page("/docs", 200)
-	offBContains(t, "hub", h, `<link rel="stylesheet" href="/plugin-assets/docs/assets/docs.css?v=1.1.0">`, `<script defer src="/plugin-assets/docs/assets/docs.js?v=1.1.0">`,
+	offBContains(t, "hub", h, `<link rel="stylesheet" href="/plugin-assets/docs/assets/docs.css?v=1.1.2">`, `<script defer src="/plugin-assets/docs/assets/docs.js?v=1.1.2">`,
 		`class="dx dx-hub"`, "ศูนย์รวมเอกสาร", `data-dx-search`, `<a class="dx-stretch" href="/docs/studio">Anasaki Studio</a>`, "4 บทความ", "1 บทความ", "0 บทความ",
 		`<a class="dx-pcard-cta" href="/docs/studio/studio-install">เริ่มอ่าน`, "เริ่มต้นอย่างรวดเร็ว", `href="/docs/developers/dev-cli"`, "<title>ศูนย์รวมเอกสาร")
 	if strings.Contains(h, "Secret draft doc") {
@@ -252,10 +252,17 @@ func TestOfficialDocs(t *testing.T) {
 	}
 
 	// assets
-	for _, p := range []string{"/plugin-assets/docs/assets/docs.css?v=1.1.0", "/plugin-assets/docs/assets/docs.js?v=1.1.0"} {
+	for _, p := range []string{"/plugin-assets/docs/assets/docs.css?v=1.1.2", "/plugin-assets/docs/assets/docs.js?v=1.1.2"} {
 		if r := e.offBSend(offBReq{path: p}); r.Code != 200 || r.Body.Len() < 2000 {
 			t.Fatalf("%s: %d", p, r.Code)
 		}
+	}
+	// 1.1.2: the chips (a button and a link) look the same on any theme — no invalid `font: … inherit`
+	// shorthand, and the rule outweighs `.dx a { color: inherit }`
+	css := e.offBSend(offBReq{path: "/plugin-assets/docs/assets/docs.css?v=1.1.2"}).Body.String()
+	offBContains(t, "docs.css", css, ".dx .dx-chip { display: inline-flex;", "font-size: 13px; font-weight: 600;")
+	if regexp.MustCompile(`font:\s*[^;\s][^;]*\sinherit\s*;`).MatchString(css) {
+		t.Fatal("docs.css: `font` shorthand with inherit is invalid and dropped by browsers")
 	}
 
 	// sitemap: hub, products, every published doc
@@ -327,7 +334,10 @@ func TestOfficialDocs(t *testing.T) {
 	}
 	page("/docs/store", 404)
 	offBContains(t, "edit link", page("/docs/studio/studio-install", 200),
-		`<a class="dx-chip" href="https://github.com/o/r/edit/main/studio/studio-install.md" data-dx-edit target="_blank" rel="noopener">`)
+		`<a class="dx-chip" href="https://github.com/o/r/edit/main/studio/studio-install.md" data-dx-edit target="_blank" rel="noopener">`,
+		// 1.1.2: BreadcrumbList (JSON-LD) Docs › product › article
+		`{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"เอกสาร","item":"http://example.com/docs"}`,
+		`"position":3,`)
 	for from, to := range map[string]string{
 		"/blog/studio-getting-started":       "/docs/studio/studio-install",
 		"/blog/studio-getting-started/":      "/docs/studio/studio-install",
@@ -339,6 +349,15 @@ func TestOfficialDocs(t *testing.T) {
 	}
 	if rec := e.offBSend(offBReq{method: "POST", path: "/blog/studio-designer"}); rec.Code == 301 {
 		t.Fatal("POST redirected")
+	}
+	// 1.1.2: an address that now redirects is not in the sitemap (search engines want the final URL)
+	if code, b := admin.do("POST", "/api/v1/posts", map[string]any{"type": "post", "title": "Old designer", "slug": "studio-designer", "status": "publish", "content": "<p>x</p>"}); code != 201 {
+		t.Fatalf("old post: %d %v", code, b)
+	}
+	admin.do("POST", "/api/v1/posts", map[string]any{"type": "post", "title": "Kept post", "slug": "kept-post", "status": "publish", "content": "<p>x</p>"})
+	sm = e.offBSend(offBReq{path: "/sitemap.xml"}).Body.String()
+	if strings.Contains(sm, "/blog/studio-designer<") || !strings.Contains(sm, "/blog/kept-post<") || !strings.Contains(sm, "/docs/studio/studio-designer<") {
+		t.Fatalf("sitemap with a legacy redirect:\n%s", sm)
 	}
 	offBQuiet(t, admin, "docs")
 }

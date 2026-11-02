@@ -49,7 +49,7 @@ body.ak{margin:0;padding:24px;font:14px/1.5 Inter,'Noto Sans Thai',system-ui,san
 .ak-stat{display:flex;flex-direction:column;gap:2px}.ak-stat b{font-size:24px;line-height:1.2}.ak-stat span{color:var(--ak-muted);font-size:12.5px}
 
 /* buttons */
-.ak-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--ak-r-sm);border:1px solid var(--ak-border-strong);background:var(--ak-surface);color:var(--ak-text);font:600 13.5px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.ak-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--ak-r-sm);border:1px solid var(--ak-border-strong);background:var(--ak-surface);color:var(--ak-text);font-family:inherit;font-size:13.5px;font-weight:600;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
 .ak-btn:hover{background:var(--ak-surface-2)}.ak-btn:focus-visible{outline:0;box-shadow:var(--ak-focus)}
 .ak-btn:disabled{opacity:.5;cursor:default}
 .ak-btn-primary{background:var(--ak-primary);border-color:var(--ak-primary);color:var(--ak-on-primary)}.ak-btn-primary:hover{background:var(--ak-primary-600);border-color:var(--ak-primary-600)}
@@ -85,7 +85,7 @@ body.ak{margin:0;padding:24px;font:14px/1.5 Inter,'Noto Sans Thai',system-ui,san
 
 /* tabs: <div class="ak-tabs" data-ak-tabs><button class="ak-tab" data-tab="a">…</button></div> + <section data-tab-panel="a"> */
 .ak-tabs{display:flex;gap:2px;border-bottom:1px solid var(--ak-border);margin-bottom:16px;overflow-x:auto}
-.ak-tab{border:0;background:none;padding:10px 14px;font:600 13.5px inherit;font-family:inherit;color:var(--ak-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.ak-tab{border:0;background:none;padding:10px 14px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ak-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .ak-tab:hover{color:var(--ak-text)}.ak-tab[aria-selected=true]{color:var(--ak-primary);border-bottom-color:var(--ak-primary)}
 [data-tab-panel][hidden]{display:none}
 
@@ -103,7 +103,7 @@ body.ak{margin:0;padding:24px;font:14px/1.5 Inter,'Noto Sans Thai',system-ui,san
 
 /* pagination */
 .ak-pager{display:flex;gap:4px;align-items:center;justify-content:flex-end;padding:10px 14px;flex-wrap:wrap}
-.ak-pager button{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface);color:var(--ak-text);font:600 12.5px inherit;font-family:inherit;cursor:pointer}
+.ak-pager button{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface);color:var(--ak-text);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 .ak-pager button[aria-current=page]{background:var(--ak-primary);border-color:var(--ak-primary);color:var(--ak-on-primary)}
 .ak-pager button:disabled{opacity:.45;cursor:default}.ak-pager .ak-gap{padding:0 4px;color:var(--ak-muted)}
 

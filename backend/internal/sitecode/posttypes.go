@@ -83,6 +83,10 @@ type regFields struct {
 	at     Problem
 }
 
+// AllTypes: site.fields('*', …) adds the fields to every content type — post, page and each type
+// registered by Site Code or a plugin, also later ones (2.0.8; e.g. an SEO panel on every type).
+const AllTypes = "*"
+
 var (
 	postTypeRe    = regexp.MustCompile(`^[a-z][a-z0-9_]{1,19}$`)
 	typeSlugRe    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
@@ -371,8 +375,8 @@ func (v *vm) siteFields(c goja.FunctionCall) goja.Value {
 	}
 	typ, _ := c.Argument(0).Export().(string)
 	what := fmt.Sprintf("site.fields(%q)", typ)
-	if typ != "post" && typ != "page" && !postTypeRe.MatchString(typ) {
-		v.throw("%s: ประเภทต้องเป็น 'post', 'page' หรือประเภทที่ลงทะเบียนด้วย site.postType", what)
+	if typ != "post" && typ != "page" && typ != AllTypes && !postTypeRe.MatchString(typ) {
+		v.throw("%s: ประเภทต้องเป็น 'post', 'page', '*' (ทุกประเภท) หรือประเภทที่ลงทะเบียนด้วย site.postType", what)
 	}
 	fields := v.fieldMap(c.Argument(1), what)
 	if len(fields) == 0 {
@@ -415,7 +419,7 @@ func (p *Program) registerContent(v *vm, reserved map[string]bool) []Problem {
 	}
 	for _, f := range v.pfields {
 		// a plugin's fields may target Site Code's custom types (kept when the type exists)
-		if f.typ != "post" && f.typ != "page" && p.postTypes[f.typ] == nil && !v.u.plugin() {
+		if f.typ != "post" && f.typ != "page" && f.typ != AllTypes && p.postTypes[f.typ] == nil && !v.u.plugin() {
 			probs = append(probs, at(f.at, fmt.Sprintf("site.fields(%q): ไม่มีประเภทนี้ (ลงทะเบียนด้วย site.postType ก่อน)", f.typ)))
 			continue
 		}

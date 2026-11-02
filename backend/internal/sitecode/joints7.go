@@ -42,6 +42,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/anasaki/studio/backend/internal/auth"
+	"github.com/anasaki/studio/backend/internal/config"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/plugin"
 )
@@ -55,6 +56,11 @@ type packageHost interface {
 // pageHost renders HTML inside the site's layout (plugin.Manager → site).
 type pageHost interface {
 	RenderPage(w http.ResponseWriter, status int, title, body string) bool
+}
+
+// postPageHost renders a page result that names the post it shows (2.0.8).
+type postPageHost interface {
+	RenderPostPage(w http.ResponseWriter, status int, title, body string, postID int64) bool
 }
 
 func (e *Engine) pkgHost() packageHost {
@@ -249,9 +255,13 @@ func (v *vm) siteInfo(goja.FunctionCall) goja.Value {
 	if tz := strings.TrimSpace(opts["timezone"]); tz != "" {
 		out["timezone"] = tz
 	}
-	base := strings.TrimRight(strings.TrimSpace(opts["site_url"]), "/")
-	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
-		base = ""
+	base := ""
+	for _, u := range []string{opts["site_url"], config.Env("SITE_URL", "")} { // the owner's address first (as site.BaseURL)
+		if u = strings.TrimRight(strings.TrimSpace(u), "/"); base == "" && (strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")) {
+			base = u
+		}
+	}
+	if base == "" {
 		if r := v.req; r != nil && r.Host != "" && r.Host != "site.local" {
 			base = plugin.RequestScheme(r) + "://" + plugin.RequestHost(r)
 		}
@@ -269,7 +279,7 @@ func (v *vm) siteInfo(goja.FunctionCall) goja.Value {
 func (v *vm) ownFields(typ string) []FieldInfo {
 	var out []FieldInfo
 	for _, f := range v.pfields {
-		if f.typ == typ {
+		if f.typ == typ || f.typ == AllTypes {
 			out = append(out, f.fields...)
 		}
 	}
@@ -380,7 +390,35 @@ func (v *vm) siteSetMeta(c goja.FunctionCall) goja.Value {
 // id or slug is already taken in m is skipped (activation refuses it, but m
 // may be a draft).
 func (e *Engine) WithUnitFields(m Manifest) Manifest {
-	return withUnits(m, e.units().loaded())
+	return expandAllTypes(withUnits(m, e.units().loaded()))
+}
+
+// expandAllTypes adds the site.fields('*') fields to post, page and every
+// type of m (after the type's own additions), so readers see them per type.
+func expandAllTypes(m Manifest) Manifest {
+	all := m.Fields[AllTypes]
+	if len(all) == 0 {
+		return m
+	}
+	fields := map[string][]FieldInfo{}
+	for k, list := range m.Fields {
+		if k != AllTypes {
+			fields[k] = list
+		}
+	}
+	for _, typ := range append([]string{"post", "page"}, typeIDs(m.PostTypes)...) {
+		fields[typ] = append(append([]FieldInfo(nil), fields[typ]...), all...)
+	}
+	m.Fields = fields
+	return m
+}
+
+func typeIDs(list []PostTypeInfo) []string {
+	out := make([]string, 0, len(list))
+	for _, t := range list {
+		out = append(out, t.Type)
+	}
+	return out
 }
 
 func withUnits(m Manifest, units []*liveProg) Manifest {
@@ -418,7 +456,7 @@ func withUnits(m Manifest, units []*liveProg) Manifest {
 		}
 		sort.Strings(types)
 		for _, t := range types {
-			if t != "post" && t != "page" && m.PostType(t) == nil {
+			if t != "post" && t != "page" && t != AllTypes && m.PostType(t) == nil {
 				continue
 			}
 			fields[t] = append(fields[t], lp.prog.fields[t]...)
@@ -910,6 +948,9 @@ func (v *vm) emitAlias(name string, data any) {
 type PageResult struct {
 	Title string `json:"title"`
 	HTML  string `json:"html"`
+	// PostID (2.0.8, optional): the published post the page shows (e.g. a doc served by its plugin): the page
+	// hooks get its id and type (ctx.page.id / type), so page.meta filters such as SEO apply its overrides.
+	PostID int64 `json:"postId,omitempty"`
 }
 
 // isPageShape: {page: {...}} with optional status / headers only.
@@ -948,6 +989,9 @@ func (e *Engine) writeResponse(w http.ResponseWriter, r *http.Request, res *Resp
 		w.Header().Set("Cache-Control", "no-store")
 	}
 	if e.cfg.Plugins != nil {
+		if ph, ok := e.cfg.Plugins.(postPageHost); ok && res.Page.PostID > 0 && ph.RenderPostPage(w, res.Status, res.Page.Title, res.Page.HTML, res.Page.PostID) {
+			return
+		}
 		if ph, ok := e.cfg.Plugins.(pageHost); ok && ph.RenderPage(w, res.Status, res.Page.Title, res.Page.HTML) {
 			return
 		}

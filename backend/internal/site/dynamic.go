@@ -175,7 +175,7 @@ func (s *Site) servePartial(w http.ResponseWriter, r *http.Request, opts map[str
 // against the site's own address.
 func sameOrigin(r *http.Request, opts map[string]string) bool {
 	allowed := map[string]bool{strings.ToLower(plugin.RequestScheme(r) + "://" + plugin.RequestHost(r)): true}
-	if u, err := url.Parse(strings.TrimSpace(opts["site_url"])); err == nil && u.Host != "" {
+	if u, err := url.Parse(configuredURL(opts)); err == nil && u.Host != "" {
 		allowed[strings.ToLower(u.Scheme+"://"+u.Host)] = true
 	}
 	check := func(raw string) bool {

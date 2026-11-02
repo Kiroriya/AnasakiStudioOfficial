@@ -786,7 +786,7 @@ interface Site {
   export(name: string, fn: (...args: any[]) => any): void;
   /** A custom post type (admin menu, editor with fields, /<slug>/<post-slug>). In a JS plugin (scope "post-types", CMS 2.0.5) the id must be "<plugin id, - as _>_<name>" (≤ 20 characters), e.g. docs_doc. / ประเภทเนื้อหาใหม่ */
   postType(id: string, spec: PostTypeSpec): void;
-  /** Custom fields for 'post', 'page' or a custom type. / ฟิลด์เพิ่มเติม */
+  /** Custom fields for 'post', 'page', a custom type, or '*' = every type, also ones registered later (CMS 2.0.8). / ฟิลด์เพิ่มเติม */
   fields(type: string, fields: Record<string, CustomField>): void;
   /** A background job (jobs.enqueue, site.cron). / งานเบื้องหลัง */
   job(name: string, fn: (ctx: JobContext) => any): void;
@@ -986,7 +986,8 @@ interface SiteResponse {
 
 /** A route / middleware result shown inside the site's layout. / ผลลัพธ์ที่แสดงในเลย์เอาต์ของเว็บ */
 interface RoutePageResult {
-  page: { title?: string; html: string };
+  /** postId (CMS 2.0.8): the published post the page shows — page hooks get its id / type (ctx.page), so page.meta filters such as SEO apply its overrides. */
+  page: { title?: string; html: string; postId?: number };
   /** 200-599, default 200. */
   status?: number;
   headers?: Record<string, string>;

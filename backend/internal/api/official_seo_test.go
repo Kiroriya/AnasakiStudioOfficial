@@ -24,10 +24,16 @@ func TestOfficialSEO(t *testing.T) {
 	about := mk("page", "About", "about", "publish")
 	mk("page", "Secret draft", "secret-draft", "draft")
 	hello := mk("post", "Hello", "hello", "publish")
+	mk("page", "Kept", "kept", "publish")
 	offAInstall(t, admin, "seo")
 	offASiteCode(t, admin, `
 import { applyTemplate } from 'seo';
+// 2.0.3: an earlier page.meta filter (e.g. the plugin serving the page) decides og:type
+site.filter('page.meta', (m, ctx) => ctx?.page?.path === '/kept' ? { ...m, og: { ...(m.og ?? {}), 'og:type': 'product' } } : m, { priority: 1 });
 site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().map((c) => applyTemplate(c[0], c[1], 'Site', 'Tag')));
+// 2.0.8: a public type registered after the plugin (site.fields('*') reaches it) and a plugin page showing a post
+site.postType('event', { label: { th: 'งาน', en: 'Events' }, slug: 'events', public: true });
+site.route('GET /shows-about', { access: ['*'] }, () => ({ page: { title: 'Shown', html: '<p>about, served by code</p>', postId: `+fmt.Sprint(int(about))+` } }));
 `)
 
 	page := func(path string) string {
@@ -62,6 +68,12 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 		`<meta name="twitter:card" content="summary">`, `<meta name="twitter:title" content="About">`)
 	lacks(h, "og:image", "twitter:site", `name="robots"`)
 	has(page("/blog/hello"), `<meta property="og:type" content="article">`, "<title>Hello – S</title>")
+	// 2.0.3: JSON-LD — WebSite + WebPage everywhere, BlogPosting for a post (none for a page)
+	has(page("/blog/hello"), `<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"`,
+		`"@type":"BlogPosting","@id":"http://example.com/blog/hello#article","headline":"Hello"`, `"datePublished":"`)
+	if h := page("/about"); !strings.Contains(h, `"@type":"WebPage"`) || strings.Contains(h, "BlogPosting") || strings.Contains(h, `"@type":"Article"`) {
+		t.Fatalf("about JSON-LD:\n%s", h)
+	}
 
 	// settings (same keys as the built-in plugin), saved on Plugins → SEO → Settings
 	offBPkgSettings(t, admin, "seo", map[string]any{"titleTemplate": "%site% | %title%", "defaultDescription": "Default <desc>",
@@ -137,6 +149,7 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 	h = page("/about")
 	has(h, "<title>S | Custom</title>", `<meta name="description" content="Own description">`, `<meta name="robots" content="noindex,nofollow">`,
 		`<meta property="og:image" content="https://cdn.example.com/a.png">`, `<meta property="og:title" content="Custom">`)
+	lacks(h, "application/ld+json") // nothing on a noindex page
 	if got := offACall(t, admin, "seo", "metaOf", about).(map[string]any); got["noindex"] != true || got["description"] != "Own description" {
 		t.Fatalf("metaOf: %v", got)
 	}
@@ -163,6 +176,11 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 	if !strings.Contains(html, "Custom · Best &lt;site&gt;") {
 		t.Fatalf("admin preview with tagline:\n%s", html)
 	}
+	call("seo:saveDefaults", map[string]any{"titleTemplate": "%site% | %title%", "defaultDescription": "Default <desc>", "defaultImage": "/uploads/share.png", "twitterHandle": "brand"})
+	has(page("/kept"), `<meta property="og:type" content="product">`)
+	// 2.0.3: an image on the site's own host takes the page's scheme (the test site answers on http://)
+	call("seo:saveDefaults", map[string]any{"titleTemplate": "%site% | %title%", "defaultDescription": "Default <desc>", "defaultImage": "https://example.com/uploads/share.png", "twitterHandle": "brand"})
+	has(page("/kept"), `<meta property="og:image" content="http://example.com/uploads/share.png">`)
 	call("seo:saveDefaults", map[string]any{"titleTemplate": "%site% | %title%", "defaultDescription": "Default <desc>", "defaultImage": "/uploads/share.png", "twitterHandle": "brand"})
 
 	// the post editor's SEO panel: plugin fields "seo.*" (authors on their own posts)
@@ -198,6 +216,24 @@ site.route('POST /offa-tpl', { access: ['*'] }, ({ request }) => request.json().
 		!strings.Contains(sm, "<loc>http://example.com/</loc>") || strings.Contains(sm, "/about") || strings.Contains(sm, "secret-draft") || !strings.Contains(sm, "<lastmod>") {
 		t.Fatalf("sitemap: %d\n%s", r.Code, sm)
 	}
+	// 2.0.8: the SEO fields are on every type (site.fields('*')), REST validates them, and the sitemap lists the
+	// public type (archive + posts) without the posts marked noindex
+	if pf := cat["postFields"].(map[string]any); pf["event"] == nil || pf["event"].(map[string]any)["seo.noindex"] == nil {
+		t.Fatalf("event fields: %v", pf["event"])
+	}
+	for slug, hide := range map[string]bool{"party": true, "open-day": false} {
+		if code, b := admin.do("POST", "/api/v1/posts", map[string]any{"type": "event", "title": slug, "slug": slug, "status": "publish",
+			"meta": map[string]any{"seo.noindex": hide, "seo.title": "Event " + slug}}); code != 201 {
+			t.Fatalf("event %s: %d %v", slug, code, b)
+		}
+	}
+	has(page("/events/open-day"), "<title>S | Event open-day</title>")
+	sm = c.send("GET", "/sitemap.xml", nil, nil).Body.String()
+	if !strings.Contains(sm, "<loc>http://example.com/events</loc>") || !strings.Contains(sm, "<loc>http://example.com/events/open-day</loc>") || strings.Contains(sm, "/events/party") {
+		t.Fatalf("sitemap with the event type:\n%s", sm)
+	}
+	// a plugin page that names the post it shows gets that post's SEO values (about: "Custom", noindex)
+	has(page("/shows-about"), "<title>S | Custom</title>", `<meta name="robots" content="noindex,nofollow">`, "about, served by code")
 	if code, body := c.public("GET", "/robots.txt"); code != 200 || body != "User-agent: *\nDisallow: /api/\n\nSitemap: http://example.com/sitemap.xml\n" {
 		t.Fatalf("robots: %d %q", code, body)
 	}

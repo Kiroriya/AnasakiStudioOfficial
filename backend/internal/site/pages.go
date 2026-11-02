@@ -46,6 +46,21 @@ func (s *Site) Template(w http.ResponseWriter, id int64, ctx design.PostCtx, tit
 // HTML wraps body with the site's header and footer components (when they
 // exist) using the design renderer, so plugin pages look like the rest.
 func (s *Site) HTML(w http.ResponseWriter, status int, title, body string) {
+	s.pluginHTML(w, status, title, body, nil)
+}
+
+// PostHTML is HTML for a plugin page that shows post postID (2.0.8): when the
+// post is published the page hooks see its id, type, slug, excerpt and image
+// (page.meta filters such as SEO apply its overrides); otherwise as HTML.
+func (s *Site) PostHTML(w http.ResponseWriter, status int, title, body string, postID int64) {
+	p, err := s.st.GetPost(postID)
+	if err != nil || p == nil || p.Status != model.StatusPublish {
+		p = nil
+	}
+	s.pluginHTML(w, status, title, body, p)
+}
+
+func (s *Site) pluginHTML(w http.ResponseWriter, status int, title, body string, p *model.Post) {
 	opts, err := s.st.Options()
 	if err != nil {
 		http.Error(w, "database error", http.StatusInternalServerError)
@@ -68,8 +83,11 @@ func (s *Site) HTML(w http.ResponseWriter, status int, title, body string) {
 		root.Children = append(root.Children, inst("plugin-footer", footer))
 	}
 	path, base := reqInfo(w)
-	page, err := s.RenderDocument(root, Doc{Title: title, Options: opts, Path: path, BaseURL: base,
-		PostType: "plugin", Status: status, Request: reqOf(w)})
+	d := Doc{Title: title, Options: opts, Path: path, BaseURL: base, PostType: "plugin", Status: status, Request: reqOf(w)}
+	if p != nil {
+		d.PostID, d.PostType, d.Post, d.Description, d.Image = p.ID, p.Type, PostContext(p), p.Excerpt, p.FeaturedImage
+	}
+	page, err := s.RenderDocument(root, d)
 	if err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 		return

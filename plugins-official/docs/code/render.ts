@@ -231,7 +231,8 @@ export function articlePage(productId: string, post: any): RouteResult {
     (tocHTML ? `<p class="dx-toc-title">${esc(c.t.onPage)}</p>${tocHTML}` : '') + `</aside>`;
   const body = `<span id="dx-top"></span>` + mobileBar(c, name) +
     `<div class="dx-layout dx-layout-3">${sidebar(c, p, sections, post.slug)}${main}${aside}</div><div class="dx-scrim" data-dx-close hidden></div>`;
-  return { page: { title: String(post.title), html: shell(c, 'dx-doc', body) }, headers: { 'Cache-Control': 'no-cache' } };
+  // postId (CMS 2.0.8): the page hooks see this doc, so the SEO plugin applies its per-doc title / description / noindex
+  return { page: { title: String(post.title), html: shell(c, 'dx-doc', body), postId: Number(post.id) || undefined }, headers: { 'Cache-Control': 'no-cache' } };
 }
 
 export function notFoundPage(c: Ctx = ctx()): RouteResult {

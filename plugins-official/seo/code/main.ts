@@ -1,14 +1,16 @@
-// SEO (official plugin 2.0.1) — the JavaScript port of the built-in Go plugin "seo":
-//  - per-post fields (site.fields, post meta "seo.title|description|image|noindex") shown in a "SEO" panel of
+// SEO (official plugin 2.0.3) — the JavaScript port of the built-in Go plugin "seo":
+//  - per-post fields (site.fields on every type since CMS 2.0.8, post meta "seo.*") shown in a "SEO" panel of
 //    the post / page editor (authors on their own posts, like the built-in panel) and on the SEO admin page
 //  - page.meta: per-page overrides, site-wide defaults, the title template (%title% %site% %tagline%),
 //    canonical, Open Graph and Twitter card tags
+//  - JSON-LD (WebSite, WebPage, BlogPosting / Article) in <head> (setting structuredData)
 //  - sitemap.urls: core's sitemap minus pages marked noindex (core then serves /sitemap.xml and /robots.txt)
 //  - admin page "SEO": search-result previews, per-page editor, the site-wide defaults (site.saveSettings)
 //  - exports: legacyImport (the built-in's seo_meta rows → post meta), metaOf(postId)
 import { applyTemplate, safeURL, truthy } from './lib';
 import { EMPTY, Meta, metaOfPost, saveMeta, setting, siteInfo } from './meta';
 import { registerAdmin } from './admin';
+import { jsonLd } from './jsonld';
 
 // ---------------------------------------------------------------- per-post fields (post meta "seo.*")
 
@@ -18,16 +20,26 @@ const FIELDS: Record<string, CustomField> = {
   image: { type: 'image', label: { th: 'รูปตอนแชร์ (og:image)', en: 'Share image (og:image)' } },
   noindex: { type: 'bool', label: { th: 'ไม่ให้ Google แสดงหน้านี้ (noindex)', en: 'Hide from search engines (noindex)' } },
 };
-site.fields('post', FIELDS);
-site.fields('page', FIELDS);
+// CMS 2.0.8+: every content type (also the post types of Site Code and other plugins, e.g. docs); older: post + page
+try {
+  site.fields('*', FIELDS);
+} catch {
+  site.fields('post', FIELDS);
+  site.fields('page', FIELDS);
+}
 
 // ---------------------------------------------------------------- page.meta
 
-/** Absolute URL of a site path or URL, from the page's absolute url and path. */
+/** Absolute URL of a site path or URL, from the page's absolute url and path. A URL on the site's own host takes
+ *  the page's scheme (an image picked while the site answered on http:// is shared as https:// on an https site). */
 function absURL(page: any, u: string): string {
-  if (!u || /^https?:\/\//i.test(u)) return u;
   const url = String(page?.url ?? ''), path = String(page?.path ?? '');
   const base = path && url.endsWith(path) ? url.slice(0, url.length - path.length) : '';
+  if (!u) return u;
+  if (/^https?:\/\//i.test(u)) {
+    const own = /^(https?):\/\/([^/]+)/i.exec(base), abs = /^(https?):\/\/([^/]+)(.*)$/i.exec(u);
+    return own && abs && own[2].toLowerCase() === abs[2].toLowerCase() && own[1] !== abs[1] ? `${own[1]}://${abs[2]}${abs[3]}` : u;
+  }
   if (!base) return u;
   return base.replace(/\/+$/, '') + (u.startsWith('/') ? u : '/' + u);
 }
@@ -52,13 +64,17 @@ site.filter('page.meta', (m, ctx) => {
   const put = (k: string, v: string) => {
     if (v) og[k] = v;
   };
+  // what the page is may be set by the plugin that serves it (e.g. og:type article on a docs article)
+  const keep = (k: string, v: string) => {
+    if (!og[k]) put(k, v);
+  };
   const shownTitle = title || info.title;
   let canonical = m.canonical ?? '';
   if ((Number(page.status) || 200) === 200 && page.path && page.url) {
     canonical = page.url;
     put('og:url', page.url);
   }
-  put('og:type', page.type === 'post' ? 'article' : 'website');
+  keep('og:type', page.type === 'post' ? 'article' : 'website');
   put('og:site_name', info.title);
   put('og:title', shownTitle);
   put('og:description', description);
@@ -76,12 +92,16 @@ site.filter('page.meta', (m, ctx) => {
   return { ...m, title, fullTitle, description, image, noindex, canonical, og };
 });
 
+// ---------------------------------------------------------------- structured data (JSON-LD, 2.0.3)
+
+site.head((page) => jsonLd(page, (u) => (u ? absURL(page, u) : '')));
+
 // ---------------------------------------------------------------- sitemap (core caches the result)
 
-/** Ids of published pages / posts marked noindex. */
-function noindexIds(): Set<number> {
+/** Ids of published posts of these types marked noindex. */
+function noindexIds(types: string[]): Set<number> {
   const out = new Set<number>();
-  for (const type of ['page', 'post']) {
+  for (const type of types) {
     for (let p = 1; p <= 200; p++) {
       const res = db.posts.list({ type, perPage: 100, page: p, where: { 'meta.seo.noindex': true } });
       for (const it of res.items) out.add(Number(it.id));
@@ -92,7 +112,10 @@ function noindexIds(): Set<number> {
 }
 
 site.filter('sitemap.urls', (urls) => {
-  const hidden = noindexIds();
+  // the content types in the list (core and plugins give {id, type} for a post)
+  const types = new Set<string>(['page', 'post']);
+  for (const u of urls) if (u && typeof u === 'object' && u.id && /^[a-z][a-z0-9_]{1,19}$/.test(String(u.type ?? ''))) types.add(String(u.type));
+  const hidden = noindexIds([...types]);
   if (!hidden.size) return urls;
   return urls.filter((u: any) => !(u && typeof u === 'object' && u.id && hidden.has(Number(u.id))));
 });

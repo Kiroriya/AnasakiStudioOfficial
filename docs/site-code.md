@@ -1085,7 +1085,9 @@ for plugins with the `mail` scope only. The page object of `site.head` / `site.b
 `site.fields(type, fields)` works in a plugin with the `content-fields` scope: the keys are stored as
 `<id>.<key>` in `post_meta` (at most 64 characters), validated like Site Code fields, and the post editor shows
 them in one panel per plugin (`section.plugin-fields[data-plugin=<id>]`, heading = plugin name) for everyone who
-may edit the post. `type` is `post`, `page` or a Site Code post type (ignored while that type does not exist).
+may edit the post. `type` is `post`, `page` or a Site Code post type (ignored while that type does not exist), or —
+since 2.0.8 — `'*'`: every type, the post types of Site Code and of other plugins included, also ones added later
+(feature-detect: `try { site.fields('*', F) } catch { site.fields('post', F); site.fields('page', F) }`).
 `GET /api/v1/post-types` and `/code/bindings` list them in `postFields` with `plugin` / `pluginName`.
 `db.posts` returns them in `post.meta['<id>.<key>']`; `db.posts.list({ where: { 'meta.seo.noindex': true } })`
 filters on them. `site.meta(postId)` returns the plugin's own fields without the prefix (null for a missing post);
@@ -1150,6 +1152,9 @@ page handler may still set its own `Cache-Control`.
 A route (or middleware) may return `{ page: { title, html }, status?, headers? }` — or
 `return response.page({ title, html }, status)` — to show the HTML between the site's header and footer
 (the same wrapper as service plugins' `X-Anasaki-Layout: page`); without a renderer it is a plain document.
+Since 2.0.8 `page.postId` names the published post the page shows (e.g. an article a plugin serves at its own URL):
+the page hooks then see that post (`ctx.page.id`, `type`, `slug`, excerpt as the description, featured image), so
+`page.meta` filters such as the SEO plugin apply its per-post values. A draft or a missing id is ignored.
 
 ### Event aliases (`code.eventAliases`)
 

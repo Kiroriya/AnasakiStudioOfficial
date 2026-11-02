@@ -1,4 +1,4 @@
-// Docs (official plugin 1.1.0) — a documentation hub for the site:
+// Docs (official plugin 1.1.2) — a documentation hub for the site:
 //  - post type "docs_doc" (site.postType in a plugin, CMS 2.0.5, scope post-types) edited in the normal post
 //    editor, with the fields product, section, order and sectionOrder (post meta, unprefixed); public: false, so
 //    core does not route the type — the plugin serves its pages under /docs (core's post URL /docs/<slug> is
@@ -107,10 +107,36 @@ site.filter('page.meta', (m: any, ctx: any) => {
 site.filter('sitemap.urls', (urls: any[]) => {
   const ps = products();
   const docs = index().filter((d) => knownProduct(d, ps));
-  const out = [...urls, { loc: BASE, changefreq: 'weekly' }];
+  // an old address that now redirects (legacy redirects) must not be listed: search engines want final URLs
+  const moved = new Set(redirects().map((r) => r.from));
+  const pathOf = (u: any) => normPath(String(u && typeof u === 'object' ? u.loc ?? u.url ?? '' : u ?? '').replace(/^https?:\/\/[^/]+/i, ''));
+  const out = [...urls.filter((u) => !moved.has(pathOf(u))), { loc: BASE, changefreq: 'weekly' }];
   for (const p of ps) out.push({ loc: `${BASE}/${p.id}`, changefreq: 'weekly' });
-  for (const d of docs) out.push(d.updatedAt ? { loc: docURL(d), lastmod: d.updatedAt } : { loc: docURL(d) });
+  // id + type: other sitemap filters (the SEO plugin's noindex) see which post an entry is
+  for (const d of docs) out.push({ loc: docURL(d), id: d.id, type: TYPE, ...(d.updatedAt ? { lastmod: d.updatedAt } : {}) });
   return out;
+});
+
+// schema.org BreadcrumbList (JSON-LD) of a product page and an article: Docs › product › article (1.1.2)
+site.head((page: any) => {
+  const path = normPath(String(page?.path ?? ''));
+  if (!path.startsWith(BASE + '/') || (Number(page?.status) || 200) !== 200 || !page?.url) return '';
+  const parts = path.split('/').filter(Boolean); // ["docs", product, slug?]
+  const p = products().find((x) => x.id === parts[1]);
+  if (!p || parts.length > 3) return '';
+  const origin = String(page.url).slice(0, String(page.url).length - path.length);
+  const items = [
+    { name: lang() === 'en' ? 'Docs' : 'เอกสาร', item: origin + BASE },
+    { name: tr(p.name, lang()), item: origin + BASE + '/' + p.id },
+  ];
+  if (parts.length === 3) {
+    const doc = (cachedIndex() ?? []).find((x) => x.slug === parts[2] && x.product === p.id);
+    if (!doc) return '';
+    items.push({ name: doc.title, item: origin + path });
+  }
+  const data = { '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: items.map((x, i) => ({ '@type': 'ListItem', position: i + 1, name: x.name, item: x.item })) };
+  return '<script type="application/ld+json">' + JSON.stringify(data).replace(/</g, '\\u003c') + '</script>';
 });
 
 // ---------------------------------------------------------------- legacy redirects (old URL → new URL)

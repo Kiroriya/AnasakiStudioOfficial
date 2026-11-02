@@ -77,6 +77,23 @@ func (m *Manager) RenderPage(w http.ResponseWriter, status int, title, body stri
 	return true
 }
 
+// PostPages is implemented by a renderer that can tell the page hooks which
+// post a plugin page shows (2.0.8).
+type PostPages interface {
+	PostHTML(w http.ResponseWriter, status int, title, body string, postID int64)
+}
+
+// RenderPostPage is RenderPage for a page showing post postID (the page hooks
+// see its id and type); false when no renderer is attached.
+func (m *Manager) RenderPostPage(w http.ResponseWriter, status int, title, body string, postID int64) bool {
+	pp, ok := m.host.Pages.(PostPages)
+	if !ok {
+		return m.RenderPage(w, status, title, body)
+	}
+	pp.PostHTML(w, status, title, body, postID)
+	return true
+}
+
 // CodeBlocks is implemented by the code runtime when JS plugins register
 // designer blocks in code (site.block): the designer lists them with the
 // package blocks and the renderer asks the runtime first.
