@@ -1,6 +1,6 @@
 module github.com/anasaki/studio/backend
 
-go 1.26.2
+go 1.26.10
 
 require (
 	github.com/dop251/goja v0.0.0-20261023133238-1622cea953df
@@ -10,7 +10,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/tetratelabs/wazero v1.12.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.62.0
 )
 
 require (
