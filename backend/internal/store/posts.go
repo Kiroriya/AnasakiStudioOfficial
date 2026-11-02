@@ -301,7 +301,7 @@ func (s *Store) SavePost(p *model.Post, isNew bool, o PostSave) error {
 
 func (s *Store) createPost(p *model.Post, o PostSave) error {
 	termIDs := o.TermIDs
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Second) // DATETIME keeps seconds: never round up
 	p.ResolveSchedule(now)
 	if p.Status == model.StatusPublish && p.PublishedAt == nil {
 		p.PublishedAt = &now
@@ -338,7 +338,7 @@ func (s *Store) updatePost(p *model.Post, o PostSave) (*model.Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Second) // DATETIME keeps seconds: never round up
 	// the caller may set PublishedAt (back-dating, scheduling); otherwise the
 	// first publish stamps it
 	p.ResolveSchedule(now)

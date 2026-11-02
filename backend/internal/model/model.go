@@ -49,13 +49,19 @@ func ValidStatus(s string) bool {
 	return s == StatusDraft || s == StatusPublish || s == StatusScheduled
 }
 
+// ScheduleGrace: a publish date less than this ahead is "now" — the database
+// keeps whole seconds (and may round up), so a post saved again within the
+// same second must not turn into a scheduled one.
+const ScheduleGrace = 5 * time.Second
+
 // ResolveSchedule settles publish vs scheduled from PublishedAt: "publish"
-// with a date in the future becomes "scheduled", "scheduled" whose date has
-// come (or has none) becomes "publish". Drafts are left alone.
+// with a date in the future (beyond ScheduleGrace) becomes "scheduled",
+// "scheduled" whose date has come (or has none) becomes "publish". Drafts
+// are left alone.
 func (p *Post) ResolveSchedule(now time.Time) {
 	switch p.Status {
 	case StatusPublish:
-		if p.PublishedAt != nil && p.PublishedAt.After(now) {
+		if p.PublishedAt != nil && p.PublishedAt.After(now.Add(ScheduleGrace)) {
 			p.Status = StatusScheduled
 		}
 	case StatusScheduled:

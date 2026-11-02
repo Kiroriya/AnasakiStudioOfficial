@@ -89,7 +89,7 @@ describe('plugin code scopes and consent', () => {
     } finally { i18n.locale.set(before); }
   });
   it('sensitivity and canonical order', () => {
-    expect(CODE_SCOPES.filter(isSensitiveScope)).toEqual(['content-write', 'mail', 'http', 'visitor', 'filters-core', 'content-fields', 'webhooks']);
+    expect(CODE_SCOPES.filter(isSensitiveScope)).toEqual(['content-write', 'mail', 'http', 'visitor', 'filters-core', 'content-fields', 'webhooks', 'terms-write', 'media-write']);
     expect(isSensitiveScope('post-types')).toBe(false);
     expect(sortScopes(['routes', 'zzz', 'db', 'db', 'mail'])).toEqual(['db', 'mail', 'routes', 'zzz']);
     expect(isJsPlugin({ runtime: 'JS' })).toBe(true);

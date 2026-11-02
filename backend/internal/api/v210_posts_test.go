@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -153,5 +154,21 @@ site.route('POST /list', { access: ['*'] }, ({ request }) => db.posts.list(reque
 	}
 	if code, _ := post(admin, "/list", map[string]any{"status": "bogus"}); code != 500 {
 		t.Fatalf("bad status: %d", code)
+	}
+}
+
+// A published post saved again within the same second stays published: the
+// database rounds published_at to whole seconds (it used to turn into a
+// scheduled post — gone from the site — when the rounding went up).
+func TestResaveStaysPublished(t *testing.T) {
+	c, _ := newTestAPI(t)
+	admin, _ := setupSite(t, c)
+	for i := 0; i < 10; i++ {
+		_, p := admin.do("POST", "/api/v1/posts", map[string]any{"title": fmt.Sprintf("Quick %d", i), "status": "publish"})
+		for j := 0; j < 3; j++ {
+			if code, b := admin.do("PUT", "/api/v1/posts/"+id(p), map[string]any{"title": fmt.Sprintf("Quick %d.%d", i, j)}); code != 200 || b["status"] != "publish" {
+				t.Fatalf("resave %d.%d: %d status %v", i, j, code, b["status"])
+			}
+		}
 	}
 }
