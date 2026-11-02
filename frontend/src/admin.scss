@@ -215,7 +215,8 @@ td.row-actions { display: table-cell; position: relative; > * { margin-left: 6px
   .comp-role { position: absolute; top: 8px; right: 8px; line-height: 1; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px; background: var(--primary, #4f46e5); color: #fff; } }
 
 /* post editor */
-.editor-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+.editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; /* a wide code block or table must not widen the page */ gap: 24px; align-items: start; }
+.editor-grid > * { min-width: 0; } /* also when the media queries make it one column */
 .editor-side { display: flex; flex-direction: column; gap: 16px; .card { padding: 20px; } h4 { margin-top: 0; } }
 .title-input { height: auto; font-size: 28px; font-weight: 700; border: none; padding: 4px 0; &:focus { box-shadow: none; } }
 .slug-row { display: flex; align-items: center; margin-bottom: 16px; font-size: 13px; }
