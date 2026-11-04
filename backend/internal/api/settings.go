@@ -60,7 +60,7 @@ var settingDefaults = map[string]string{
 // paths are listed here: the paths of plugins come from what the installed
 // packages declare (plugin.Manager.DeclaredPaths, see reservedPaths).
 var corePaths = map[string]bool{
-	"api": true, "uploads": true, "download": true, "plugin-assets": true, "ext-ui": true, "setup": true,
+	"api": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true, "ext-ui": true, "setup": true,
 	"_a": true, "_c": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
 	"assets": true, "static": true,
 }

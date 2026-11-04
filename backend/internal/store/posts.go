@@ -489,6 +489,7 @@ func (s *Store) DeletePost(id int64) error {
 		return err
 	}
 	s.fire("post.deleted", s.postPayload(old))
+	s.dropPostMenuLinks(old)
 	return nil
 }
 

@@ -256,7 +256,7 @@ func (a *API) saveComponent(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "กรุณาใส่ชื่อ")
 		return
 	}
-	if _, err := design.Parse(c.Node); err != nil {
+	if _, err := design.ParseForSave(c.Node); err != nil {
 		writeErr(w, http.StatusBadRequest, "ข้อมูลดีไซน์ไม่ถูกต้อง: "+err.Error())
 		return
 	}

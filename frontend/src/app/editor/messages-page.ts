@@ -14,6 +14,8 @@ registerMessages({
   'fl.show': { th: 'เลือกดู', en: 'Select them' },
   'fl.one': { th: 'ชิ้นนี้ลอยอยู่ อาจทับข้อความบนจอเล็ก', en: 'This layer floats and may cover text on small screens' },
   'fl.fixOne': { th: 'จัดเข้าแถว', en: 'Put in the flow' },
+  'fl.became': { th: 'ชิ้นนี้ถูกวางอิสระ (Absolute) จะอยู่ตำแหน่งเดิมทุกขนาดจอ บนแท็บเล็ต/มือถืออาจล้นหรือทับกัน', en: 'This layer now floats (Absolute): it keeps this spot on every screen, so on tablets and phones it may overflow or cover others' },
+  'fl.undoFloat': { th: 'ย้อนกลับ', en: 'Undo' },
   'fl.fixed': { th: 'จัดเข้าแถวแล้ว {n} ชิ้น', en: 'Put {n} layer(s) back in the flow' },
   'fl.textWhite': { th: 'ปรับตัวอักษรเป็นสีขาวให้อ่านออกบนพื้นสีนี้', en: 'Text switched to white so it stays readable' },
   'fl.textDark': { th: 'ปรับตัวอักษรเป็นสีเข้มให้อ่านออกบนพื้นสีนี้', en: 'Text switched to dark so it stays readable' },

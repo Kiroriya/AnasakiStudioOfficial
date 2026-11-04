@@ -153,7 +153,7 @@ var (
 
 // reservedCodeRoute are first path segments a JS plugin route prefix can
 // never take (the install also checks the site's admin path / bases).
-var reservedCodeRoute = map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true,
+var reservedCodeRoute = map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true,
 	"_a": true, "_c": true, "ext-ui": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
 	"assets": true, "static": true, "blog": true, "category": true}
 

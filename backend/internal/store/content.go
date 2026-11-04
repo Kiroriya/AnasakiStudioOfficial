@@ -3,6 +3,8 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -169,6 +171,72 @@ func (s *Store) SaveMenu(m *model.Menu) error {
 	}
 	_, err := s.DB.Exec(`UPDATE menus SET name=?, items=?, updated_at=? WHERE id=?`, m.Name, string(m.Items), m.UpdatedAt, m.ID)
 	return err
+}
+
+// DropMenuLinks removes the menu links to a site path (2.1.1: deleting a page
+// left a dead link in the menu, and the page was gone from the menu editor's
+// list, so there was nothing to untick). URLs compare unescaped and without a
+// trailing slash, so "/เกี่ยวกับ" matches "/%E0%B9%80…". Returns how many links
+// were removed. (A page that moves keeps its links: the designer rewrites
+// them with ReplaceLinks.)
+func (s *Store) DropMenuLinks(path string) (int, error) {
+	norm := func(u string) string {
+		if x, err := url.PathUnescape(u); err == nil {
+			u = x
+		}
+		if len(u) > 1 {
+			u = strings.TrimRight(u, "/")
+		}
+		return u
+	}
+	target := norm(path)
+	if target == "" || target == "/" {
+		return 0, nil
+	}
+	menus, err := s.ListMenus()
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for i := range menus {
+		var items []map[string]any
+		if json.Unmarshal(menus[i].Items, &items) != nil {
+			continue
+		}
+		keep := make([]map[string]any, 0, len(items))
+		for _, it := range items {
+			if u, _ := it["url"].(string); norm(u) == target {
+				continue
+			}
+			keep = append(keep, it)
+		}
+		if len(keep) == len(items) {
+			continue
+		}
+		raw, err := json.Marshal(keep)
+		if err != nil {
+			return removed, err
+		}
+		menus[i].Items = raw
+		if err := s.SaveMenu(&menus[i]); err != nil {
+			return removed, err
+		}
+		removed += len(items) - len(keep)
+	}
+	return removed, nil
+}
+
+// dropPostMenuLinks removes the menu links to a deleted post's address.
+// Errors are logged only: the post is already gone.
+func (s *Store) dropPostMenuLinks(old *model.Post) {
+	if old.Type == model.TypeTemplate {
+		return
+	}
+	if u := s.postURL(old); u != "" {
+		if _, err := s.DropMenuLinks(u); err != nil {
+			log.Printf("menus: drop links to %s: %v", u, err)
+		}
+	}
 }
 
 func (s *Store) DeleteMenu(id int64) error {

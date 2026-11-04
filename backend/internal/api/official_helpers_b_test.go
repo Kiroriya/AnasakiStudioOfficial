@@ -94,7 +94,7 @@ func offBNew(t *testing.T) *offBEnv {
 	pm.SetCodeRuntime(code)
 	pm.SetPages(web) // route results {page} and core pages use the site's layout
 	// generous limits on a busy machine (bundling, first VM warm-up); the joints keep their own budgets
-	code.RouteTimeout, code.EventTimeout = 3*time.Second, 5*time.Second
+	code.RouteTimeout, code.EventTimeout = slow(3*time.Second), slow(5*time.Second)
 	code.MiddlewareTimeout, code.AfterTimeout = 500*time.Millisecond, 3*time.Second
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)

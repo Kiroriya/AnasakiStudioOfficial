@@ -117,7 +117,7 @@ var (
 )
 
 // reservedPublic are first path segments a service can never take over.
-var reservedPublic = map[string]bool{"api": true, "uploads": true, "download": true, "plugin-assets": true,
+var reservedPublic = map[string]bool{"api": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true,
 	"ext-ui": true, "assets": true, "static": true, "favicon.ico": true, "favicon.svg": true, "sitemap.xml": true,
 	"robots.txt": true, "admin": true}
 

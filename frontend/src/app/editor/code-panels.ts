@@ -7,7 +7,7 @@ import { BindingInput } from './binding-input';
 import { CodeData } from './code-data';
 import {
   GROUP_ASK, MapRow, buildInputOptions, collectionChoices, collectionKey, conditionPresets, defaultKey, enclosingCollection, filterQueryName, groupCondition,
-  mappingRows, parseSource, setMapping, sourceFields, sourceParams, validKey,
+  mappingRows, parseSource, POST_LIST_PARAMS, setMapping, sourceFields, sourceParams, validKey,
 } from './code-logic';
 import { createPagination } from './code-presets';
 import { PAGE_ITEM_DEFAULTS } from './design-css';
@@ -408,9 +408,18 @@ export class PaginationPanel extends CodePanelBase {
         <label>{{ 'sc.in.label' | t }} <input id="sc-in-label" [value]="n.props?.label ?? ''" (change)="props({ label: val($event) || undefined })" /></label>
       }
       <label>{{ 'sc.in.value' | t }}
-        <rea-binding-input mode="expr" [nodeId]="n.id" [value]="n.props?.value ?? ''" inputId="sc-in-value" placeholder="query.q" (changed)="props({ value: $event || undefined })" />
+        <!-- 2.2.0: plain text (as typed) or an expression (query.q, 'quoted') -->
+        <span class="fg-seg sc-in-mode">
+          <button type="button" id="sc-in-value-text" [class.on]="!!n.props?.valueText" (click)="props({ valueText: true })">{{ 'sc.in.modeText' | t }}</button>
+          <button type="button" id="sc-in-value-expr" [class.on]="!n.props?.valueText" (click)="props({ valueText: undefined })">{{ 'sc.in.modeExpr' | t }}</button>
+        </span>
+        @if (n.props?.valueText) {
+          <input id="sc-in-value" [value]="n.props.value ?? ''" placeholder="https://…" (change)="props({ value: val($event) || undefined })" />
+        } @else {
+          <rea-binding-input mode="expr" [nodeId]="n.id" [value]="n.props?.value ?? ''" inputId="sc-in-value" placeholder="query.q" (changed)="props({ value: $event || undefined })" />
+        }
       </label>
-      <p class="hint">{{ 'sc.in.valueHint' | t }}</p>
+      <p class="hint">{{ (n.props?.valueText ? 'sc.in.valueTextHint' : 'sc.in.valueHint') | t }}</p>
       @if (kind !== 'hidden') {
         <label class="fg-check"><input type="checkbox" id="sc-in-required" [checked]="!!n.props?.required" (change)="props({ required: checked($event) || undefined })" /> {{ 'sc.in.required' | t }}</label>
       }
@@ -481,6 +490,10 @@ export class PaginationPanel extends CodePanelBase {
             </p>
           }
         }
+        @if (categorySelect()) {
+          <button type="button" class="btn btn-sm btn-block" id="sc-in-use-categories" (click)="useCategories()">🗂 {{ 'sc.in.useCategories' | t }}</button>
+        }
+        @if (filterTarget()?.type === 'postList') { <p class="hint">{{ 'sc.in.postListHint' | t }}</p> }
         @if (!collections().length) { <p class="hint">{{ 'sc.in.filterNoCollections' | t }}</p> }
         <p class="hint">{{ 'sc.in.filterHint' | t }}</p>
       </section>
@@ -490,7 +503,7 @@ export class PaginationPanel extends CodePanelBase {
 export class InputPanel extends CodePanelBase {
   readonly kinds: InputKind[] = ['text', 'search', 'number', 'email', 'select', 'checkbox', 'textarea', 'hidden'];
   readonly nameOk = computed(() => /^[A-Za-z_][A-Za-z0-9_.\-[\]]{0,63}$/.test(this.node().props?.name ?? ''));
-  readonly collections = computed(() => collectionChoices(this.store.doc()));
+  readonly collections = computed(() => collectionChoices(this.store.doc(), { codeOnly: true, postLists: true }));
   readonly sources = computed(() => [
     ...(this.code.bindings()?.collections ?? []).map(c => ({ value: 'code:' + c.name, label: labelOf(c.label, c.name) + ' · code' })),
     ...(this.code.bindings()?.tables ?? []).map(t => ({ value: 'table:' + t.name, label: t.name + ' · table' })),
@@ -506,8 +519,15 @@ export class InputPanel extends CodePanelBase {
     const f = this.node().props?.optionsFrom;
     return buildInputOptions(this.node().props, this.code.preview(f?.collection ? this.code.sourceRequest(f.collection) : null)?.items);
   });
-  private readonly filterTarget = computed(() => this.code.collectionNode(this.node().props?.filter?.collection));
-  readonly filterParams = computed(() => Object.keys(sourceParams(this.filterTarget()?.props?.source, this.code.bindings())));
+  readonly filterTarget = computed(() => this.code.collectionNode(this.node().props?.filter?.collection));
+  readonly filterParams = computed(() => this.filterTarget()?.type === 'postList' ? POST_LIST_PARAMS
+    : Object.keys(sourceParams(this.filterTarget()?.props?.source, this.code.bindings())));
+  /** A category select of a post list: its options can come from the site's categories. */
+  readonly categorySelect = computed(() => this.filterTarget()?.type === 'postList' && this.node().props?.filter?.param === 'cat' && this.node().props?.kind === 'select');
+  useCategories() {
+    const cats = this.store.terms().filter(t => (t.taxonomy ?? 'category') === 'category');
+    this.props({ optionsFrom: undefined, options: [{ value: '', label: tr('sc.in.allCategories') }, ...cats.map(c => ({ value: c.slug, label: c.name }))] });
+  }
   readonly queryName = computed(() => {
     const t = this.filterTarget(), f = this.node().props?.filter;
     return t && f?.param ? filterQueryName(t, f.param) : '';
@@ -539,7 +559,8 @@ export class InputPanel extends CodePanelBase {
   setFilterCollection(id: string) {
     if (!id) { this.props({ filter: undefined }); return; }
     const t = this.code.collectionNode(id);
-    const params = Object.keys(sourceParams(t?.props?.source, this.code.bindings()));
+    const params = t?.type === 'postList' ? (this.node().props?.kind === 'select' ? ['cat', 'q'] : POST_LIST_PARAMS)
+      : Object.keys(sourceParams(t?.props?.source, this.code.bindings()));
     const cur = this.node().props?.filter?.param;
     const name = this.node().props?.name;
     const param = cur && (!params.length || params.includes(cur)) ? cur : params.find(p => p === name) ?? params[0] ?? name ?? 'q';

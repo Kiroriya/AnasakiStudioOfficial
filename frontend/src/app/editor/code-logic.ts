@@ -126,11 +126,15 @@ export function filterLayers(list: LayerChoice[], q: string): LayerChoice[] {
 export interface CollectionChoice { id: string; label: string; source: string; key: string }
 
 /** Collections of the document a pagination node / filter can point at: only code: and table: sources page. */
-export function collectionChoices(root: DNode, opts: { codeOnly?: boolean } = { codeOnly: true }): CollectionChoice[] {
+export function collectionChoices(root: DNode, opts: { codeOnly?: boolean; postLists?: boolean } = { codeOnly: true }): CollectionChoice[] {
   const out: CollectionChoice[] = [];
   const walk = (x: DNode) => {
     if (x.type === 'collection' && (!opts.codeOnly || isCodeSource(x.props?.source))) {
       out.push({ id: x.id, label: (x.name || 'Collection') + (x.props?.source ? ` (${x.props.source})` : ''), source: x.props?.source ?? '', key: collectionKey(x) });
+    }
+    // 2.2.0: a post list takes a search box (?<key>_q) and a category select (?<key>_cat) too
+    if (opts.postLists && x.type === 'postList') {
+      out.push({ id: x.id, label: (x.name || 'Post list') + ' (posts)', source: '', key: collectionKey(x) });
     }
     x.children?.forEach(walk);
   };
@@ -167,6 +171,9 @@ export function formInputNames(n: DNode | null): string[] {
  * Query-string name a filter input writes for `param` of a collection:
  * the collection's mapping `query.<x>` wins, else `<key>_<param>`.
  */
+/** The parameters a post list reads from the URL (2.2.0, queryPosts in render.go): search words and a category slug. */
+export const POST_LIST_PARAMS = ['q', 'cat'];
+
 export function filterQueryName(collection: DNode, param: string): string {
   const m = /^\s*query\.([A-Za-z0-9_-]+)\s*$/.exec(collection.props?.params?.[param] ?? '');
   return m ? m[1] : `${collectionKey(collection)}_${param}`;

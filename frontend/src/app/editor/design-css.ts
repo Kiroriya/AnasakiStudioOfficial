@@ -86,6 +86,9 @@ export function nodeCss(n: DNode, parentMode: LayoutMode | ''): Record<string, s
   }
 
   if (s.minHeight && s.minHeight > fixedMin) d['min-height'] = px(s.minHeight);
+  // 2.2.0: at least the screen height (minus a header above); the artboard sets --rea-screen-h per breakpoint
+  if (s.minHeightScreen) d['min-height'] = s.minHeightOffset && s.minHeightOffset > 0
+    ? `calc(var(--rea-screen-h,100svh) - ${px(s.minHeightOffset)})` : 'var(--rea-screen-h,100svh)';
 
   if (n.type === 'button' || n.type === 'download') {
     d['display'] = 'inline-flex';
@@ -155,7 +158,7 @@ export function nodeCss(n: DNode, parentMode: LayoutMode | ''): Record<string, s
   if (s.color) d['color'] = s.color;
   if (s.fontSize) d['font-size'] = px(s.fontSize);
   if (s.fontWeight) d['font-weight'] = String(s.fontWeight);
-  if (s.fontFamily) d['font-family'] = `'${s.fontFamily}', sans-serif`;
+  if (s.fontFamily) { const f = fontStack(s.fontFamily); if (f) d['font-family'] = f; }
   if (s.lineHeight) d['line-height'] = String(s.lineHeight);
   if (s.letterSpacing) d['letter-spacing'] = px(s.letterSpacing);
   if (s.textAlign) d['text-align'] = s.textAlign;
@@ -376,6 +379,8 @@ export interface Theme {
   palette: PaletteColor[];
   /** Shared text looks (Figma text styles): style.textStyle = id. */
   textStyles: TextStyleDef[];
+  /** Where tablet / mobile start (max-width px, 2.2.0); absent = 1024 / 640. Same rules as ParseTheme in theme.go. */
+  breakpoints?: { tablet?: number; mobile?: number };
 }
 export interface PaletteColor { id: string; name: string; value: string }
 export type TextStyleValues = Pick<Style, 'fontFamily' | 'fontSize' | 'fontWeight' | 'lineHeight' | 'letterSpacing' | 'textTransform' | 'italic' | 'textDecoration'>;
@@ -463,7 +468,11 @@ export function parseTheme(raw?: string): Theme {
     if (Object.keys(mb).length) d.mobile = mb;
     textStyles.push(d);
   }
-  return { colors, fontHeading: font(t.fontHeading), fontBody: font(t.fontBody), palette, textStyles };
+  const bp: { tablet?: number; mobile?: number } = {};
+  const mob = Number(t.breakpoints?.mobile), tab = Number(t.breakpoints?.tablet);
+  if (mob >= 480 && mob <= 900 && mob !== 640) bp.mobile = mob;
+  if (tab >= (bp.mobile ?? 640) + 100 && tab <= 1600 && tab !== 1024) bp.tablet = tab;
+  return { colors, fontHeading: font(t.fontHeading), fontBody: font(t.fontBody), palette, textStyles, ...(bp.mobile || bp.tablet ? { breakpoints: bp } : {}) };
 }
 
 /** CSS variables (and fonts) for the canvas, like Theme.CSS() on the site. */
@@ -500,9 +509,37 @@ export const BINDINGS = [
 
 export const FONTS = ['Inter', 'Noto Sans Thai', 'Prompt', 'Sarabun', 'Kanit', 'IBM Plex Sans Thai', 'Poppins', 'Roboto', 'Playfair Display', 'Space Grotesk'];
 
+const GENERIC_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif',
+  'ui-monospace', 'ui-rounded', 'emoji', 'math', 'fangsong', '-apple-system', 'blinkmacsystemfont']);
+/** A fontFamily value split on commas, each entry cleaned like FontName (max 8). Mirrors fontList() in css.go. */
+function fontList(v: string): string[] {
+  const out: string[] = [];
+  for (const raw of v.split(',')) {
+    const p = raw.trim().replace(/^['"]+|['"]+$/g, '');
+    if (GENERIC_FONTS.has(p.toLowerCase())) out.push(p.toLowerCase());
+    else {
+      const f = p.replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 80);
+      if (f) out.push(f);
+    }
+    if (out.length === 8) break;
+  }
+  return out;
+}
+/** The CSS font-family of a fontFamily setting ("Kanit, system-ui" → 'Kanit', system-ui). Mirrors FontStack() in css.go. */
+export function fontStack(v: string): string {
+  const list = fontList(v);
+  if (!list.length) return '';
+  const parts = list.map(f => (GENERIC_FONTS.has(f.toLowerCase()) ? f : `'${f}'`));
+  if (!GENERIC_FONTS.has(list[list.length - 1].toLowerCase())) parts.push('sans-serif');
+  return parts.join(', ');
+}
+
 const loadedFonts = new Set(['Inter', 'Noto Sans Thai']);
-/** Lazily loads a Google Font for the canvas (the public site does the same server-side). */
-export function ensureFont(family?: string) {
+/** Lazily loads a Google Font for the canvas (the public site does the same server-side): the first
+ *  family of a stack, unless it is a generic / system one. */
+export function ensureFont(value?: string) {
+  const first = value ? fontList(value)[0] : undefined;
+  const family = first && !GENERIC_FONTS.has(first.toLowerCase()) ? first : undefined;
   if (!family || loadedFonts.has(family)) return;
   loadedFonts.add(family);
   const link = document.createElement('link');
@@ -650,6 +687,29 @@ function cssColor(v: string): string {
 }
 
 const declText = (d: Record<string, string>) => Object.entries(d).map(([k, v]) => `${k}:${v}`).join(';');
+
+/** The look of one menu link (2.2.0, mirrors menuLinkDecls + the active rule in render.go): link padding /
+ *  radius, plus style.active when it is the current page's link (aria-current). */
+export function menuLinkCss(n: DNode, current: boolean): Record<string, string> {
+  const s = n.style ?? {};
+  const d: Record<string, string> = {};
+  const p = s.linkPadding;
+  if (p && (p[0] > 0 || p[1] > 0)) d['padding'] = `${px(p[0] || 0)} ${px(p[1] || 0)}`;
+  if (s.linkRadius && s.linkRadius > 0) d['border-radius'] = px(s.linkRadius);
+  if (current && s.active) {
+    if (s.active.fill) d['background'] = s.active.fill;
+    if (s.active.color) d['color'] = s.active.color;
+    if (s.active.stroke) d['border-color'] = s.active.stroke;
+  }
+  return d;
+}
+
+/** Same rule as SamePage in render.go: a site path equal to `path` (no query, trailing slash or encoding). */
+export function samePage(link: string, path: string): boolean {
+  if (!link.startsWith('/') || link.startsWith('//')) return false;
+  const norm = (u: string) => { u = u.split(/[?#]/)[0]; try { u = decodeURIComponent(u); } catch { /* keep */ } return u.length > 1 ? u.replace(/\/+$/, '') : u; };
+  return norm(link) === norm(path);
+}
 
 /**
  * The stylesheet of one pagination node, as the server writes it:

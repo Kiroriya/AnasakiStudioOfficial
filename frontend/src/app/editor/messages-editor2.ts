@@ -2,6 +2,13 @@ import { registerMessages } from '../core/messages';
 
 /** Designer messages for theme, rich text, breadcrumb, card styles, layers search, responsive chips and history. */
 registerMessages({
+  'ed.keys.typingIgnored': { th: 'ไม่ได้ใช้คีย์ลัดตัวอักษรที่พิมพ์ต่อเนื่อง เพราะดูเหมือนกำลังพิมพ์ข้อความแต่ไม่ได้อยู่ในช่องกรอก คลิกช่องที่ต้องการก่อนพิมพ์', en: 'Letter shortcuts typed in a burst were ignored: it looks like typing outside a field. Click the field first.' },
+  'ed.ui.resizeLeft': { th: 'ปรับความกว้างแผงซ้าย', en: 'Resize the left panel' },
+  'ed.ui.resizeRight': { th: 'ปรับความกว้างแผงขวา', en: 'Resize the right panel' },
+  'ed.ui.resizeTip': { th: 'ลากเพื่อปรับความกว้าง · ดับเบิลคลิก = ค่าเริ่มต้น', en: 'Drag to resize · double-click = default width' },
+  'ed.overflow.count': { th: '{n} ชั้นล้นจอ (กว้างเกิน {w}px)', en: '{n} layer(s) overflow the {w}px screen' },
+  'ed.overflow.hint': { th: 'ชั้นที่มีกรอบแดงกว้างกว่าจอหรือวางเลยขอบจอ ผู้เข้าชมต้องเลื่อนซ้ายขวาหรือมองไม่เห็นบางส่วน คลิกเพื่อเลือกชั้นแรก แล้วตั้งความกว้างเป็นเต็มพื้นที่ (Fill) จัดแนวตั้ง หรือจัดเข้าแถว', en: 'Red-outlined layers are wider than the screen or placed past its edge: visitors scroll sideways or miss part of them. Click to select the first, then set its width to Fill, stack it vertically, or put it back in the flow.' },
+  'ed.overflow.more': { th: 'ยังมีอีก {n} ชั้นที่ล้นจอ (กรอบแดง)', en: '{n} more layer(s) overflow (red outline)' },
   'ed.bpOnly': { th: 'กำลังแก้เฉพาะหน้าจอ {bp} — คอมพิวเตอร์ไม่เปลี่ยน', en: 'Editing {bp} only — desktop stays the same' },
 
   // theme (design tokens)
@@ -21,6 +28,10 @@ registerMessages({
   'ed.theme.surface.d': { th: 'พื้นหลังส่วนต่าง ๆ', en: 'Section backgrounds' },
   'ed.theme.fontHeading': { th: 'ฟอนต์หัวข้อ (H1–H6)', en: 'Heading font (H1–H6)' },
   'ed.theme.fontBody': { th: 'ฟอนต์เนื้อหา', en: 'Body font' },
+  'ed.theme.bpMobile': { th: 'ใช้ดีไซน์มือถือเมื่อจอกว้าง', en: 'Mobile design up to' },
+  'ed.theme.bpTablet': { th: 'ใช้ดีไซน์แท็บเล็ตเมื่อจอกว้าง', en: 'Tablet design up to' },
+  'ed.theme.bpDefault': { th: 'ค่าเริ่มต้น', en: 'default' },
+  'ed.theme.bpHint': { th: 'ถ้าหน้าแบบสองคอลัมน์ล้นจอช่วง 641–767 px ให้เลือก 767 (แบบเดียวกับ Tailwind md) ผืนงานยังแสดงมือถือที่ 390 px และแท็บเล็ตที่ 834 px', en: 'If two-column pages overflow between 641 and 767 px, pick 767 (like Tailwind md). The canvas still shows mobile at 390 px and tablet at 834 px' },
   'ed.theme.fontDefault': { th: 'ค่าเริ่มต้น (Inter + Noto Sans Thai)', en: 'Default (Inter + Noto Sans Thai)' },
   'ed.theme.save': { th: 'บันทึกธีม', en: 'Save theme' },
   'ed.theme.unsaved': { th: 'กำลังดูตัวอย่างบนผืนงาน — กดบันทึกธีม (หรือบันทึกหน้านี้) เพื่อใช้กับเว็บจริงทุกหน้า', en: 'Previewing on the canvas — save the theme (or save this page) to apply it to every page' },

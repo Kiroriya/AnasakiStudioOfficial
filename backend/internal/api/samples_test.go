@@ -103,7 +103,7 @@ func newSampleAPI(t *testing.T) *sampleEnv {
 	t.Cleanup(code.Close)
 	pm.SetCodeRuntime(code)
 	// bcrypt (members) and bundling on a busy CI machine: a little more room than the other tests
-	code.RouteTimeout, code.EventTimeout = 2*time.Second, 3*time.Second
+	code.RouteTimeout, code.EventTimeout = slow(2*time.Second), slow(3*time.Second)
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
 	wireSiteContent(web, code)

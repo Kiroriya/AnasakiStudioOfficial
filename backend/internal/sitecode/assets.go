@@ -74,7 +74,7 @@ func assetType(p string) string {
 func (v *vm) siteAsset(c goja.FunctionCall) goja.Value {
 	const what = "site.asset"
 	if !v.u.plugin() {
-		v.fail("%s ใช้ได้เฉพาะในปลั๊กอิน JavaScript (อ่านไฟล์ในแพ็กเกจของตัวเอง) — Site Code ใช้ไฟล์ในคลังสื่อแทน", what)
+		return v.siteCodeAsset(c) // 2.2.0: Site Code's public/ files
 	}
 	p, _ := c.Argument(0).Export().(string)
 	p = strings.TrimPrefix(strings.TrimSpace(p), "./")
@@ -118,6 +118,44 @@ func (v *vm) siteAsset(c goja.FunctionCall) goja.Value {
 		}
 		return v.rt.ToValue(string(b))
 	})
+	return o
+}
+
+// siteCodeAsset is site.asset('public/<file>') in Site Code (2.2.0): the file
+// of the live version, with its /site-assets/ address (?v=<version>).
+func (v *vm) siteCodeAsset(c goja.FunctionCall) goja.Value {
+	const what = "site.asset"
+	p, _ := c.Argument(0).Export().(string)
+	p = strings.TrimPrefix(strings.TrimSpace(p), "./")
+	if !isPublic(p) || checkSegments(p) != nil {
+		v.fail("%s(%q): ใน Site Code ใช้ได้กับไฟล์ในโฟลเดอร์ public/ เช่น site.asset('public/qr.js')", what, p)
+	}
+	var e *Engine
+	if v.h != nil {
+		e = v.h.e
+	}
+	if e == nil || e.st == nil {
+		v.fail("%s: ไม่พร้อมใช้งาน", what)
+	}
+	opts, err := e.st.Options()
+	if err != nil {
+		v.fail("%s: %s", what, err.Error())
+	}
+	lp := e.current(opts)
+	src, ok := "", false
+	if lp != nil {
+		src, ok = lp.files[p]
+	}
+	if !ok {
+		v.fail("%s(%q): ไม่มีไฟล์นี้ในเวอร์ชันที่เผยแพร่อยู่ (เผยแพร่โค้ดก่อน)", what, p)
+	}
+	o := v.rt.NewObject()
+	_ = o.Set("path", p)
+	_ = o.Set("size", len(src))
+	_ = o.Set("type", publicExt[strings.ToLower(path.Ext(p))])
+	_ = o.Set("url", publicURL(p, lp.id))
+	_ = o.Set("bytes", func(goja.FunctionCall) goja.Value { return v.uint8Array([]byte(src)) })
+	_ = o.Set("text", func(goja.FunctionCall) goja.Value { return v.rt.ToValue(src) })
 	return o
 }
 

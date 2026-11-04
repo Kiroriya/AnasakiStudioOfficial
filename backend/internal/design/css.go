@@ -122,6 +122,13 @@ func Decls(n *Node, parentMode string) []Decl {
 	if v, ok := getNum(n.Style, "minHeight"); ok && v > fixedMin {
 		add("min-height", px(v))
 	}
+	if getBool(n.Style, "minHeightScreen") { // 2.2.0: at least the screen height, minus a header above it
+		v := "var(--rea-screen-h,100svh)"
+		if off, _ := getNum(n.Style, "minHeightOffset"); off > 0 {
+			v = "calc(" + v + " - " + px(off) + ")"
+		}
+		add("min-height", v)
+	}
 
 	// Auto layout
 	switch n.Type {
@@ -244,8 +251,8 @@ func Decls(n *Node, parentMode string) []Decl {
 		add("font-weight", fnum(v))
 	}
 	if v := getStr(s, "fontFamily"); v != "" {
-		if f := FontName(v); f != "" {
-			add("font-family", "'"+f+"', sans-serif")
+		if f := FontStack(v); f != "" {
+			add("font-family", f)
 		}
 	}
 	if v, ok := getNum(s, "lineHeight"); ok && v > 0 {
@@ -377,6 +384,65 @@ func FontName(v string) string {
 		}
 	}
 	return f
+}
+
+// genericFonts are the CSS generic and system family keywords: written
+// unquoted, never loaded from Google Fonts.
+var genericFonts = map[string]bool{"serif": true, "sans-serif": true, "monospace": true, "cursive": true,
+	"fantasy": true, "system-ui": true, "ui-sans-serif": true, "ui-serif": true, "ui-monospace": true,
+	"ui-rounded": true, "emoji": true, "math": true, "fangsong": true, "-apple-system": true,
+	"blinkmacsystemfont": true}
+
+// fontList splits a fontFamily value on commas (2.1.1: "Kanit, system-ui,
+// sans-serif" is a stack; before, the commas were dropped and the whole value
+// became one family name). Each entry is FontName-cleaned; at most 8.
+func fontList(v string) []string {
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		p = strings.Trim(strings.TrimSpace(p), `'"`)
+		if genericFonts[strings.ToLower(p)] {
+			out = append(out, strings.ToLower(p))
+		} else if f := FontName(p); f != "" {
+			out = append(out, f)
+		}
+		if len(out) == 8 {
+			break
+		}
+	}
+	return out
+}
+
+// FontStack is the CSS font-family value of a fontFamily setting: named
+// families quoted, generic ones bare, and sans-serif last unless the stack
+// already ends in a generic family. "" when nothing usable is left.
+func FontStack(v string) string {
+	list := fontList(v)
+	if len(list) == 0 {
+		return ""
+	}
+	parts := make([]string, len(list))
+	for i, f := range list {
+		if genericFonts[strings.ToLower(f)] {
+			parts[i] = f
+		} else {
+			parts[i] = "'" + f + "'"
+		}
+	}
+	if !genericFonts[strings.ToLower(list[len(list)-1])] {
+		parts = append(parts, "sans-serif")
+	}
+	return strings.Join(parts, ", ")
+}
+
+// PrimaryFont is the family of a fontFamily setting to load from Google Fonts:
+// the first entry, or "" when that is a generic / system family (the rest of a
+// stack are local fallbacks).
+func PrimaryFont(v string) string {
+	list := fontList(v)
+	if len(list) == 0 || genericFonts[strings.ToLower(list[0])] {
+		return ""
+	}
+	return list[0]
 }
 
 // safeURL makes a value safe inside url('…') in a <style> block: quotes,

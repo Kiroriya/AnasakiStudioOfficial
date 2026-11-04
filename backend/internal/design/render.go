@@ -3,6 +3,7 @@ package design
 import (
 	"html"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,6 +23,8 @@ type Query struct {
 	// these terms (the term and its children); PostType is "" then.
 	PostTypes []string
 	TermIDs   []int64
+	// Search (2.2.0): words a search box sent to this list (?<key>_q=).
+	Search string
 }
 
 // MenuItem is one navigation link.
@@ -80,6 +83,9 @@ type Context struct {
 	Path   string
 	Locale string
 	Loc    *time.Location
+	// MediaMax moves a breakpoint (2.2.0, theme): name → max-width px; a
+	// missing name keeps Breakpoints' value.
+	MediaMax map[string]int
 	// Visitor resolves {{visitor.*}} (site.visitor, phase 4a) lazily: called
 	// at most once per render by the provider; nil = no visitor.
 	Visitor func() map[string]any
@@ -149,7 +155,11 @@ func Render(root *Node, ctx Context, data DataSource) Output {
 	css.WriteString(r.cssBuf.String())
 	for _, b := range Breakpoints {
 		if m := r.media[b.Name]; m.Len() > 0 {
-			css.WriteString("@media (max-width:" + strconv.Itoa(b.MaxWidth) + "px){\n")
+			max := b.MaxWidth
+			if v := r.ctx.MediaMax[b.Name]; v > 0 {
+				max = v
+			}
+			css.WriteString("@media (max-width:" + strconv.Itoa(max) + "px){\n")
 			css.WriteString(m.String())
 			css.WriteString("}\n")
 		}
@@ -186,7 +196,14 @@ func (r *renderer) emitCSS(n *Node, pm parentModes) {
 		writeRule(&r.cssBuf, sel+":hover", h)
 	}
 	if a := ActiveDecls(n); len(a) > 0 { // active tab / open accordion trigger
-		writeRule(&r.cssBuf, sel+".rea-active", a)
+		if n.Type == TypeMenu { // 2.2.0: a menu's active look is its link to the current page
+			writeRule(&r.cssBuf, sel+` a[aria-current="page"]`, a)
+		} else {
+			writeRule(&r.cssBuf, sel+".rea-active", a)
+		}
+	}
+	if n.Type == TypeMenu {
+		writeRule(&r.cssBuf, sel+" a", menuLinkDecls(n))
 	}
 	if n.Type == TypePagination {
 		r.paginationCSS(n, sel)
@@ -204,12 +221,12 @@ func (r *renderer) emitCSS(n *Node, pm parentModes) {
 		writeRule(r.media[b.Name], sel, diff(prev, cur))
 		prev = cur
 	}
-	if f := FontName(getStr(n.Style, "fontFamily")); f != "" {
+	if f := PrimaryFont(getStr(n.Style, "fontFamily")); f != "" {
 		r.fonts[f] = true
 	}
 	for _, o := range n.Responsive {
 		if s, ok := o["style"].(map[string]any); ok {
-			if f := FontName(getStr(s, "fontFamily")); f != "" {
+			if f := PrimaryFont(getStr(s, "fontFamily")); f != "" {
 				r.fonts[f] = true
 			}
 		}
@@ -386,11 +403,26 @@ func (r *renderer) renderNode(n *Node, pm parentModes, sc scope) {
 		r.renderInstance(n, pm, sc)
 		return
 	}
-	if attrs := r.codeAttrs(n, sc); attrs != "" { // Site Code action: data-rea-* on the element
+	// Site Code action: data-rea-* on the element; a name for code: data-ref (2.2.0)
+	if attrs := r.codeAttrs(n, sc) + RefAttr(n); attrs != "" {
 		r.withAttrs(n, attrs, func() { r.renderElement(n, pm, sc) })
 		return
 	}
 	r.renderElement(n, pm, sc)
+}
+
+// RefNameRe is a layer's "name for code" (props.ref): a-z first, then letters,
+// digits, "_" or "-", at most 40.
+var RefNameRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9_-]{0,39}$`)
+
+// RefAttr is `data-ref="<name>"` for a layer with a name for code (2.2.0):
+// code blocks find it with anasaki.ref(name) / [data-ref="name"], which keeps
+// working when the layer's text or id changes. "" without one.
+func RefAttr(n *Node) string {
+	if ref := getStr(n.Props, "ref"); RefNameRe.MatchString(ref) {
+		return `data-ref="` + ref + `" `
+	}
+	return ""
 }
 
 // renderElement writes one (non-instance) node.
@@ -469,8 +501,15 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 		if href == "" {
 			href = "#"
 		}
-		w.WriteString(`<a class="` + cls + ` rea-btn" href="` + attr(href) + `"` + target + `>` +
-			html.EscapeString(r.bind(getStr(n.Props, "text"), sc)) + `</a>`)
+		label := html.EscapeString(r.bind(getStr(n.Props, "text"), sc))
+		if ic := ButtonIcon(n); ic != "" { // 2.2.0: an icon before or after the text
+			if getStr(n.Props, "iconPosition") == "end" {
+				label = `<span>` + label + `</span>` + ic
+			} else {
+				label = ic + `<span>` + label + `</span>`
+			}
+		}
+		w.WriteString(`<a class="` + cls + ` rea-btn" href="` + attr(href) + `"` + target + `>` + label + `</a>`)
 	case TypeDownload:
 		r.renderDownload(n, cls, sc)
 	case TypeBreadcrumb:
@@ -510,7 +549,11 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 		}
 		if r.data != nil {
 			for _, it := range r.data.MenuItems(int64(num(n.Props["menuId"]))) {
-				w.WriteString(`<a href="` + attr(safeHref(it.URL)) + `">` + html.EscapeString(it.Label) + `</a>`)
+				cur := ""
+				if r.ctx.Path != "" && SamePage(it.URL, r.ctx.Path) {
+					cur = ` aria-current="page"`
+				}
+				w.WriteString(`<a href="` + attr(safeHref(it.URL)) + `"` + cur + `>` + html.EscapeString(it.Label) + `</a>`)
 			}
 		}
 		if burger {
@@ -528,7 +571,8 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 		}
 		w.WriteString(`</div>`)
 	case TypePostList:
-		w.WriteString(`<div class="` + cls + `">`)
+		// data-rea-collection: search boxes / selects bound to the list refresh it without a reload (2.2.0)
+		w.WriteString(`<div class="` + cls + `" data-rea-collection="` + attr(n.ID) + `" data-rea-key="` + CollectionKey(n) + `">`)
 		posts := r.queryPosts(n)
 		modes := layoutModes(n)
 		if len(posts) == 0 {
@@ -680,6 +724,17 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 		}
 		if v := getStr(m, "order"); v != "" {
 			q.Order = v
+		}
+	}
+	// 2.2.0: a search box / category select of the page filters this list
+	// (?<key>_q=words, ?<key>_cat=<category slug>), like a code collection
+	if r.ctx.Query != nil {
+		key := CollectionKey(n)
+		if s := strings.TrimSpace(r.ctx.Query.Get(key + "_q")); s != "" {
+			q.Search = truncRunes(s, 100)
+		}
+		if c := strings.TrimSpace(r.ctx.Query.Get(key + "_cat")); c != "" && len(c) <= 200 && !strings.ContainsAny(c, "/?#&") {
+			q.Category = c
 		}
 	}
 	// On a taxonomy term's archive (2.1.0) "this archive's posts" lists the
@@ -896,4 +951,50 @@ func instanceChildren(children []*Node, prefix string, ov map[string]any) []*Nod
 		out = append(out, &cp)
 	}
 	return out
+}
+
+// SamePage reports whether a menu link points at the page at path (2.2.0,
+// aria-current): same path, ignoring the query, the fragment, a trailing
+// slash and percent-encoding; external links never match.
+func SamePage(link, path string) bool {
+	u, err := url.Parse(strings.TrimSpace(link))
+	if err != nil || u.Host != "" || u.Scheme != "" || !strings.HasPrefix(u.Path, "/") {
+		return false
+	}
+	norm := func(p string) string {
+		if x, err := url.PathUnescape(p); err == nil {
+			p = x
+		}
+		if len(p) > 1 {
+			p = strings.TrimRight(p, "/")
+		}
+		return p
+	}
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	return norm(u.Path) == norm(path)
+}
+
+// menuLinkDecls is the look of every link of a menu (2.2.0): style.linkPadding
+// [vertical, horizontal] and style.linkRadius, so the current page's link can
+// be a pill.
+func menuLinkDecls(n *Node) []Decl {
+	var d []Decl
+	if p, ok := n.Style["linkPadding"].([]any); ok && len(p) == 2 && (num(p[0]) > 0 || num(p[1]) > 0) {
+		d = append(d, Decl{"padding", px(num(p[0])) + " " + px(num(p[1]))})
+	}
+	if v, ok := getNum(n.Style, "linkRadius"); ok && v > 0 {
+		d = append(d, Decl{"border-radius", px(v)})
+	}
+	return d
+}
+
+// truncRunes cuts s to at most n characters (not bytes).
+func truncRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) > n {
+		return string(r[:n])
+	}
+	return s
 }

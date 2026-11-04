@@ -111,7 +111,9 @@ export class ServicePage {
     const frame = sourceFrame(this.host.nativeElement.querySelectorAll<HTMLIFrameElement>('iframe.svc-frame'), e.source);
     if (!frame) return;
     const m = readFrameMessage(e.data, adminBase());
-    if (m?.type === 'height') this.contentHeight.set(clampHeight(m.height, FRAME_MIN_HEIGHT, PAGE_MAX_HEIGHT));
+    // + the frame's 1px top and bottom border (box-sizing: border-box): without them the page overflowed
+    // by a pixel and the frame showed its own scrollbar (2.1.1)
+    if (m?.type === 'height') this.contentHeight.set(clampHeight(m.height + 2, FRAME_MIN_HEIGHT, PAGE_MAX_HEIGHT));
     else if (m?.type === 'navigate') this.router.navigateByUrl(m.route);
     else if (m?.type === 'pick-media') this.mediaPick.request(frame, m.reqId, m.accept, this.auth.can('upload_files'));
   }

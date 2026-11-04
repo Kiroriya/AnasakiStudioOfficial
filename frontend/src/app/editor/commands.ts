@@ -62,7 +62,7 @@ export function buildCommands(h: CommandHost): Record<string, Command[]> {
       { id: 'selectMatching', label: 'Select all matching layers', keys: 'Ctrl+Alt+A', run: () => s.selectMatching(), enabled: one },
       { id: 'find', label: 'Find and replace…', keys: 'Ctrl+F', run: () => h.openFind() },
       { id: 'selectNone', label: 'Select none', keys: 'Esc', run: () => s.select(null), enabled: has },
-      { id: 'rename', label: 'Rename', keys: 'Ctrl+R', run: () => s.renamingId.set(s.selectedId()), enabled: one },
+      { id: 'rename', label: 'Rename', keys: 'Ctrl+R / F2', run: () => s.renamingId.set(s.selectedId()), enabled: one },
     ],
     View: [
       { id: 'zoomIn', label: 'Zoom in', keys: 'Ctrl++', run: () => h.zoomBy(1.25) },

@@ -360,6 +360,8 @@ func (v *vm) install() {
 	_ = rt.Set("http", obj(map[string]func(goja.FunctionCall) goja.Value{"fetch": v.httpFetch, "webhook": v.httpWebhook}))
 	_ = rt.Set("jobs", obj(map[string]func(goja.FunctionCall) goja.Value{"enqueue": v.jobsEnqueue}))
 
+	v.installLocale() // 2.1.1: toLocaleString without Intl
+
 	// no timers or modules; network only through http.fetch
 	for _, name := range []string{"setTimeout", "setInterval", "fetch", "require"} {
 		n := name

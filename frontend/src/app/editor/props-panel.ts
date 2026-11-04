@@ -9,7 +9,7 @@ import { Media } from '../core/models';
 import { MediaPicker } from '../shared/media-picker';
 import { BINDINGS, FONTS, THEME_COLOR_KEYS, Theme, ThemeColorKey, bind, tokenOf } from './design-css';
 import { CARD_STYLES } from './presets';
-import { I18n, TPipe, localized } from '../core/i18n';
+import { I18n, TPipe, localized, tr } from '../core/i18n';
 import { SchemaForm } from '../shared/schema-form';
 import { BREAKPOINTS, DNode, Layout, Override, SizeMode, Style, findNode } from './design-types';
 import './messages-editor';
@@ -46,7 +46,7 @@ const OVR_LABEL: Record<string, string> = {
   'layout.align': 'ed.ovr.align', 'layout.justify': 'ed.ovr.align', 'layout.wrap': 'ed.ovr.direction',
   'style.fontSize': 'ed.ovr.fontSize', 'style.fontWeight': 'ed.ovr.fontWeight', 'style.lineHeight': 'ed.ovr.lineHeight',
   'style.textAlign': 'ed.ovr.textAlign', 'style.color': 'ed.ovr.color', 'style.fill': 'ed.ovr.fill', 'style.radius': 'ed.ovr.radius',
-  'style.maxWidth': 'ed.ovr.maxWidth', 'style.minHeight': 'ed.ovr.height', 'style.opacity': 'ed.ovr.opacity',
+  'style.maxWidth': 'ed.ovr.maxWidth', 'style.minHeight': 'ed.ovr.height', 'style.minHeightScreen': 'ed.ovr.screenH', 'style.minHeightOffset': 'ed.ovr.screenH', 'style.opacity': 'ed.ovr.opacity',
 };
 
 @Component({
@@ -69,11 +69,11 @@ const OVR_LABEL: Record<string, string> = {
         <!-- alignment row (Figma: top of the Design panel) -->
         <div class="fg-align">
           @for (a of alignBtns; track a.dir) {
-            <button [title]="(a.title | t) + ' (' + a.keys + ')'" [disabled]="!s.parent" (click)="store.align(a.dir)">{{ a.icon }}</button>
+            <button [title]="(a.title | t) + ' (' + a.keys + ')'" [attr.aria-label]="(a.title | t) + ' (' + a.keys + ')'" [disabled]="!s.parent" (click)="store.align(a.dir)">{{ a.icon }}</button>
           }
           <span class="sep"></span>
-          <button [title]="('ed.cmd.distH' | t) + ' (Alt+Shift+H)'" [disabled]="count() < 3" (click)="store.distribute('h')">⫴</button>
-          <button [title]="('ed.cmd.distV' | t) + ' (Alt+Shift+V)'" [disabled]="count() < 3" (click)="store.distribute('v')">☰</button>
+          <button [title]="('ed.cmd.distH' | t) + ' (Alt+Shift+H)'" [attr.aria-label]="('ed.cmd.distH' | t) + ' (Alt+Shift+H)'" [disabled]="count() < 3" (click)="store.distribute('h')">⫴</button>
+          <button [title]="('ed.cmd.distV' | t) + ' (Alt+Shift+V)'" [attr.aria-label]="('ed.cmd.distV' | t) + ' (Alt+Shift+V)'" [disabled]="count() < 3" (click)="store.distribute('v')">☰</button>
         </div>
 
         @if (store.bp() !== 'desktop') {
@@ -83,7 +83,7 @@ const OVR_LABEL: Record<string, string> = {
               <span class="bp-sub">{{ 'ed.pp.bpChanged' | t }}</span>
               <div class="ovr-chips">
                 @for (o of overrides(); track o.id) {
-                  <button class="ovr-chip" [title]="'ed.pp.bpResetOne' | t" (click)="store.resetOverride(n.id, o.group, o.key)">{{ o.label }} ✕</button>
+                  <button class="ovr-chip" [title]="'ed.pp.bpResetOne' | t" [attr.aria-label]="'ed.pp.bpResetOne' | t" (click)="store.resetOverride(n.id, o.group, o.key)">{{ o.label }} ✕</button>
                 }
               </div>
               <button class="link" (click)="store.resetOverrides(n.id)">↺ {{ 'ed.pp.bpResetAll' | t }}</button>
@@ -115,14 +115,14 @@ const OVR_LABEL: Record<string, string> = {
               <span>{{ 'ed.pp.anchor' | t }}</span>
               <div class="fg-seg">
                 @for (a of anchors; track a.id) {
-                  <button [class.on]="(e.style?.anchorX ?? 'left') === a.id" [title]="('ed.pp.anchor.' + a.id) | t" (click)="store.setAnchor(ids(), a.id)">{{ a.icon }}</button>
+                  <button [class.on]="(e.style?.anchorX ?? 'left') === a.id" [title]="('ed.pp.anchor.' + a.id) | t" [attr.aria-label]="('ed.pp.anchor.' + a.id) | t" (click)="store.setAnchor(ids(), a.id)">{{ a.icon }}</button>
                 }
               </div>
             </div>
           }
           <div class="fg-row2">
             <label class="fg-field" [title]="'ed.pp.rotation' | t"><span [reaScrub]="e.style?.rotation ?? 0" (scrub)="style({ rotation: $event || undefined })">↻</span>
-              <input type="number" [value]="e.style?.rotation ?? 0" (change)="style({ rotation: num($event) || undefined })" /></label>
+              <input [attr.aria-label]="'ed.pp.rotation' | t" type="number" [value]="e.style?.rotation ?? 0" (change)="style({ rotation: num($event) || undefined })" /></label>
             @if (s.parent && parentAuto()) {
               <button class="fg-toggle" [class.on]="!!n.absolute" (click)="store.setAbsolute(n.id, !n.absolute)"
                       [title]="'ed.pp.absolute' | t">⌖ {{ 'ed.pp2.absolute' | t }}</button>
@@ -155,14 +155,22 @@ const OVR_LABEL: Record<string, string> = {
           </div>
           <div class="fg-row2">
             <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'maxWidth')" [title]="'ed.pp.maxW' | t">
-              <span>Max W</span><input type="number" min="0" [value]="e.style?.maxWidth ?? ''" placeholder="—" (change)="style({ maxWidth: num($event) })" /></label>
-            <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'minHeight')" [title]="'ed.pp.minH' | t">
-              <span>Min H</span><input type="number" min="0" [value]="e.style?.minHeight || ''" placeholder="—" (change)="style({ minHeight: num($event) || 0 })" /></label>
+              <span>Max W</span><input [attr.aria-label]="'ed.pp.maxW' | t" type="number" min="0" [value]="e.style?.maxWidth ?? ''" placeholder="—" (change)="style({ maxWidth: num($event) })" /></label>
+            @if (e.style?.minHeightScreen) {
+              <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'minHeightOffset')" [title]="'ed.pp.screenOffset' | t">
+                <span>{{ 'ed.pp.screenMinus' | t }}</span><input type="number" min="0" id="pp-screen-offset" [attr.aria-label]="'ed.pp.screenOffset' | t" [value]="e.style.minHeightOffset || ''" placeholder="0" (change)="style({ minHeightOffset: num($event) || undefined })" /><em>px</em></label>
+            } @else {
+              <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'minHeight')" [title]="'ed.pp.minH' | t">
+                <span>Min H</span><input type="number" min="0" [attr.aria-label]="'ed.pp.minH' | t" [value]="e.style?.minHeight || ''" placeholder="—" (change)="style({ minHeight: num($event) || 0 })" /></label>
+            }
           </div>
+          <label class="fg-check pp-screen" [class.ovr]="store.isOverridden(n, 'style', 'minHeightScreen')" [title]="'ed.pp.screenTip' | t">
+            <input type="checkbox" id="pp-screen-h" [checked]="!!e.style?.minHeightScreen" (change)="style({ minHeightScreen: checked($event) || (store.bp() === 'desktop' ? undefined : false) })" /> {{ 'ed.pp.screenH' | t }}
+          </label>
           <div class="fg-row2">
             <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'radius')" [title]="'ed.pp.radius' | t">
               <span [reaScrub]="e.style?.radius ?? 0" [minValue]="0" (scrub)="style({ radius: $event || undefined })">◜</span>
-              <input type="number" min="0" [value]="e.style?.radius ?? 0" (change)="style({ radius: num($event) || undefined })" /></label>
+              <input [attr.aria-label]="'ed.pp.radius' | t" type="number" min="0" [value]="e.style?.radius ?? 0" (change)="style({ radius: num($event) || undefined })" /></label>
           </div>
           @if (n.type === 'frame' || n.type === 'postList') {
             <label class="fg-check"><input type="checkbox" [checked]="!!e.style?.clip" (change)="style({ clip: checked($event) || undefined })" /> {{ 'ed.pp2.clip' | t }}</label>
@@ -175,23 +183,23 @@ const OVR_LABEL: Record<string, string> = {
             <h5>
               {{ (padOnly(n) ? 'ed.pp2.padding' : 'ed.pp2.autoLayout') | t }}
               @if (!padOnly(n)) {
-                @if (isAuto()) { <button class="fg-add" [title]="('ed.cmd.removeAutoLayout' | t) + ' (Alt+Shift+A)'" (click)="store.setLayoutMode(n.id, 'none')">−</button> }
-                @else { <button class="fg-add" [title]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" (click)="store.setLayoutMode(n.id, 'vertical')">+</button> }
+                @if (isAuto()) { <button class="fg-add" [title]="('ed.cmd.removeAutoLayout' | t) + ' (Alt+Shift+A)'" [attr.aria-label]="('ed.cmd.removeAutoLayout' | t) + ' (Alt+Shift+A)'" (click)="store.setLayoutMode(n.id, 'none')">−</button> }
+                @else { <button class="fg-add" [title]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" [attr.aria-label]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" (click)="store.setLayoutMode(n.id, 'vertical')">+</button> }
               }
             </h5>
             @if (isAuto()) {
               <div class="fg-al">
                 <div class="fg-al-left">
                   <div class="fg-seg" [class.ovr]="store.isOverridden(n, 'layout', 'mode')">
-                    <button [class.on]="e.layout?.mode === 'vertical'" [title]="'ed.pp2.vertical' | t" (click)="store.setLayoutMode(n.id, 'vertical')">↓</button>
-                    <button [class.on]="e.layout?.mode === 'horizontal' && !e.layout.wrap" [title]="'ed.pp2.horizontal' | t" (click)="layout({ mode: 'horizontal', wrap: undefined })">→</button>
-                    <button [class.on]="e.layout?.mode === 'horizontal' && !!e.layout.wrap" [title]="'ed.pp2.wrap' | t" (click)="layout({ mode: 'horizontal', wrap: true })">↵</button>
+                    <button [class.on]="e.layout?.mode === 'vertical'" [title]="'ed.pp2.vertical' | t" [attr.aria-label]="'ed.pp2.vertical' | t" (click)="store.setLayoutMode(n.id, 'vertical')">↓</button>
+                    <button [class.on]="e.layout?.mode === 'horizontal' && !e.layout.wrap" [title]="'ed.pp2.horizontal' | t" [attr.aria-label]="'ed.pp2.horizontal' | t" (click)="layout({ mode: 'horizontal', wrap: undefined })">→</button>
+                    <button [class.on]="e.layout?.mode === 'horizontal' && !!e.layout.wrap" [title]="'ed.pp2.wrap' | t" [attr.aria-label]="'ed.pp2.wrap' | t" (click)="layout({ mode: 'horizontal', wrap: true })">↵</button>
                   </div>
                   <div class="fg-row2 tight">
                     <label class="fg-field" [class.ovr]="store.isOverridden(n, 'layout', 'gap')" [title]="'ed.pp.gap' | t">
                       <span [reaScrub]="e.layout?.gap ?? 0" [minValue]="0" (scrub)="layout({ gap: $event })">⇕</span>
-                      @if (e.layout?.justify === 'between') { <input [value]="'ed.pp2.auto' | t" readonly (click)="layout({ justify: undefined })" [title]="'ed.pp.gapAuto' | t" /> }
-                      @else { <input type="number" min="0" [value]="e.layout?.gap ?? 0" (change)="layout({ gap: num($event) })" /> }
+                      @if (e.layout?.justify === 'between') { <input [attr.aria-label]="'ed.pp.gap' | t" [value]="'ed.pp2.auto' | t" readonly (click)="layout({ justify: undefined })" [title]="'ed.pp.gapAuto' | t" /> }
+                      @else { <input [attr.aria-label]="'ed.pp.gap' | t" type="number" min="0" [value]="e.layout?.gap ?? 0" (change)="layout({ gap: num($event) })" /> }
                     </label>
                     <button class="fg-toggle" [class.on]="e.layout?.justify === 'between'" (click)="layout({ justify: e.layout?.justify === 'between' ? undefined : 'between' })" [title]="'ed.pp2.autoSpacing' | t">{{ 'ed.pp2.auto' | t }}</button>
                   </div>
@@ -199,7 +207,7 @@ const OVR_LABEL: Record<string, string> = {
                 <div class="fg-grid" [title]="'ed.pp2.alignment' | t">
                   @for (r of [0, 1, 2]; track r) {
                     @for (c of [0, 1, 2]; track c) {
-                      <button [class.on]="gridOn(r, c)" (click)="gridSet(r, c)"><i></i></button>
+                      <button [class.on]="gridOn(r, c)" [attr.aria-pressed]="gridOn(r, c)" [attr.aria-label]="gridLabel(r, c)" [title]="gridLabel(r, c)" (click)="gridSet(r, c)"><i></i></button>
                     }
                   }
                 </div>
@@ -217,10 +225,10 @@ const OVR_LABEL: Record<string, string> = {
             <div class="fg-row2">
               <label class="fg-field" [class.ovr]="store.isOverridden(n, 'layout', 'padding')" [title]="'ed.pp.padH' | t">
                 <span [reaScrub]="pad()[3]" [minValue]="0" (scrub)="setPad([null, $event, null, $event])">⇿</span>
-                <input type="number" min="0" [value]="pad()[1] === pad()[3] ? pad()[3] : ''" [placeholder]="pad()[1] === pad()[3] ? '' : ('ed.pp2.mixed' | t)" (change)="setPad([null, num($event) ?? 0, null, num($event) ?? 0])" /></label>
+                <input [attr.aria-label]="'ed.pp.padH' | t" type="number" min="0" [value]="pad()[1] === pad()[3] ? pad()[3] : ''" [placeholder]="pad()[1] === pad()[3] ? '' : ('ed.pp2.mixed' | t)" (change)="setPad([null, num($event) ?? 0, null, num($event) ?? 0])" /></label>
               <label class="fg-field" [class.ovr]="store.isOverridden(n, 'layout', 'padding')" [title]="'ed.pp.padV' | t">
                 <span [reaScrub]="pad()[0]" [minValue]="0" (scrub)="setPad([$event, null, $event, null])">⇳</span>
-                <input type="number" min="0" [value]="pad()[0] === pad()[2] ? pad()[0] : ''" [placeholder]="pad()[0] === pad()[2] ? '' : ('ed.pp2.mixed' | t)" (change)="setPad([num($event) ?? 0, null, num($event) ?? 0, null])" /></label>
+                <input [attr.aria-label]="'ed.pp.padV' | t" type="number" min="0" [value]="pad()[0] === pad()[2] ? pad()[0] : ''" [placeholder]="pad()[0] === pad()[2] ? '' : ('ed.pp2.mixed' | t)" (change)="setPad([num($event) ?? 0, null, num($event) ?? 0, null])" /></label>
             </div>
             @if (isAuto()) { <p class="hint">{{ 'ed.pp.spacingTip' | t }}</p> }
             <button class="fg-link" (click)="padOpen.set(!padOpen())">{{ padOpen() ? '▾' : '▸' }} {{ 'ed.pp2.padEach' | t }}</button>
@@ -228,7 +236,7 @@ const OVR_LABEL: Record<string, string> = {
               <div class="fg-row4">
                 @for (side of [0, 1, 2, 3]; track side) {
                   <label class="fg-field" [title]="sides[side] | t"><span>{{ sideIcons[side] }}</span>
-                    <input type="number" min="0" [value]="pad()[side]" (change)="setPadSide(side, num($event) ?? 0)" /></label>
+                    <input [attr.aria-label]="sides[side] | t" type="number" min="0" [value]="pad()[side]" (change)="setPadSide(side, num($event) ?? 0)" /></label>
                 }
               </div>
             }
@@ -237,7 +245,7 @@ const OVR_LABEL: Record<string, string> = {
 
         @if (!hasLayout(n) || count() > 1) {
           <section class="fg-sec">
-            <h5>{{ 'ed.pp2.autoLayout' | t }} <button class="fg-add" [title]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" (click)="store.addAutoLayout()">+</button></h5>
+            <h5>{{ 'ed.pp2.autoLayout' | t }} <button class="fg-add" [title]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" [attr.aria-label]="('ed.cmd.autoLayout' | t) + ' (Shift+A)'" (click)="store.addAutoLayout()">+</button></h5>
             <p class="hint">{{ (count() > 1 ? 'ed.pp.wrapMany' : 'ed.pp.wrapOne') | t }}</p>
             <div class="fg-row2">
               <button class="fg-toggle" (click)="wrapAuto('vertical')" [title]="'ed.pp.down' | t">↓ {{ 'ed.pp2.verticalShort' | t }}</button>
@@ -252,7 +260,7 @@ const OVR_LABEL: Record<string, string> = {
           <div class="fg-row2">
             <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'opacity')" [title]="'ed.pp.opacity' | t">
               <span [reaScrub]="opacityPct()" [minValue]="0" (scrub)="setOpacity($event)">◐</span>
-              <input type="number" min="0" max="100" [value]="opacityPct()" (change)="setOpacity(num($event) ?? 100)" /><em>%</em></label>
+              <input [attr.aria-label]="'ed.pp.opacity' | t" type="number" min="0" max="100" [value]="opacityPct()" (change)="setOpacity(num($event) ?? 100)" /><em>%</em></label>
             @if (s.parent) {
               <button class="fg-toggle" [class.on]="e.visible === false" (click)="store.toggleVisible()" [title]="'ed.pp.toggleVis' | t: { bp: bpLabel() }">
                 {{ e.visible === false ? '◌ ' + ('ed.pp2.hidden' | t) : '👁 ' + ('ed.pp2.visible' | t) }}</button>
@@ -263,7 +271,7 @@ const OVR_LABEL: Record<string, string> = {
         <!-- Fill -->
         <section class="fg-sec">
           <h5>{{ 'ed.pp2.fillSec' | t }}
-            @if (!e.style?.fill) { <button class="fg-add" [title]="'ed.pp2.addFill' | t" (click)="style({ fill: '#d9d9d9' })">+</button> }
+            @if (!e.style?.fill) { <button class="fg-add" [title]="'ed.pp2.addFill' | t" [attr.aria-label]="'ed.pp2.addFill' | t" (click)="style({ fill: '#d9d9d9' })">+</button> }
           </h5>
           @if (e.style?.fill; as f) {
             <div class="fg-paint" [class.ovr]="store.isOverridden(n, 'style', 'fill')">
@@ -278,14 +286,14 @@ const OVR_LABEL: Record<string, string> = {
                 <span class="fg-swatch" [style.background]="f"></span>
                 <input class="fg-hex wide" [value]="f" (change)="style({ fill: val($event) })" [title]="'ed.pp2.gradient' | t" />
               }
-              <button class="fg-rm" [title]="'ed.pp2.removeFill' | t" (click)="style({ fill: undefined })">−</button>
+              <button class="fg-rm" [title]="'ed.pp2.removeFill' | t" [attr.aria-label]="'ed.pp2.removeFill' | t" (click)="style({ fill: undefined })">−</button>
             </div>
           }
           <div class="swatches">
-            @for (k of themeKeys; track k) { <button class="tok" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" (click)="style({ fill: 'var(--c-' + k + ')' })"></button> }
-            @for (p of theme().palette; track p.id) { <button class="tok" [style.background]="p.value" [title]="p.name" (click)="style({ fill: 'var(--c-' + p.id + ')' })"></button> }
+            @for (k of themeKeys; track k) { <button class="tok" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" [attr.aria-label]="('ed.theme.' + k) | t" (click)="style({ fill: 'var(--c-' + k + ')' })"></button> }
+            @for (p of theme().palette; track p.id) { <button class="tok" [style.background]="p.value" [title]="p.name" [attr.aria-label]="p.name" (click)="style({ fill: 'var(--c-' + p.id + ')' })"></button> }
             <span class="sw-sep"></span>
-            @for (c of swatches; track c) { <button [style.background]="c" [title]="c" (click)="style({ fill: c })"></button> }
+            @for (c of swatches; track c) { <button [style.background]="c" [title]="c" [attr.aria-label]="c" (click)="style({ fill: c })"></button> }
           </div>
           @if (n.type === 'image') {
             <div class="fg-image">
@@ -303,7 +311,7 @@ const OVR_LABEL: Record<string, string> = {
         <!-- Stroke -->
         <section class="fg-sec">
           <h5>{{ 'ed.pp2.stroke' | t }}
-            @if (!e.style?.stroke) { <button class="fg-add" [title]="'ed.pp2.addStroke' | t" (click)="style({ stroke: '#000000', strokeWidth: 1 })">+</button> }
+            @if (!e.style?.stroke) { <button class="fg-add" [title]="'ed.pp2.addStroke' | t" [attr.aria-label]="'ed.pp2.addStroke' | t" (click)="style({ stroke: '#000000', strokeWidth: 1 })">+</button> }
           </h5>
           @if (e.style?.stroke; as st) {
             <div class="fg-paint">
@@ -317,27 +325,27 @@ const OVR_LABEL: Record<string, string> = {
               }
               <label class="fg-field small" [title]="'ed.pp2.strokeWeight' | t"><span [reaScrub]="e.style.strokeWidth ?? 1" [minValue]="0" (scrub)="style({ strokeWidth: $event })">≡</span>
                 <input type="number" min="0" [value]="e.style.strokeWidth ?? 1" (change)="style({ strokeWidth: num($event) })" /></label>
-              <button class="fg-rm" [title]="'ed.pp2.removeStroke' | t" (click)="style({ stroke: undefined, strokeWidth: undefined })">−</button>
+              <button class="fg-rm" [title]="'ed.pp2.removeStroke' | t" [attr.aria-label]="'ed.pp2.removeStroke' | t" (click)="style({ stroke: undefined, strokeWidth: undefined })">−</button>
             </div>
           }
         </section>
 
         <!-- Effects -->
         <section class="fg-sec">
-          <h5>{{ 'ed.pp2.effects' | t }} <button class="fg-add" [title]="'ed.pp2.addShadow' | t" (click)="addShadow()">+</button></h5>
+          <h5>{{ 'ed.pp2.effects' | t }} <button class="fg-add" [title]="'ed.pp2.addShadow' | t" [attr.aria-label]="'ed.pp2.addShadow' | t" (click)="addShadow()">+</button></h5>
           @for (sh of shadows(); track $index; let i = $index) {
             <div class="fg-effect">
               <div class="fg-row2">
                 <select [value]="sh.inset ? 'inner' : 'drop'" (change)="editShadow(i, { inset: val($event) === 'inner' })">
                   <option value="drop">{{ 'ed.pp2.dropShadow' | t }}</option><option value="inner">{{ 'ed.pp2.innerShadow' | t }}</option>
                 </select>
-                <button class="fg-rm" [title]="'ed.pp2.removeEffect' | t" (click)="removeShadow(i)">−</button>
+                <button class="fg-rm" [title]="'ed.pp2.removeEffect' | t" [attr.aria-label]="'ed.pp2.removeEffect' | t" (click)="removeShadow(i)">−</button>
               </div>
               <div class="fg-row4">
                 <label class="fg-field"><span [reaScrub]="sh.x" (scrub)="editShadow(i, { x: $event })">X</span><input type="number" [value]="sh.x" (change)="editShadow(i, { x: num($event) ?? 0 })" /></label>
                 <label class="fg-field"><span [reaScrub]="sh.y" (scrub)="editShadow(i, { y: $event })">Y</span><input type="number" [value]="sh.y" (change)="editShadow(i, { y: num($event) ?? 0 })" /></label>
-                <label class="fg-field" [title]="'ed.pp2.blur' | t"><span [reaScrub]="sh.blur" [minValue]="0" (scrub)="editShadow(i, { blur: $event })">B</span><input type="number" min="0" [value]="sh.blur" (change)="editShadow(i, { blur: num($event) ?? 0 })" /></label>
-                <label class="fg-field" [title]="'ed.pp2.spread' | t"><span [reaScrub]="sh.spread" (scrub)="editShadow(i, { spread: $event })">S</span><input type="number" [value]="sh.spread" (change)="editShadow(i, { spread: num($event) ?? 0 })" /></label>
+                <label class="fg-field" [title]="'ed.pp2.blur' | t"><span [reaScrub]="sh.blur" [minValue]="0" (scrub)="editShadow(i, { blur: $event })">B</span><input [attr.aria-label]="'ed.pp2.blur' | t" type="number" min="0" [value]="sh.blur" (change)="editShadow(i, { blur: num($event) ?? 0 })" /></label>
+                <label class="fg-field" [title]="'ed.pp2.spread' | t"><span [reaScrub]="sh.spread" (scrub)="editShadow(i, { spread: $event })">S</span><input [attr.aria-label]="'ed.pp2.spread' | t" type="number" [value]="sh.spread" (change)="editShadow(i, { spread: num($event) ?? 0 })" /></label>
               </div>
               <div class="fg-paint">
                 @if (parsed(sh.color); as c) {
@@ -368,15 +376,15 @@ const OVR_LABEL: Record<string, string> = {
               </select>
               <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'fontSize')" [title]="'ed.pp2.fontSize' | t">
                 <span [reaScrub]="e.style?.fontSize ?? 16" [minValue]="1" (scrub)="style({ fontSize: $event })">Aa</span>
-                <input type="number" min="1" [value]="e.style?.fontSize ?? ''" [placeholder]="tsv(n, 'fontSize') ?? 16" (change)="style({ fontSize: num($event) })" /></label>
+                <input [attr.aria-label]="'ed.pp2.fontSize' | t" type="number" min="1" [value]="e.style?.fontSize ?? ''" [placeholder]="tsv(n, 'fontSize') ?? 16" (change)="style({ fontSize: num($event) })" /></label>
             </div>
             <div class="fg-row2">
               <label class="fg-field" [title]="'ed.pp2.lineHeight' | t" [class.ovr]="store.isOverridden(n, 'style', 'lineHeight')">
                 <span [reaScrub]="e.style?.lineHeight ?? 1.5" [step]="0.05" [minValue]="0" (scrub)="style({ lineHeight: $event })">↕A</span>
-                <input type="number" step="0.05" min="0" [value]="e.style?.lineHeight ?? ''" [placeholder]="tsv(n, 'lineHeight') ?? ('ed.pp2.auto' | t)" (change)="style({ lineHeight: num($event) })" /></label>
+                <input [attr.aria-label]="'ed.pp2.lineHeight' | t" type="number" step="0.05" min="0" [value]="e.style?.lineHeight ?? ''" [placeholder]="tsv(n, 'lineHeight') ?? ('ed.pp2.auto' | t)" (change)="style({ lineHeight: num($event) })" /></label>
               <label class="fg-field" [title]="'ed.pp2.letterSpacing' | t">
                 <span [reaScrub]="e.style?.letterSpacing ?? 0" [step]="0.1" (scrub)="style({ letterSpacing: $event || undefined })">|A|</span>
-                <input type="number" step="0.1" [value]="e.style?.letterSpacing ?? 0" (change)="style({ letterSpacing: num($event) || undefined })" /></label>
+                <input [attr.aria-label]="'ed.pp2.letterSpacing' | t" type="number" step="0.1" [value]="e.style?.letterSpacing ?? 0" (change)="style({ letterSpacing: num($event) || undefined })" /></label>
             </div>
             <div class="fg-paint" [class.ovr]="store.isOverridden(n, 'style', 'color')">
               @if (tokenOf(e.style?.color); as k) {
@@ -386,23 +394,23 @@ const OVR_LABEL: Record<string, string> = {
                 <input type="color" [value]="c.hex" (input)="liveColor('color', $event, c.a)" (change)="commitColor()" (blur)="commitColor()" />
                 <input class="fg-hex" [value]="e.style?.color ? c.hex.slice(1).toUpperCase() : ''" [placeholder]="'ed.pp2.inherit' | t" (change)="style({ color: val($event) ? toCss('#' + val($event), c.a) : undefined })" />
               }
-              @if (e.style?.color) { <button class="fg-rm" [title]="'ed.pp.inheritColor' | t" (click)="style({ color: undefined })">−</button> }
+              @if (e.style?.color) { <button class="fg-rm" [title]="'ed.pp.inheritColor' | t" [attr.aria-label]="'ed.pp.inheritColor' | t" (click)="style({ color: undefined })">−</button> }
             </div>
             <div class="swatches small">
-              @for (k of themeKeys; track k) { <button class="tok" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" (click)="style({ color: 'var(--c-' + k + ')' })"></button> }
-              @for (p of theme().palette; track p.id) { <button class="tok" [style.background]="p.value" [title]="p.name" (click)="style({ color: 'var(--c-' + p.id + ')' })"></button> }
+              @for (k of themeKeys; track k) { <button class="tok" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" [attr.aria-label]="('ed.theme.' + k) | t" (click)="style({ color: 'var(--c-' + k + ')' })"></button> }
+              @for (p of theme().palette; track p.id) { <button class="tok" [style.background]="p.value" [title]="p.name" [attr.aria-label]="p.name" (click)="style({ color: 'var(--c-' + p.id + ')' })"></button> }
             </div>
             <div class="fg-row2">
               <div class="fg-seg" [class.ovr]="store.isOverridden(n, 'style', 'textAlign')">
                 @for (a of aligns; track a.id) {
-                  <button [class.on]="(e.style?.textAlign ?? 'left') === a.id" [title]="a.title | t" (click)="style({ textAlign: a.id === 'left' ? undefined : a.id })">{{ a.icon }}</button>
+                  <button [class.on]="(e.style?.textAlign ?? 'left') === a.id" [title]="a.title | t" [attr.aria-label]="a.title | t" (click)="style({ textAlign: a.id === 'left' ? undefined : a.id })">{{ a.icon }}</button>
                 }
               </div>
               @if (n.type === 'text') {
                 <div class="fg-seg" [title]="'ed.pp2.textResizing' | t">
-                  <button [class.on]="e.width.mode === 'hug'" [title]="'ed.pp2.autoW' | t" (click)="textSizing('autoW')">↔</button>
-                  <button [class.on]="e.width.mode !== 'hug' && e.height.mode === 'hug'" [title]="'ed.pp2.autoH' | t" (click)="textSizing('autoH')">↕</button>
-                  <button [class.on]="e.width.mode !== 'hug' && e.height.mode !== 'hug'" [title]="'ed.pp2.fixedSize' | t" (click)="textSizing('fixed')">▢</button>
+                  <button [class.on]="e.width.mode === 'hug'" [title]="'ed.pp2.autoW' | t" [attr.aria-label]="'ed.pp2.autoW' | t" (click)="textSizing('autoW')">↔</button>
+                  <button [class.on]="e.width.mode !== 'hug' && e.height.mode === 'hug'" [title]="'ed.pp2.autoH' | t" [attr.aria-label]="'ed.pp2.autoH' | t" (click)="textSizing('autoH')">↕</button>
+                  <button [class.on]="e.width.mode !== 'hug' && e.height.mode !== 'hug'" [title]="'ed.pp2.fixedSize' | t" [attr.aria-label]="'ed.pp2.fixedSize' | t" (click)="textSizing('fixed')">▢</button>
                 </div>
               }
             </div>
@@ -419,6 +427,17 @@ const OVR_LABEL: Record<string, string> = {
       } @else {
         <!-- ===================== Content tab (CMS) ===================== -->
         <p class="pp-help">{{ help(n) }}</p>
+        @if (count() === 1 && n.id !== store.doc().id) {
+          <!-- 2.2.0: a stable name code blocks find the layer by (data-ref) -->
+          <section class="fg-sec pp-ref">
+            <h5>{{ 'ed.ref.title' | t }}</h5>
+            <input id="pp-ref" class="mono" [value]="n.props?.ref ?? ''" [placeholder]="'ed.ref.placeholder' | t" spellcheck="false" autocomplete="off"
+                   [attr.aria-invalid]="refError() ? true : null" [attr.aria-label]="'ed.ref.title' | t" (change)="setRef(n, $event)" />
+            @if (refError(); as e) { <p class="pp-help danger" role="alert">{{ e }}</p> }
+            @else if (n.props?.ref) { <p class="pp-help"><code>anasaki.ref('{{ n.props!.ref }}')</code> · <code>[data-ref="{{ n.props!.ref }}"]</code></p> }
+            @else { <p class="pp-help">{{ 'ed.ref.hint' | t }}</p> }
+          </section>
+        }
         @switch (n.type) {
           @case ('text') {
             <section class="fg-sec">
@@ -451,6 +470,7 @@ const OVR_LABEL: Record<string, string> = {
               <label>{{ 'ed.pp.link' | t }} <rea-link-input [value]="n.props?.href ?? ''" (changed)="props({ href: $event || undefined })" /></label>
               <label class="fg-check"><input type="checkbox" [checked]="!!n.props?.newTab" (change)="props({ newTab: checked($event) || undefined })" /> {{ 'ed.pp.newTab' | t }}</label>
             </section>
+            @if (count() === 1) { <rea-icon-picker [node]="n" [forButton]="true" /> }
           }
           @case ('image') {
             <section class="fg-sec">
@@ -486,6 +506,23 @@ const OVR_LABEL: Record<string, string> = {
               <p class="hint">{{ 'ed.pp.menuHint' | t }}</p>
               <label class="fg-check"><input type="checkbox" [checked]="!!n.props?.burger" (change)="props({ burger: checked($event) || undefined })" /> {{ 'cs.burger' | t }}</label>
               <p class="hint">{{ 'cs.burgerHint' | t }}</p>
+            </section>
+            <!-- 2.2.0: every link's padding / corners, and the look of the current page's link -->
+            <section class="fg-sec" id="pp-menu-links">
+              <h5>{{ 'ed.menu.links' | t }}</h5>
+              <div class="fg-row2">
+                <label class="fg-field" [title]="'ed.menu.padY' | t"><span>↕</span><input type="number" min="0" id="pp-menu-pady" [attr.aria-label]="'ed.menu.padY' | t" [value]="n.style?.linkPadding?.[0] ?? ''" placeholder="0" (change)="linkPad(n, 0, $event)" /></label>
+                <label class="fg-field" [title]="'ed.menu.padX' | t"><span>↔</span><input type="number" min="0" id="pp-menu-padx" [attr.aria-label]="'ed.menu.padX' | t" [value]="n.style?.linkPadding?.[1] ?? ''" placeholder="0" (change)="linkPad(n, 1, $event)" /></label>
+              </div>
+              <label class="fg-field" [title]="'ed.menu.radius' | t"><span>◜</span><input type="number" min="0" id="pp-menu-radius" [attr.aria-label]="'ed.menu.radius' | t" [value]="n.style?.linkRadius ?? ''" placeholder="0" (change)="store.setStyle(n.id, { linkRadius: num($event) || undefined })" /></label>
+              <h5>{{ 'ed.menu.current' | t }}</h5>
+              <div class="fx-colors">
+                <label>{{ 'fx.fill' | t }}<input type="color" id="pp-menu-cur-fill" [attr.aria-label]="'ed.menu.curFill' | t" [value]="hexOr(n.style?.active?.fill, '#ff7a7a')" (change)="menuActive(n, { fill: val($event) })" /></label>
+                <label>{{ 'fx.text' | t }}<input type="color" id="pp-menu-cur-color" [attr.aria-label]="'ed.menu.curColor' | t" [value]="hexOr(n.style?.active?.color, '#ffffff')" (change)="menuActive(n, { color: val($event) })" /></label>
+                <label>{{ 'fx.strokeShort' | t }}<input type="color" [attr.aria-label]="'ed.menu.curStroke' | t" [value]="hexOr(n.style?.active?.stroke, '#ff7a7a')" (change)="menuActive(n, { stroke: val($event) })" /></label>
+                @if (n.style?.active) { <button class="fg-link" (click)="store.setStyle(n.id, { active: undefined })">{{ 'pt.reset' | t }}</button> }
+              </div>
+              <p class="hint">{{ 'ed.menu.currentHint' | t }}</p>
             </section>
           }
           @case ('postList') {
@@ -620,8 +657,8 @@ const OVR_LABEL: Record<string, string> = {
               </label>
               <label>{{ 'ed.pp.bcCurrent' | t }}</label>
               <div class="swatches">
-                @for (k of themeKeys; track k) { <button class="tok" [class.on]="n.props?.currentColor === 'var(--c-' + k + ')'" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" (click)="props({ currentColor: 'var(--c-' + k + ')' })"></button> }
-                <button class="none" [title]="'ed.pp.inheritColor' | t" (click)="props({ currentColor: undefined })">∅</button>
+                @for (k of themeKeys; track k) { <button class="tok" [class.on]="n.props?.currentColor === 'var(--c-' + k + ')'" [style.background]="'var(--c-' + k + ')'" [title]="('ed.theme.' + k) | t" [attr.aria-label]="('ed.theme.' + k) | t" (click)="props({ currentColor: 'var(--c-' + k + ')' })"></button> }
+                <button class="none" [title]="'ed.pp.inheritColor' | t" [attr.aria-label]="'ed.pp.inheritColor' | t" (click)="props({ currentColor: undefined })">∅</button>
               </div>
               <label class="fg-check"><input type="checkbox" [checked]="!!n.props?.hideCategory" (change)="props({ hideCategory: checked($event) || undefined })" /> {{ 'ed.pp.bcHideCat' | t }}</label>
             </section>
@@ -672,6 +709,18 @@ const OVR_LABEL: Record<string, string> = {
             @for (f of fonts; track f) { <option [value]="f">{{ f }}</option> }
           </select>
         </label>
+        <!-- 2.2.0: where the tablet / mobile designs start on the site -->
+        <label>{{ 'ed.theme.bpMobile' | t }}
+          <select id="theme-bp-mobile" [value]="theme().breakpoints?.mobile ?? 640" (change)="setThemeBp('mobile', val($event))">
+            @for (w of [640, 767, 820]; track w) { <option [value]="w">≤ {{ w }} px{{ w === 640 ? ' · ' + ('ed.theme.bpDefault' | t) : w === 767 ? ' · Tailwind md' : '' }}</option> }
+          </select>
+        </label>
+        <label>{{ 'ed.theme.bpTablet' | t }}
+          <select id="theme-bp-tablet" [value]="theme().breakpoints?.tablet ?? 1024" (change)="setThemeBp('tablet', val($event))">
+            @for (w of [960, 1024, 1180, 1280]; track w) { <option [value]="w">≤ {{ w }} px{{ w === 1024 ? ' · ' + ('ed.theme.bpDefault' | t) : '' }}</option> }
+          </select>
+        </label>
+        <p class="hint">{{ 'ed.theme.bpHint' | t }}</p>
         <rea-style-library />
         @if (store.themeDraft()) {
           <div class="fg-row2">
@@ -883,6 +932,34 @@ export class PropsPanel {
   }
   layout(patch: Partial<Layout>) { this.store.setLayout(this.ids(), patch); }
   props(patch: DNode['props']) { this.store.setProps(this.ids(), patch!); }
+
+  /** "Top left" … "Bottom right" for the 3×3 alignment buttons (screen readers, tests — 2.2.0). */
+  gridLabel(r: number, c: number): string {
+    return tr('ed.al.cell', { v: tr(['ed.al.top', 'ed.al.middle', 'ed.al.bottom'][r]), h: tr(['ed.al.left', 'ed.al.center', 'ed.al.right'][c]) });
+  }
+
+  linkPad(n: DNode, i: 0 | 1, e: Event) {
+    // the stored value, not the template's node: two quick edits (top/bottom, then left/right) must both stay
+    const cur = findNode(this.store.doc(), n.id)?.node.style?.linkPadding ?? [0, 0];
+    const p: [number, number] = [cur[0] ?? 0, cur[1] ?? 0];
+    p[i] = this.num(e) || 0;
+    this.store.setStyle(n.id, { linkPadding: p[0] || p[1] ? p : undefined });
+  }
+  menuActive(n: DNode, patch: { fill?: string; color?: string; stroke?: string }) {
+    this.store.setStyle(n.id, { active: { ...n.style?.active, ...patch } });
+  }
+  hexOr(c: string | undefined, def: string) { return c && /^#[0-9a-f]{6}$/i.test(c) ? c : def; }
+
+  /** "Name for code" (props.ref → data-ref): same rule as RefNameRe in render.go; unique on the page. */
+  readonly refError = signal('');
+  setRef(n: DNode, e: Event) {
+    const v = (e.target as HTMLInputElement).value.trim();
+    if (v && !/^[a-z][a-zA-Z0-9_-]{0,39}$/.test(v)) { this.refError.set(tr('ed.ref.bad')); return; }
+    const taken = v ? findRef(this.store.doc(), v, n.id) : null;
+    if (taken) { this.refError.set(tr('ed.ref.taken', { name: taken.name || taken.type })); return; }
+    this.refError.set('');
+    this.store.setProps(n.id, { ref: v || undefined });
+  }
   query(n: DNode, patch: object) { this.store.setProps(n.id, { query: { ...n.props?.query, ...patch } }); }
 
   sizeVal(axis: 'width' | 'height'): number {
@@ -1030,6 +1107,14 @@ export class PropsPanel {
     this.store.themeDraft.set(t);
   }
 
+  setThemeBp(k: 'tablet' | 'mobile', v: string) {
+    const t: Theme = structuredClone(this.theme());
+    const def = k === 'mobile' ? 640 : 1024, n = Number(v);
+    const bp = { ...t.breakpoints, [k]: n === def ? undefined : n };
+    t.breakpoints = bp.mobile || bp.tablet ? bp : undefined;
+    this.store.themeDraft.set(t);
+  }
+
   setThemeFont(k: 'fontHeading' | 'fontBody', v: string) {
     const t: Theme = { ...structuredClone(this.theme()), [k]: v };
     this.store.themeDraft.set(t);
@@ -1066,4 +1151,11 @@ export class PropsPanel {
     else this.style({ backgroundImage: m.url });
     this.pickFor.set(null);
   }
+}
+
+/** Another layer (not `except`) already using the name for code `ref`. */
+function findRef(root: DNode, ref: string, except: string): DNode | null {
+  if (root.id !== except && root.props?.ref === ref) return root;
+  for (const c of root.children ?? []) { const f = findRef(c, ref, except); if (f) return f; }
+  return null;
 }

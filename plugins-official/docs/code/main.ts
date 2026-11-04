@@ -1,4 +1,4 @@
-// Docs (official plugin 1.1.2) — a documentation hub for the site:
+// Docs (official plugin 1.1.3) — a documentation hub for the site:
 //  - post type "docs_doc" (site.postType in a plugin, CMS 2.0.5, scope post-types) edited in the normal post
 //    editor, with the fields product, section, order and sectionOrder (post meta, unprefixed); public: false, so
 //    core does not route the type — the plugin serves its pages under /docs (core's post URL /docs/<slug> is
@@ -30,10 +30,10 @@ site.postType(TYPE, {
   supports: ['title', 'content', 'excerpt'],
   ...(CAPS ? { caps: { edit: 'docs.edit', publish: 'docs.publish' } } : { access: { edit: ['editor', 'administrator'] } }),
   fields: {
-    product: { type: 'text', required: true, max: 40, label: { th: 'ผลิตภัณฑ์ (รหัสตามการตั้งค่า products — ค่าเริ่มต้น general)', en: 'Product (an id from the products setting — default general)' } },
-    section: { type: 'text', max: 80, label: { th: 'หมวด (เช่น เริ่มต้น)', en: 'Section (e.g. Getting started)' } },
-    order: { type: 'number', label: { th: 'ลำดับในหมวด (น้อยขึ้นก่อน)', en: 'Order in the section (lowest first)' } },
-    sectionOrder: { type: 'number', label: { th: 'ลำดับของหมวด (ไม่บังคับ)', en: 'Section order (optional)' } },
+    product: { type: 'text', required: true, max: 40, label: { th: 'ผลิตภัณฑ์', en: 'Product' } },
+    section: { type: 'text', max: 80, label: { th: 'หมวด', en: 'Section' } },
+    order: { type: 'number', label: { th: 'ลำดับ', en: 'Order' } },
+    sectionOrder: { type: 'number', label: { th: 'ลำดับหมวด', en: 'Section order' } },
   },
 });
 

@@ -89,6 +89,38 @@ func Parse(raw []byte) (*Node, error) {
 	return &n, nil
 }
 
+// ParseForSave is Parse plus the checks a stored design must pass: every layer
+// id is unique (the renderer styles a layer by .n-<id>, so two layers
+// sharing an id share their CSS). Rendering keeps using Parse, so pages saved
+// before the check still render.
+func ParseForSave(raw []byte) (*Node, error) {
+	n, err := Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var walk func(x *Node) error
+	walk = func(x *Node) error {
+		if x == nil {
+			return nil
+		}
+		if x.ID != "" && seen[x.ID] {
+			return fmt.Errorf("id ของชั้น %q ซ้ำกัน ทุกชั้นต้องมี id ไม่ซ้ำ", x.ID)
+		}
+		seen[x.ID] = true
+		for _, c := range x.Children {
+			if err := walk(c); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := walk(n); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
 // IsVisible reports the node's visibility (default true).
 func (n *Node) IsVisible() bool { return n.Visible == nil || *n.Visible }
 

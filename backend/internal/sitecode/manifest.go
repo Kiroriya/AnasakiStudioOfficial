@@ -230,7 +230,7 @@ func checkAccess(list []string) ([]string, error) {
 
 // Reserved returns the first path segments Site Code routes may not use.
 func Reserved(opts map[string]string, servicePrefixes []string) map[string]bool {
-	r := map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true, "_a": true, "_c": true,
+	r := map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true, "_a": true, "_c": true,
 		"ext-ui": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true}
 	add := func(v, def string) {
 		v = strings.ToLower(strings.Trim(v, "/ "))

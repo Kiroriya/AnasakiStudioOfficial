@@ -13,7 +13,7 @@ import { mapLimit } from '../shared/concurrency';
 import { saveBlob } from '../shared/download';
 import { CodeTabs } from './code-tabs';
 import {
-  CODE_EXTENSIONS, CODE_LIMITS, Problem, RUN_METHODS, UploadSummary, ancestors, baseName, buildTree, entryPoint, filenameFromDisposition,
+  CODE_EXTENSIONS, PUBLIC_EXTENSIONS, CODE_LIMITS, Problem, RUN_METHODS, UploadSummary, ancestors, baseName, buildTree, entryPoint, filenameFromDisposition,
   flattenTree, formatBytes, isZipName, languageFor, movedPath, parentDir, parseHeaderLines, prettyBody, problemsByFile, splitRunPath,
   summarizeUpload, toProblems, validatePath,
 } from './code-utils';
@@ -410,7 +410,7 @@ export class CodeEditor implements OnInit, OnDestroy {
   readonly limits = CODE_LIMITS;
   readonly methods = RUN_METHODS;
   readonly exts = CODE_EXTENSIONS.join(' ');
-  readonly accept = ['.zip', ...CODE_EXTENSIONS].join(',');
+  readonly accept = ['.zip', ...new Set([...CODE_EXTENSIONS, ...PUBLIC_EXTENSIONS])].join(',');
 
   readonly canEdit = computed(() => this.auth.can('edit_scripts'));
   readonly canPublish = computed(() => this.auth.can('publish_scripts'));

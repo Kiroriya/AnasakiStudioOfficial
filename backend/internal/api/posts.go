@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,10 +159,11 @@ type postInput struct {
 	ClearFeatured   bool            `json:"clearFeatured"`
 	CategoryIDs     []int64         `json:"categoryIds"`
 	// Terms sets the post's terms per taxonomy (2.1.0): {"<taxonomy>": [ids]};
-	// a taxonomy left out is unchanged.
-	Terms    map[string][]int64 `json:"terms"`
-	AuthorID *int64             `json:"authorId"`
-	Pinned   *bool              `json:"pinned"`
+	// a taxonomy left out is unchanged. 2.1.1: an entry may also be a slug
+	// (a JSON string), like db.posts in Site Code.
+	Terms    map[string][]termRef `json:"terms"`
+	AuthorID *int64               `json:"authorId"`
+	Pinned   *bool                `json:"pinned"`
 	// PublishedAt sets the publish date (2.1.0): in the future with status
 	// "publish" or "scheduled" the post waits for it; in the past it back-dates.
 	PublishedAt   *time.Time `json:"publishedAt"`
@@ -206,7 +209,7 @@ func (in *postInput) apply(p *model.Post, me *auth.Principal, canPublish bool) s
 		if !me.Can(auth.CapEditPages) {
 			return "คุณไม่มีสิทธิ์แก้ไขหน้าตาเว็บ"
 		}
-		if _, err := design.Parse(in.Design); err != nil {
+		if _, err := design.ParseForSave(in.Design); err != nil {
 			return "ข้อมูลดีไซน์ไม่ถูกต้อง: " + err.Error()
 		}
 		p.Design = in.Design
@@ -496,12 +499,47 @@ func (a *API) restoreRevision(w http.ResponseWriter, r *http.Request) {
 
 // termSets is the terms to store per taxonomy: in.terms (each taxonomy must
 // apply to the type) plus categoryIds, kept for the types that use categories.
+// termRef is one entry of postInput.terms: a term id (JSON number) or slug
+// (JSON string).
+type termRef struct {
+	ID   int64
+	Slug string
+}
+
+func (r *termRef) UnmarshalJSON(b []byte) error {
+	if len(b) > 0 && b[0] == '"' {
+		if err := json.Unmarshal(b, &r.Slug); err != nil {
+			return err
+		}
+		if r.Slug = strings.TrimSpace(r.Slug); r.Slug == "" {
+			return errors.New("terms: slug ว่าง")
+		}
+		return nil
+	}
+	if err := json.Unmarshal(b, &r.ID); err != nil {
+		return errors.New("terms: ต้องเป็น id (ตัวเลข) หรือ slug (ข้อความ)")
+	}
+	return nil
+}
+
 func (a *API) termSets(typ string, in *postInput) (map[string][]int64, string) {
 	if msg := a.postTermsInput(typ, in.Terms); msg != "" {
 		return nil, msg
 	}
 	out := map[string][]int64{}
-	for tax, ids := range in.Terms {
+	for tax, refs := range in.Terms {
+		ids := make([]int64, 0, len(refs))
+		for _, ref := range refs {
+			if ref.Slug == "" {
+				ids = append(ids, ref.ID)
+				continue
+			}
+			t, err := a.st.TermBySlug(tax, ref.Slug)
+			if err != nil {
+				return nil, "ไม่พบหมวด " + strconv.Quote(ref.Slug) + " ในชุดหมวด " + tax
+			}
+			ids = append(ids, t.ID)
+		}
 		out[tax] = ids
 	}
 	if in.CategoryIDs != nil && slices.Contains(a.manifest().TaxonomiesOf(typ), "category") {

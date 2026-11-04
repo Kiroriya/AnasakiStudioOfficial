@@ -69,7 +69,7 @@ func newCodeAPI(t *testing.T, tweak func(*sitecode.Config)) (*client, *sitecode.
 	resetCodeDB(t, conn, os.Getenv("TEST_CODE_DB_DSN"))
 	code := sitecode.New(st, cfg)
 	t.Cleanup(code.Close)
-	code.RouteTimeout, code.EventTimeout = 500*time.Millisecond, 2*time.Second
+	code.RouteTimeout, code.EventTimeout = slow(500*time.Millisecond), slow(2*time.Second)
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
 	wireSiteContent(web, code)
@@ -448,7 +448,7 @@ func TestCodeRuntimeErrorsAndLogs(t *testing.T) {
 	if code, _ := c.public("GET", "/loop"); code != 504 {
 		t.Fatalf("infinite loop: %d", code)
 	}
-	if time.Since(start) > 3*time.Second {
+	if time.Since(start) > slow(3*time.Second) {
 		t.Fatal("timeout too slow")
 	}
 	c.public("GET", "/ok")

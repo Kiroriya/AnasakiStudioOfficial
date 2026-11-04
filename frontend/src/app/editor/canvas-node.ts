@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Directive, ElementRef, OnInit, comp
 import { DomSanitizer } from '@angular/platform-browser';
 import { TPipe, localized, tr } from '../core/i18n';
 import { DNode, LayoutMode, effective, findNode, isContainer } from './design-types';
-import { BindCtx, PageLink, bind, bindEscaped, ensureFont, escapeHtml, exprCtx, hasFormatting, hoverCss, instanceChildren, nodeCss, pageItemDecls, pageLinks, sanitizeRich, focal, maskUrl, withTextStyle, PART_CLASS } from './design-css';
+import { BindCtx, PageLink, bind, bindEscaped, ensureFont, escapeHtml, exprCtx, hasFormatting, hoverCss, instanceChildren, menuLinkCss, nodeCss, pageItemDecls, pageLinks, samePage, sanitizeRich, focal, maskUrl, withTextStyle, PART_CLASS } from './design-css';
 import { EditorStore, SampleCtx } from './editor-store';
 import { CodeData } from './code-data';
 import { buildInputOptions, isCodeSource } from './code-logic';
@@ -118,6 +118,7 @@ export class InlineEdit implements OnInit {
     '[class.is-collapsed]': '!!view().props?.collapsed',
     '[class.rea-car-edit]': "!!view().props?.carousel && view().type === 'frame'",
     '[attr.data-wfill]': "view().width.mode === 'fill' ? '' : null",
+    '[attr.data-ref]': 'view().props?.ref || null', // name for code (2.2.0), as on the site
     '(pointerdown)': 'down($event)',
     '(pointerover)': 'over($event)',
     '(dblclick)': 'dbl($event)',
@@ -135,9 +136,11 @@ export class InlineEdit implements OnInit {
         @if (unknownFormatters(); as uf) { <sup class="rea-fmt-marker" [title]="'sc.canvas.serverFormatter' | t: { names: uf }">ƒ</sup> }
       }
       @case ('button') {
+        @if (buttonIcon() && view().props?.iconPosition !== 'end') { <span class="rea-btn-ic" [innerHTML]="buttonIcon()"></span> }
         @if (editing()) {
           <span reaInlineEdit [text]="node().props?.text ?? ''" (commit)="commitText($event)"></span>
         } @else {<span>{{ text() }}</span>}
+        @if (buttonIcon() && view().props?.iconPosition === 'end') { <span class="rea-btn-ic" [innerHTML]="buttonIcon()"></span> }
         @if (unknownFormatters(); as uf) { <sup class="rea-fmt-marker" [title]="'sc.canvas.serverFormatter' | t: { names: uf }">ƒ</sup> }
       }
       @case ('image') {
@@ -152,7 +155,9 @@ export class InlineEdit implements OnInit {
         @if (view().props?.burger && store.bp() === 'mobile') {
           <span class="rea-burger-ic" [title]="'cs.burger' | t"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
         } @else {
-          @for (it of store.menuItems(view().props?.menuId); track $index) { <a>{{ it.label }}</a> }
+          @for (it of store.menuItems(view().props?.menuId); track $index) {
+            <a [attr.aria-current]="isCurrent(it.url) ? 'page' : null" [style]="menuLink(it.url)">{{ it.label }}</a>
+          }
           @empty { <a class="muted">{{ 'ed.ph.chooseMenu' | t }}</a> }
         }
       }
@@ -272,6 +277,13 @@ export class NodeView {
     const cls = codeBlockClass(v.id);
     const style = css.trim() ? `<style>${scopeCss(css, v.id)}</style>` : '';
     return this.sanitizer.bypassSecurityTrustHtml(`${style}<div class="${cls}" data-rea-code-block="${cls.slice(7)}">${canvasHtml(html, v.id)}</div>`);
+  });
+  /** A button's icon (2.2.0, ButtonIcon in icons.go). */
+  readonly buttonIcon = computed(() => {
+    const v = this.view();
+    const name = v.type === 'button' ? v.props?.icon : undefined;
+    if (!name || !this.store.assets()?.icons[name]) return null;
+    return this.sanitizer.bypassSecurityTrustHtml(this.store.svgFor({ id: '', type: 'icon', width: { mode: 'hug' }, height: { mode: 'hug' }, props: { icon: name } }));
   });
   readonly svg = computed(() => {
     const v = this.view(); // vector: validated path + paints (vector.ts)
@@ -443,11 +455,13 @@ export class NodeView {
     const v = this.view();
     const src = v.type === 'input' ? v.props?.value?.trim() : '';
     if (!src) return '';
+    if (v.props?.valueText) return src; // plain text (2.2.0)
     const r = evalExpr(src, exprCtx(this.ctx()), this.ctx().opts);
-    return r.error ? '' : toText(r.value);
+    return r.error ? src : toText(r.value); // not an expression: the text itself, as EvalString on the site
   });
   readonly inputChecked = computed(() => {
     const src = this.view().props?.value?.trim();
+    if (src && this.view().props?.valueText) return truthy(src);
     return !!src && truthy(evalExpr(src, exprCtx(this.ctx()), this.ctx().opts).value);
   });
   private readonly optionsReq = computed(() => {
@@ -565,6 +579,13 @@ export class NodeView {
     }
     this.store.drillDown(this.node().id);
   }
+
+  /** The menu link to the page open in the designer (aria-current, as on the site — 2.2.0). */
+  isCurrent(url: string): boolean {
+    const p = this.store.post();
+    return !!p && p.type !== 'template' && samePage(url, this.store.pathOf(p));
+  }
+  menuLink(url: string): Record<string, string> { return menuLinkCss(this.view(), this.isCurrent(url)); }
 
   menu(e: MouseEvent) {
     if (!this.interactive()) return;

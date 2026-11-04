@@ -15,9 +15,9 @@ import './messages-mask';
     <section class="fg-sec">
       <h5>✂ {{ 'mk.title' | t }}</h5>
       <div class="mk-grid">
-        <button [class.on]="!n.style?.mask" (click)="set({ mask: undefined })" [title]="'mk.none' | t">∅</button>
+        <button [class.on]="!n.style?.mask" (click)="set({ mask: undefined })" [title]="'mk.none' | t" [attr.aria-label]="'mk.none' | t">∅</button>
         @for (m of masks(); track m.name) {
-          <button [class.on]="n.style?.mask === m.name" (click)="set({ mask: m.name })" [title]="m.name" [innerHTML]="m.svg"></button>
+          <button [class.on]="n.style?.mask === m.name" (click)="set({ mask: m.name })" [title]="m.name" [attr.aria-label]="m.name" [innerHTML]="m.svg"></button>
         }
       </div>
       <p class="hint">{{ 'mk.hint' | t }}</p>

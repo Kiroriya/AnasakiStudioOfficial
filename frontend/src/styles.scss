@@ -26,6 +26,9 @@
   .rea-breadcrumb, &.rea-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; }
   .rea-breadcrumb a { color: inherit; text-decoration: none; }
   .rea-bc-sep { opacity: .5; }
+  /* button icon (2.2.0, as .rea-btn-ic in the site's BaseCSS); the gap only when the button has no own gap */
+  .rea-btn-ic { display: inline-flex; width: 1.15em; height: 1.15em; flex-shrink: 0; }
+  :where(:has(> .rea-btn-ic)) { gap: .5em; }
   /* Site Code nodes: mirrors SITE_CODE_BASE_CSS (design-css.ts) */
   .rea-pagination, &.rea-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .rea-pg-item { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5em; border: 1px solid transparent; text-decoration: none; cursor: pointer; font: inherit; line-height: 1.2; }

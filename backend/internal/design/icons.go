@@ -193,6 +193,21 @@ func IconSVG(n *Node, cls string) string {
 	return `<svg class="` + cls + `" viewBox="0 0 24 24" ` + paint + a11y(n) + `>` + ic.Body + `</svg>`
 }
 
+// ButtonIcon is the icon of a button (props.icon, a name from Icons; 2.2.0):
+// 1.15em, in the text colour, decorative (the text names the button). "" when
+// the button has none or the name is unknown.
+func ButtonIcon(n *Node) string {
+	ic, ok := Icons[getStr(n.Props, "icon")]
+	if !ok {
+		return ""
+	}
+	paint := `fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`
+	if ic.Fill {
+		paint = `fill="currentColor" stroke="none"`
+	}
+	return `<svg class="rea-btn-ic" viewBox="0 0 24 24" width="1.15em" height="1.15em" ` + paint + ` aria-hidden="true" focusable="false">` + ic.Body + `</svg>`
+}
+
 // ShapeSVG is the <svg> of a shape node.
 func ShapeSVG(n *Node, cls string) string {
 	sh, ok := Shapes[getStr(n.Props, "shape")]

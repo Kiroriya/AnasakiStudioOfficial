@@ -18,13 +18,13 @@ import './messages-editor';
   template: `
     @if (pos(); as p) {
       <div class="rt-bar" [style.left.px]="p.x" [style.top.px]="p.y" (pointerdown)="keep($event)">
-        <button tabindex="-1" [title]="'ed.rt.bold' | t" (click)="cmd('bold')"><b>B</b></button>
-        <button tabindex="-1" [title]="'ed.rt.italic' | t" (click)="cmd('italic')"><i>I</i></button>
-        <button tabindex="-1" [title]="'ed.rt.underline' | t" (click)="cmd('underline')"><u>U</u></button>
-        <button tabindex="-1" [title]="'ed.rt.strike' | t" (click)="cmd('strikeThrough')"><s>S</s></button>
+        <button tabindex="-1" [title]="'ed.rt.bold' | t" [attr.aria-label]="'ed.rt.bold' | t" (click)="cmd('bold')"><b>B</b></button>
+        <button tabindex="-1" [title]="'ed.rt.italic' | t" [attr.aria-label]="'ed.rt.italic' | t" (click)="cmd('italic')"><i>I</i></button>
+        <button tabindex="-1" [title]="'ed.rt.underline' | t" [attr.aria-label]="'ed.rt.underline' | t" (click)="cmd('underline')"><u>U</u></button>
+        <button tabindex="-1" [title]="'ed.rt.strike' | t" [attr.aria-label]="'ed.rt.strike' | t" (click)="cmd('strikeThrough')"><s>S</s></button>
         <span class="sep"></span>
         @for (k of colorKeys; track k) {
-          <button tabindex="-1" class="rt-sw" [style.background]="store.liveTheme().colors[k]" [title]="('ed.theme.' + k) | t" (click)="color('var(--c-' + k + ')')"></button>
+          <button tabindex="-1" class="rt-sw" [style.background]="store.liveTheme().colors[k]" [title]="('ed.theme.' + k) | t" [attr.aria-label]="('ed.theme.' + k) | t" (click)="color('var(--c-' + k + ')')"></button>
         }
         <label class="rt-custom" [title]="'ed.rt.color' | t">🎨<input type="color" (pointerdown)="save()" (change)="color(val($event))" (blur)="fieldBlur($event)" /></label>
         <span class="sep"></span>
@@ -32,9 +32,9 @@ import './messages-editor';
           <input class="rt-link" placeholder="/about, https://…" [value]="linkUrl()" (input)="linkUrl.set(val($event))" (keydown.enter)="applyLink()" (keydown.escape)="linking.set(false)" (blur)="fieldBlur($event)" />
           <button tabindex="-1" (click)="applyLink()">✓</button>
         } @else {
-          <button tabindex="-1" [title]="'ed.rt.link' | t" (click)="startLink()">🔗</button>
+          <button tabindex="-1" [title]="'ed.rt.link' | t" [attr.aria-label]="'ed.rt.link' | t" (click)="startLink()">🔗</button>
         }
-        <button tabindex="-1" [title]="'ed.rt.clear' | t" (click)="clear()">⌫</button>
+        <button tabindex="-1" [title]="'ed.rt.clear' | t" [attr.aria-label]="'ed.rt.clear' | t" (click)="clear()">⌫</button>
       </div>
     }
   `,

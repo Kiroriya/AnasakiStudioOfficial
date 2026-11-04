@@ -209,6 +209,7 @@ export class Categories implements OnInit {
                 <input [value]="it.label" (input)="setItem(i, 'label', $event)" />
                 <input class="mono" [value]="it.url" (input)="setItem(i, 'url', $event)" [style.border-color]="badUrls().has(i) ? 'var(--danger)' : null"
                        [attr.aria-invalid]="badUrls().has(i)" [title]="badUrls().has(i) ? ('url.unsafe' | t) : ''" />
+                @if (broken().has(it.url)) { <span class="badge badge-warn menu-broken" [title]="'menus.brokenTip' | t">⚠ {{ 'menus.broken' | t }}</span> }
                 <button class="icon-btn" [disabled]="i === 0" (click)="moveItem(i, -1)" [title]="'menus.up' | t">↑</button>
                 <button class="icon-btn" [disabled]="i === m.items.length - 1" (click)="moveItem(i, 1)" [title]="'menus.down' | t">↓</button>
                 <button class="btn btn-sm btn-danger item-del" (click)="removeItem(i)" [title]="'menus.removeLink' | t">🗑 {{ 'common.delete' | t }}</button>
@@ -267,7 +268,23 @@ export class Menus implements OnInit, OnDestroy {
 
   ngOnDestroy() { this.flush(); }
 
-  open(m: Menu) { this.flush(); this.badUrls.set(new Set()); this.current.set(structuredClone(m)); }
+  open(m: Menu) { this.flush(); this.badUrls.set(new Set()); this.current.set(structuredClone(m)); void this.checkLinks(m); }
+
+  /** Links of the open menu that answer 404 on the site (2.2.0): a page deleted or moved — asked with HEAD, so
+   *  pages from Site Code and plugins count too. External links are not checked. */
+  readonly broken = signal<ReadonlySet<string>>(new Set());
+  private async checkLinks(m: Menu) {
+    this.broken.set(new Set());
+    const urls = [...new Set(m.items.map(it => it.url).filter(u => u.startsWith('/') && !u.startsWith('//')))].slice(0, 40);
+    const bad = new Set<string>();
+    await Promise.all(urls.map(async u => {
+      try {
+        const r = await fetch(SITE_ORIGIN + u, { method: 'HEAD', credentials: 'omit', redirect: 'follow', cache: 'no-store' });
+        if (r.status === 404 || r.status === 410) bad.add(u);
+      } catch { /* offline or blocked: not reported */ }
+    }));
+    if (this.current()?.id === m.id) this.broken.set(bad);
+  }
 
   /** Every change is saved automatically (debounced) — nothing is lost on reload. */
   private patch(fn: (m: Menu) => void) {

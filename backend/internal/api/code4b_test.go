@@ -91,7 +91,7 @@ func newPluginAPIWith(t *testing.T, tweak func(*sitecode.Config)) *pluginEnv {
 	code := sitecode.New(st, cfg)
 	t.Cleanup(code.Close)
 	pm.SetCodeRuntime(code)
-	code.RouteTimeout, code.EventTimeout = 700*time.Millisecond, 3*time.Second
+	code.RouteTimeout, code.EventTimeout = slow(700*time.Millisecond), slow(3*time.Second)
 	web.SetCode(code.ServePublic)
 	web.SetCodeSessions(code.Session)
 	web.SetCodeHooks(code)
@@ -495,7 +495,7 @@ site.route('GET /beta/bad-emit', { access: ['*'] }, () => j(() => site.emit('alp
 	}
 	// time: the export uses the caller's remaining time
 	start := time.Now()
-	if code, _ := getJSON(t, c, "GET", "/beta/slow", "", nil); code != 504 || time.Since(start) > 2*time.Second {
+	if code, _ := getJSON(t, c, "GET", "/beta/slow", "", nil); code != 504 || time.Since(start) > slow(2*time.Second) {
 		t.Fatalf("slow export: %d after %s", code, time.Since(start))
 	}
 	// events from a plugin reach other units
@@ -761,11 +761,20 @@ func TestPluginsCallWasm(t *testing.T) {
 	files["plugin.wasm"] = string(wasmBytes)
 	mustUpload(t, admin, files)
 	activate(t, admin, "reports")
-	// compile now (the first run would otherwise eat the route's time)
-	if code, h := admin.do("GET", "/api/v1/package-plugins/reports/service/health", nil); code != 200 || h["ok"] != true {
-		t.Fatalf("health: %d %v", code, h)
+	// compile now (the first run would otherwise eat the route's time); activation starts the
+	// compilation in the background, so ask until it is ready (slow under the race detector)
+	var code int
+	var h map[string]any
+	for deadline := time.Now().Add(slow(20 * time.Second)); ; {
+		if code, h = admin.do("GET", "/api/v1/package-plugins/reports/service/health", nil); code == 200 && h["ok"] == true {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("health: %d %v", code, h)
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
-	e.code.RouteTimeout = 5 * time.Second
+	e.code.RouteTimeout = slow(5 * time.Second)
 	publishCode(t, admin, map[string]string{"main.ts": `
 site.route('GET /report', { access: ['*'] }, () => plugins.call('reports', 'monthly', { sales: [100, 250, 30] }));`})
 	code, b := getJSON(t, c, "GET", "/report", "", nil)

@@ -233,7 +233,7 @@ site.route('GET /lib/asset', { access: ['*'] }, () => {
 site.route('GET /sc-asset', { access: ['*'] }, () => { try { site.asset('x.txt'); return 'ok' } catch (e) { return { err: String(e.message) } } })
 site.route('GET /sc-call', { access: ['*'] }, () => plugins.call('lib', 'hello', 'site'))
 `})
-	if _, b := getJSON(t, c, "GET", "/sc-asset", "", nil); !strings.Contains(fmt.Sprint(b["err"]), "site.asset ใช้ได้เฉพาะในปลั๊กอิน") {
+	if _, b := getJSON(t, c, "GET", "/sc-asset", "", nil); !strings.Contains(fmt.Sprint(b["err"]), "public/") { // 2.2.0: Site Code reads its public/ files only
 		t.Fatalf("site.asset in Site Code: %v", b)
 	}
 	if _, b := getJSON(t, c, "GET", "/sc-call", "", nil); b["hi"] != "hello site" {

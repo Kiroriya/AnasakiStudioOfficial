@@ -85,7 +85,7 @@ var (
 )
 
 // reservedExportRoutes are first segments a packaged route may not use.
-var reservedExportRoutes = map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true,
+var reservedExportRoutes = map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true,
 	"_a": true, "_c": true, "ext-ui": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
 	"assets": true, "static": true, "blog": true, "category": true, "preview": true}
 

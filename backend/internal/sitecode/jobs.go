@@ -32,7 +32,7 @@ type JobInfo struct {
 
 // CronInfo is a registered site.cron: Name identifies the schedule (the job
 // name, "<job>@2" for a second schedule of the same job, "@cron-N" for a
-// function).
+// function, "@<name>" for a function given { name } — 2.1.1).
 type CronInfo struct {
 	Name string `json:"name"`
 	Expr string `json:"expr"`
@@ -47,7 +47,8 @@ type regJob struct {
 
 type regCron struct {
 	info CronInfo
-	fn   goja.Callable // a function schedule (runs as job @cron-N)
+	fn   goja.Callable // a function schedule (runs as job @cron-N, or @<name>)
+	name string        // the { name } option of a function schedule
 	at   Problem
 }
 
@@ -139,6 +140,15 @@ func (v *vm) siteCron(c goja.FunctionCall) goja.Value {
 		}
 		_ = t
 		rc.fn = fn
+		if o := optObject(v.rt, c.Argument(2)); o != nil {
+			if x := o.Get("name"); x != nil && !goja.IsUndefined(x) && !goja.IsNull(x) {
+				name, _ := x.Export().(string)
+				if !bindingNameRe.MatchString(name) {
+					v.throw("site.cron(%q): name %q ไม่ถูกต้อง (a-z ตัวแรก ตามด้วย a-z A-Z 0-9 _ - ไม่เกิน 63 ตัว)", expr, x.String())
+				}
+				rc.name = name
+			}
+		}
 	}
 	v.crons = append(v.crons, rc)
 	return goja.Undefined()
@@ -148,6 +158,10 @@ func (v *vm) siteCron(c goja.FunctionCall) goja.Value {
 func cronNames(crons []*regCron) {
 	perJob, fns := map[string]int{}, 0
 	for _, c := range crons {
+		if c.fn != nil && c.name != "" {
+			c.info.Name, c.info.Job = "@"+c.name, "@"+c.name
+			continue
+		}
 		if c.fn != nil {
 			fns++
 			c.info.Name = "@cron-" + strconv.Itoa(fns)
@@ -176,7 +190,15 @@ func (p *Program) registerJobs(v *vm) []Problem {
 		p.Manifest.Jobs = append(p.Manifest.Jobs, info)
 	}
 	cronNames(v.crons)
+	named := map[string]bool{}
 	for _, c := range v.crons {
+		if c.fn != nil && c.name != "" {
+			if named[c.name] {
+				probs = append(probs, at(c.at, fmt.Sprintf("site.cron(%q): name %q ซ้ำกับ site.cron อื่น", c.info.Expr, c.name)))
+				continue
+			}
+			named[c.name] = true
+		}
 		if c.fn == nil && p.jobs[c.info.Job] == nil {
 			probs = append(probs, at(c.at, fmt.Sprintf("site.cron(%q): ไม่มี site.job %q", c.info.Expr, c.info.Job)))
 			continue
@@ -189,9 +211,10 @@ func (p *Program) registerJobs(v *vm) []Problem {
 	return probs
 }
 
-// jobFn finds a job's handler in v ("@cron-N" = the Nth function schedule).
+// jobFn finds a job's handler in v ("@cron-N" = the Nth function schedule,
+// "@<name>" = the function schedule given that name).
 func (v *vm) jobFn(name string) goja.Callable {
-	if strings.HasPrefix(name, "@cron-") {
+	if strings.HasPrefix(name, "@") {
 		cronNames(v.crons)
 		for _, c := range v.crons {
 			if c.fn != nil && c.info.Name == name {

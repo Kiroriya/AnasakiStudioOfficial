@@ -246,6 +246,7 @@ func (e *Engine) current(opts map[string]string) *liveProg {
 	lp := &liveProg{id: id, unit: e.siteU, ready: make(chan *vm, 4)}
 	row, err := e.DB.GetVersion(id, id, true)
 	if err == nil {
+		lp.files = row.FileMap // public/ files (/site-assets/, site.asset) — 2.2.0
 		prog, probs := RegisterUnit(row.Bundle, map[string]bool{}, e.h, e.RouteTimeout, e.siteU)
 		if len(probs) > 0 {
 			err = fmt.Errorf("%s", probs[0].Message)
@@ -269,6 +270,9 @@ func (e *Engine) current(opts map[string]string) *liveProg {
 // none matches (or Site Code is off), so normal site routing continues.
 // opts are the options the site already loaded for this request.
 func (e *Engine) ServePublic(w http.ResponseWriter, r *http.Request, opts map[string]string) bool {
+	if opts[OptVersion] != "" && e.servePublicFile(w, r, opts) { // public/ files (2.2.0)
+		return true
+	}
 	if e.pluginsOff(opts) {
 		return false
 	}

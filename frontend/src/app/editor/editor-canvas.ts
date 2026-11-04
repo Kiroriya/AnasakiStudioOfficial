@@ -35,8 +35,13 @@ const HINT_SECTION = 'ed.hint.section';
         <div class="artboard-label">{{ store.title() }} <span>· {{ bp().label }} {{ bp().width }}</span></div>
         @if (store.bp() !== 'desktop') {
           <div class="artboard-bp">{{ 'ed.bpOnly' | t: { bp: bp().label } }}</div>
+          @if (overflow().length; as n) {
+            <button type="button" class="artboard-overflow" (click)="selectOverflow()" [title]="'ed.overflow.hint' | t">
+              ⚠ {{ 'ed.overflow.count' | t: { n: n, w: bp().width } }}
+            </button>
+          }
         }
-        <div class="artboard rea-canvas" #artboard [style]="store.themeVars()" [style.width.px]="bp().width" [style.zoom]="store.zoom()">
+        <div class="artboard rea-canvas" #artboard [style]="store.themeVars()" [style.width.px]="bp().width" [style.--rea-screen-h.px]="bp().screenH" [style.zoom]="store.zoom()">
           <div reaNode [node]="store.doc()" parentMode=""></div>
         </div>
         <rea-vector-overlay /><!-- pen tool + point editing (vector-overlay.ts) -->
@@ -57,6 +62,9 @@ const HINT_SECTION = 'ed.hint.section';
               }
             }
           </div>
+        }
+        @for (o of overflow(); track o.id) {
+          <div class="ov ov-overflow" [style.left.px]="o.r.x" [style.top.px]="o.r.y" [style.width.px]="o.r.w" [style.height.px]="o.r.h"></div>
         }
         @if (dropTargetRect(); as r) {
           <div class="ov ov-droptarget" [style.left.px]="r.x" [style.top.px]="r.y" [style.width.px]="r.w" [style.height.px]="r.h"></div>
@@ -114,6 +122,9 @@ export class EditorCanvas implements OnDestroy {
   readonly panning = signal(false);
   readonly spacing = signal<SpaceZone[]>([]);
   readonly dragHint = signal<{ text: string; x: number; y: number } | null>(null);
+  /** Tablet/phone view: the outermost layers that stick out past the screen edge (2.1.1). */
+  readonly overflow = signal<{ id: string; r: Rect }[]>([]);
+  private overflowKey: unknown[] = [];
   readonly handMode = computed(() => this.store.tool() === 'hand' || this.store.spaceDown());
   readonly drawTool = computed(() => ['frame', 'rect', 'ellipse', 'text'].includes(this.store.tool()));
 
@@ -327,6 +338,42 @@ export class EditorCanvas implements OnDestroy {
     setRect(this.dropTargetRect, dr ? this.toStage(dr) : null);
     this.updateMeasures();
     this.updateSpacing();
+    this.updateOverflow();
+  }
+
+  /** Layers wider than the tablet/phone screen, or placed past its edge (a free-placed frame, a fixed
+   *  width): outlined in red, with a count above the artboard. Checked when the page, the breakpoint or
+   *  the zoom changes. */
+  private updateOverflow() {
+    const bp = this.store.bp();
+    const key = [this.store.doc(), bp, this.store.zoom(), this.artboard().nativeElement.offsetHeight];
+    if (key.every((k, i) => k === this.overflowKey[i])) return;
+    if (document.body.classList.contains('rea-dragging')) return; // checked again after the drop
+    this.overflowKey = key;
+    const out: { id: string; r: Rect }[] = [];
+    if (bp !== 'desktop') {
+      const art = this.artboard().nativeElement;
+      const a = art.getBoundingClientRect();
+      const flagged: HTMLElement[] = [];
+      art.querySelectorAll<HTMLElement>('[data-node-id]').forEach(el => {
+        if (flagged.some(f => f.contains(el))) return;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        if (r.right > a.right + 1 || r.left < a.left - 1) {
+          flagged.push(el);
+          out.push({ id: el.dataset['nodeId']!, r: this.toStage(r) });
+        }
+      });
+    }
+    if (JSON.stringify(out) !== JSON.stringify(this.overflow())) this.overflow.set(out);
+  }
+
+  selectOverflow() {
+    const ids = this.overflow().map(o => o.id);
+    if (!ids.length) return;
+    this.store.select(ids[0]);
+    if (ids.length > 1) this.store.notify(tr('ed.overflow.more', { n: ids.length - 1 }), true);
+    requestAnimationFrame(() => this.scrollIntoCenter(ids[0]));
   }
 
   /** Figma auto-layout spacing handles: padding bands and gaps of the selected frame. */

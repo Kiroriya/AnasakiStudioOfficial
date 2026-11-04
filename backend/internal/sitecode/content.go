@@ -382,7 +382,7 @@ func (v *vm) applyFields(p *model.Post, pf postFields) {
 		if !v.userCan(auth.CapEditPages) {
 			v.fail("db.posts: แก้ดีไซน์ต้องมีสิทธิ์แก้ไขหน้าเว็บ")
 		}
-		if _, err := design.Parse(pf.design); err != nil {
+		if _, err := design.ParseForSave(pf.design); err != nil {
 			v.throw("db.posts: design ไม่ถูกต้อง: %s", err.Error())
 		}
 		if len(design.ChangedCodeBlocks(pf.design, p.Design)) > 0 && !v.userCan(auth.CapEditScripts) {

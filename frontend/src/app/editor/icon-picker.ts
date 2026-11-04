@@ -12,6 +12,23 @@ import './messages-fx';
   imports: [TPipe],
   template: `
     @let n = node();
+    @if (forButton()) {
+      <!-- 2.2.0: the icon of a button (props.icon + iconPosition), drawn in the text colour -->
+      <section class="fg-sec" id="pp-button-icon">
+        <h5>{{ 'ic.buttonIcon' | t }}</h5>
+        <div class="fg-seg">
+          <button [class.on]="!n.props?.icon" (click)="set({ icon: undefined, iconPosition: undefined })">{{ 'ic.noIcon' | t }}</button>
+          <button [class.on]="!!n.props?.icon && n.props.iconPosition !== 'end'" [disabled]="!n.props?.icon" (click)="set({ iconPosition: undefined })">⟵ {{ 'ic.before' | t }}</button>
+          <button [class.on]="n.props?.iconPosition === 'end'" [disabled]="!n.props?.icon" (click)="set({ iconPosition: 'end' })">{{ 'ic.after' | t }} ⟶</button>
+        </div>
+        <input class="ip-search" type="search" [value]="q()" (input)="q.set(val($event))" [placeholder]="'ic.search' | t" [attr.aria-label]="'ic.search' | t" />
+        <div class="ip-grid">
+          @for (name of iconNames(); track name) {
+            <button [class.on]="n.props?.icon === name" [title]="name" [attr.aria-label]="name" (click)="set({ icon: name })" [innerHTML]="iconSvg(name)"></button>
+          } @empty { <p class="hint">{{ 'ic.none' | t }}</p> }
+        </div>
+      </section>
+    } @else {
     @if (n.type === 'icon') {
       <section class="fg-sec">
         <h5>{{ 'ic.icon' | t }}</h5>
@@ -52,6 +69,7 @@ import './messages-fx';
       <h5>{{ 'ic.label' | t }}</h5>
       <input class="ip-search" [value]="n.props?.label ?? ''" (change)="set({ label: val($event) || undefined })" [placeholder]="'ic.labelPh' | t" />
     </section>
+    }
   `,
   styles: `
     .ip-search { width: 100%; margin-bottom: 6px; }
@@ -67,6 +85,8 @@ export class IconPicker {
   private readonly store = inject(EditorStore);
   private readonly sanitizer = inject(DomSanitizer);
   readonly node = input.required<DNode>();
+  /** The icon of a button instead of an icon layer (2.2.0). */
+  readonly forButton = input(false);
   readonly q = signal('');
 
   readonly iconNames = computed(() => {

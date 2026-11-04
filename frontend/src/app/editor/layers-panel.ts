@@ -41,7 +41,7 @@ export class LayerTreeState {
          [class.drop-after]="dropHere() === 'after'"
          [class.drop-inside]="dropHere() === 'inside'"
          [class.search-hit]="isHit()"
-         [style.padding-left.px]="6 + depth() * 16"
+         [style.padding-left.px]="6 + depth() * 12"
          [attr.draggable]="depth() > 0 && !renaming()"
          (click)="click($event)"
          (dblclick)="startRename()"
@@ -56,10 +56,11 @@ export class LayerTreeState {
       @if (renaming()) {
         <input #renameBox class="layer-rename" [value]="node().name || label()" (keydown)="renameKey($event)" (blur)="finishRename()" (click)="$event.stopPropagation()" />
       } @else {
-        <span class="layer-name">{{ node().name || label() }}</span>
+        <span class="layer-name" [title]="node().name || label()">{{ node().name || label() }}</span>
       }
       @if (bpNote(); as note) { <span class="bp-dot" [title]="note">●</span> }
       @if (node().absolute) { <span class="abs-badge" [title]="'ed.layer.absolute' | t">⌖</span> }
+      @if (node().props?.ref; as ref) { <span class="ref-badge" [title]="'ed.ref.badge' | t: { name: ref }">&lt;/&gt;</span> }
       @if (depth() > 0) {
         <button class="row-btn lock" [class.on]="!!node().locked" [title]="(node().locked ? 'ed.layer.unlock' : 'ed.layer.lock') | t"
                 (click)="$event.stopPropagation(); store.toggleLock([node().id])">{{ node().locked ? '🔒' : '🔓' }}</button>

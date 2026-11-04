@@ -142,6 +142,20 @@
       });
     });
   }
+  // one load per file per page; the promise rejects on a bad name or a failed load
+  var assets = {};
+  function asset(n, ext, make) {
+    n = String(n || '');
+    if (!/^[A-Za-z0-9_-][A-Za-z0-9._/-]*$/.test(n) || n.indexOf('..') >= 0) return Promise.reject(new Error('bad file name: ' + n));
+    if (n.slice(-ext.length) !== ext) n += ext;
+    if (!assets[n]) assets[n] = new Promise(function (ok, no) {
+      var el = make('/site-assets/' + n);
+      el.onload = function () { ok(); };
+      el.onerror = function () { delete assets[n]; no(new Error('cannot load /site-assets/' + n)); };
+      d.head.appendChild(el);
+    });
+    return assets[n];
+  }
   window.anasaki = {
     call: function (n, i) {
       return call(n, i).then(function (b) {
@@ -160,6 +174,13 @@
       return Promise.all([].map.call(d.querySelectorAll('[data-rea-source="code:' + n + '"],[data-rea-source="' + n + '"],[data-rea-collection="' + n + '"]'),
         function (c) { return part(c.getAttribute('data-rea-collection'), location.search); }));
     },
+    // shared files of the site (2.2.0): Site Code's public/ folder, served at /site-assets/. lib('qr') runs
+    // public/qr.js once for the whole page (every code block awaits the same promise); style('base') adds public/base.css
+    lib: function (n) { return asset(n, '.js', function (u) { var s = d.createElement('script'); s.src = u; return s; }); },
+    style: function (n) { return asset(n, '.css', function (u) { var l = d.createElement('link'); l.rel = 'stylesheet'; l.href = u; return l; }); },
+    // a layer by its "name for code" (data-ref, 2.2.0); refs: every match (component placements, lists)
+    ref: function (n) { return d.querySelector('[data-ref="' + CSS.escape(n) + '"]'); },
+    refs: function (n) { return [].slice.call(d.querySelectorAll('[data-ref="' + CSS.escape(n) + '"]')); },
     on: function (t, f) {
       t = t.indexOf(':') < 0 ? 'anasaki:' + t : t;
       function h(e) { f(e.detail, e); }

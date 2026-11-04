@@ -18,10 +18,10 @@ import { Scrub } from './scrub';
       <h5>{{ 'lg.title' | t }}
         <span>
           @if (g) {
-            <button class="fg-add" [title]="'lg.show' | t" (click)="set({ visible: g.visible === false ? undefined : false })">{{ g.visible === false ? '◌' : '👁' }}</button>
-            <button class="fg-add" [title]="'lg.remove' | t" (click)="replace(undefined)">−</button>
+            <button class="fg-add" [title]="'lg.show' | t" [attr.aria-label]="'lg.show' | t" (click)="set({ visible: g.visible === false ? undefined : false })">{{ g.visible === false ? '◌' : '👁' }}</button>
+            <button class="fg-add" [title]="'lg.remove' | t" [attr.aria-label]="'lg.remove' | t" (click)="replace(undefined)">−</button>
           } @else {
-            <button class="fg-add" [title]="'lg.add' | t" (click)="replace(presets.p12)">+</button>
+            <button class="fg-add" [title]="'lg.add' | t" [attr.aria-label]="'lg.add' | t" (click)="replace(presets.p12)">+</button>
           }
         </span>
       </h5>
@@ -40,18 +40,18 @@ import { Scrub } from './scrub';
           </select>
           @if (g.type === 'grid') {
             <label class="fg-field" [title]="'lg.size' | t"><span [reaScrub]="g.size ?? 8" [minValue]="1" (scrub)="set({ size: $event })">▦</span>
-              <input type="number" min="1" [value]="g.size ?? 8" (change)="set({ size: pos($event, 8) })" /></label>
+              <input [attr.aria-label]="'lg.size' | t" type="number" min="1" [value]="g.size ?? 8" (change)="set({ size: pos($event, 8) })" /></label>
           } @else {
             <label class="fg-field" [title]="'lg.count' | t"><span [reaScrub]="g.count ?? 12" [minValue]="1" (scrub)="set({ count: $event })">#</span>
-              <input type="number" min="1" max="48" [value]="g.count ?? 12" (change)="set({ count: pos($event, 12) })" /></label>
+              <input [attr.aria-label]="'lg.count' | t" type="number" min="1" max="48" [value]="g.count ?? 12" (change)="set({ count: pos($event, 12) })" /></label>
           }
         </div>
         @if (g.type !== 'grid') {
           <div class="fg-row2 tight">
             <label class="fg-field" [title]="'lg.gutter' | t"><span [reaScrub]="g.gutter ?? 0" [minValue]="0" (scrub)="set({ gutter: $event })">⇹</span>
-              <input type="number" min="0" [value]="g.gutter ?? 0" (change)="set({ gutter: pos($event, 0, 0) })" /></label>
+              <input [attr.aria-label]="'lg.gutter' | t" type="number" min="0" [value]="g.gutter ?? 0" (change)="set({ gutter: pos($event, 0, 0) })" /></label>
             <label class="fg-field" [title]="'lg.margin' | t"><span [reaScrub]="g.margin ?? 0" [minValue]="0" (scrub)="set({ margin: $event })">⇤</span>
-              <input type="number" min="0" [value]="g.margin ?? 0" (change)="set({ margin: pos($event, 0, 0) })" /></label>
+              <input [attr.aria-label]="'lg.margin' | t" type="number" min="0" [value]="g.margin ?? 0" (change)="set({ margin: pos($event, 0, 0) })" /></label>
           </div>
         }
         @if (color(); as c) {

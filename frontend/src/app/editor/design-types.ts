@@ -52,6 +52,9 @@ export interface Style {
   clip?: boolean;
   /** Look of a tab / accordion trigger while active (Prototype). */
   active?: { fill?: string; color?: string; stroke?: string };
+  /** Menu links (2.2.0): [vertical, horizontal] padding and corner radius of every link. */
+  linkPadding?: [number, number];
+  linkRadius?: number;
   /** Clip the layer to a shape (Figma mask): a mask name from /design/assets. */
   mask?: string;
   /** Point kept in view when an image is cropped, in % (default 50/50). */
@@ -71,6 +74,9 @@ export interface Style {
   textTransform?: string;
   maxWidth?: number;
   minHeight?: number;
+  /** 2.2.0: min-height = the screen height (100svh) minus minHeightOffset px (a header above). */
+  minHeightScreen?: boolean;
+  minHeightOffset?: number;
   rotation?: number;
   /** Horizontal anchor of a freely placed layer (Figma constraints); see anchoredLeft(). */
   anchorX?: 'left' | 'center' | 'right' | 'scale';
@@ -132,6 +138,8 @@ export interface Props {
   src?: string;
   alt?: string;
   href?: string;
+  /** Name for code (2.2.0): rendered as data-ref, found with anasaki.ref(name). */
+  ref?: string;
   newTab?: boolean;
   componentId?: number;
   menuId?: number;
@@ -159,6 +167,8 @@ export interface Props {
   hideCategory?: boolean;
   /** icon: name in the built-in set, line weight (1–4); shape: name; both: flips and an accessible label. */
   icon?: string;
+  /** Button icon side (2.2.0): before the text (default) or 'end'. */
+  iconPosition?: 'start' | 'end';
   strokeWidth?: number;
   shape?: string;
   flipX?: boolean;
@@ -205,6 +215,8 @@ export interface Props {
   name?: string;
   placeholder?: string;
   value?: string;
+  /** The value is plain text, not an expression (2.2.0). */
+  valueText?: boolean;
   options?: InputOption[];
   optionsFrom?: { collection: string; value: string; label: string };
   required?: boolean;
@@ -301,10 +313,12 @@ export interface DNode {
   children?: DNode[];
 }
 
-export const BREAKPOINTS: { id: Breakpoint; label: string; icon: string; width: number; max?: number }[] = [
-  { id: 'desktop', get label() { return tr('ed.bp.desktop'); }, icon: '🖥', width: 1440 },
-  { id: 'tablet', get label() { return tr('ed.bp.tablet'); }, icon: '▭', width: 834, max: 1024 },
-  { id: 'mobile', get label() { return tr('ed.bp.mobile'); }, icon: '📱', width: 390, max: 640 },
+/** screenH: the visible height of a typical browser window there (laptop, iPad, iPhone) — what
+ *  "full screen height" layers (100svh) measure on the canvas. */
+export const BREAKPOINTS: { id: Breakpoint; label: string; icon: string; width: number; screenH: number; max?: number }[] = [
+  { id: 'desktop', get label() { return tr('ed.bp.desktop'); }, icon: '🖥', width: 1440, screenH: 800 },
+  { id: 'tablet', get label() { return tr('ed.bp.tablet'); }, icon: '▭', width: 834, screenH: 1050, max: 1024 },
+  { id: 'mobile', get label() { return tr('ed.bp.mobile'); }, icon: '📱', width: 390, screenH: 740, max: 640 },
 ];
 
 export const CONTAINER_TYPES: NodeType[] = ['frame', 'postList', 'collection'];
@@ -341,6 +355,27 @@ export function cloneWithNewIds(n: DNode): DNode {
   };
   relink(c);
   return c;
+}
+
+/** Gives every layer after the first that shares an id a fresh one (the server refuses
+ *  duplicate ids since 2.1.1; pages made by scripts or imports may have them). Returns
+ *  the tree unchanged when the ids are already unique. */
+export function dedupeIds(root: DNode): { root: DNode; renamed: number } {
+  const seen = new Set<string>();
+  let renamed = 0;
+  const walk = (x: DNode): DNode => {
+    let n = x;
+    if (x.id && seen.has(x.id)) {
+      n = { ...x, id: newId() };
+      renamed++;
+    }
+    if (n.id) seen.add(n.id);
+    if (!n.children?.length) return n;
+    const kids = n.children.map(walk);
+    return kids.some((k, i) => k !== n.children![i]) ? { ...n, children: kids } : n;
+  };
+  const out = walk(root);
+  return { root: renamed ? out : root, renamed };
 }
 
 export function findNode(root: DNode, id: string, parent: DNode | null = null): { node: DNode; parent: DNode | null; index: number } | null {

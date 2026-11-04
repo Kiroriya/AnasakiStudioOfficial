@@ -194,13 +194,22 @@ export class Dashboard implements OnInit {
     }
   }
 
+  private creating = false;
   async newPage() {
+    if (this.creating) return;
+    // ask for the name first; one page per click even while it loads (2.1.1)
+    this.creating = true;
+    const title = (await Dialog.prompt({
+      title: this.i18n.t('content.page.new'), label: this.i18n.t('content.newName'), value: this.i18n.t('content.page.newTitle'), required: true,
+    }))?.trim();
+    if (!title) { this.creating = false; return; }
     try {
       const design = starterPage(await this.api.components());
-      const p = await this.api.createPost({ type: 'page', title: this.i18n.t('content.page.newTitle'), design });
+      const p = await this.api.createPost({ type: 'page', title, design });
       this.router.navigate(['/design', p.id]);
     } catch (e) {
       this.error.set(errorMessage(e));
+      this.creating = false;
     }
   }
 }

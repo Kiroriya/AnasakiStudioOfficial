@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -231,10 +232,48 @@ func serverErr(w http.ResponseWriter, err error) {
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 16<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		writeErr(w, http.StatusBadRequest, "ข้อมูลที่ส่งมาไม่ถูกต้อง: "+err.Error())
+		writeErr(w, http.StatusBadRequest, "ข้อมูลที่ส่งมาไม่ถูกต้อง: "+jsonErrText(err))
 		return false
 	}
 	return true
+}
+
+// jsonErrText turns a decode error into a message that names the field and the
+// expected kind of value, instead of Go's "cannot unmarshal … into Go struct
+// field postInput.terms of type int64".
+func jsonErrText(err error) string {
+	var te *json.UnmarshalTypeError
+	var se *json.SyntaxError
+	var mbe *http.MaxBytesError
+	switch {
+	case errors.As(err, &te):
+		want := te.Type.Kind().String()
+		switch want {
+		case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+			want = "ตัวเลข"
+		case "string":
+			want = "ข้อความ"
+		case "bool":
+			want = "true / false"
+		case "slice", "array":
+			want = "array"
+		case "map", "struct":
+			want = "object"
+		}
+		if te.Field == "" {
+			return "ต้องเป็น " + want + " แต่ได้ " + te.Value
+		}
+		return "ฟิลด์ " + te.Field + " ต้องเป็น " + want + " แต่ได้ " + te.Value
+	case errors.As(err, &se):
+		return "JSON ไม่ถูกต้อง (ตำแหน่ง " + strconv.FormatInt(se.Offset, 10) + ")"
+	case errors.As(err, &mbe):
+		return "ข้อมูลใหญ่เกิน " + strconv.FormatInt(mbe.Limit>>20, 10) + " MB"
+	case errors.Is(err, io.EOF):
+		return "ไม่มีข้อมูล (body ว่าง)"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "JSON ไม่ครบ"
+	}
+	return err.Error()
 }
 
 func pathID(r *http.Request, name string) int64 {

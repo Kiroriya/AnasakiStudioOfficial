@@ -5,6 +5,8 @@ import { CodeBuildResult, CodeUploadMode, CodeUploadResult, CodeVersion } from '
 // ------------------------------------------------------------------ file rules (mirror the backend contract)
 
 export const CODE_EXTENSIONS = ['.ts', '.js', '.mjs', '.json', '.md'] as const;
+/** Static files (2.2.0): allowed under public/, served at /site-assets/ (PublicDir in sitecode/public.go). */
+export const PUBLIC_EXTENSIONS = ['.css', '.js', '.mjs', '.json', '.svg', '.txt', '.xml', '.webmanifest', '.md'] as const;
 export const CODE_LIMITS = { files: 200, fileBytes: 512 * 1024, totalBytes: 2 * 1024 * 1024, pathLength: 255 } as const;
 /** Entry points in the order the bundler looks for them. */
 export const CODE_ENTRIES = ['main.ts', 'main.js', 'index.ts', 'index.js'] as const;
@@ -36,7 +38,8 @@ export function validatePath(path: string, existing: readonly string[] = [], kin
     if (s === '.' || s === '..') return 'dotSegment';
     if (!SEGMENT.test(s)) return 'badSegment';
   }
-  if (kind === 'file' && !(CODE_EXTENSIONS as readonly string[]).includes(extOf(path))) return 'badExtension';
+  const allowed: readonly string[] = path.startsWith('public/') ? PUBLIC_EXTENSIONS : CODE_EXTENSIONS;
+  if (kind === 'file' && !allowed.includes(extOf(path))) return 'badExtension';
   const lower = path.toLowerCase();
   for (const e of existing) {
     const el = e.toLowerCase();
@@ -78,6 +81,9 @@ export function languageFor(path: string): string {
     case '.js': case '.mjs': return 'javascript';
     case '.json': return 'json';
     case '.md': return 'markdown';
+    case '.css': return 'css';
+    case '.svg': case '.xml': return 'xml';
+    case '.webmanifest': return 'json';
     default: return 'plaintext';
   }
 }

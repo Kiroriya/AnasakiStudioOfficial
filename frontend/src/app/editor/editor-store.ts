@@ -6,7 +6,7 @@ import { tr } from '../core/i18n';
 import './messages-editor';
 import { BlockInfo, DesignComponent, Media, Menu, Post, PostStatus, Settings, Term } from '../core/models';
 import {
-  Breakpoint, DNode, Layout, LayoutMode, Override, Props, Size, Style, cloneWithNewIds, effective, findNode, isAncestor, isContainer, newId, pathTo,
+  Breakpoint, DNode, Layout, LayoutMode, Override, Props, Size, Style, cloneWithNewIds, dedupeIds, effective, findNode, isAncestor, isContainer, newId, pathTo,
 } from './design-types';
 import { PART_CLASS, Theme, ensureFont, partCss, partHoverCss, parseTheme, themeStyle } from './design-css';
 import { LruCache, normalizeBlocks, replaceInRichHtml, richText, shareTree } from './editor-utils';
@@ -276,7 +276,12 @@ export class EditorStore {
     this.future = [];
     this.variantRenames = [];
     this.historyVersion.update(v => v + 1);
-    this.dirty.set(false);
+    // a page saved by a script or an import may repeat a layer id: the server refuses that, so
+    // rename the repeats now and let the next save store the fix
+    const { root, renamed } = dedupeIds(this.doc());
+    if (renamed) this.doc.set(root);
+    this.dirty.set(renamed > 0);
+    if (renamed) this.notify(tr('ed.toast.dupIds', { n: renamed }), true);
   }
 
   /** Set when a save was refused because someone else saved a newer version (collab.ts shows the dialog). */
@@ -1071,7 +1076,10 @@ export class EditorStore {
     this.mutate(root => {
       for (const id of ids) {
         const f = findNode(root, id);
-        if (f) { delete f.node.absolute; delete f.node.x; delete f.node.y; }
+        if (f) {
+          delete f.node.absolute; delete f.node.x; delete f.node.y;
+          if (f.node.style?.anchorX !== undefined || f.node.style?.anchorRef !== undefined) f.node.style = assign(f.node.style, { anchorX: undefined, anchorRef: undefined });
+        }
       }
     });
     this.notify(tr('fl.fixed', { n: ids.length }));
@@ -1140,10 +1148,15 @@ export class EditorStore {
   // ------------------------------------------------------------------ structure
 
   /** Where a new layer goes: into the selected frame, or after the selection. */
+  /** Shift held on the last insert click (Assets): add after a selected frame instead of inside it (2.2.0). */
+  insertAfter = false;
+
   private insertionPoint(): { parentId: string; index?: number } {
     const sel = this.selected();
+    const after = this.insertAfter;
+    this.insertAfter = false;
     if (sel) {
-      if (isContainer(sel.node) && sel.node.type !== 'postList') return { parentId: sel.node.id };
+      if (isContainer(sel.node) && sel.node.type !== 'postList' && !(after && sel.parent)) return { parentId: sel.node.id };
       if (sel.parent) return { parentId: sel.parent.id, index: sel.index + 1 };
     }
     return { parentId: this.doc().id };
@@ -1285,6 +1298,17 @@ export class EditorStore {
       target.children ??= [];
       target.children.splice(Math.max(0, Math.min(index, target.children.length)), 0, f.node);
     });
+    // a layer taken out of an auto layout (Ctrl+drag) keeps a fixed spot on every screen: say so at once,
+    // with a way back (2.1.1 — before, only the page settings panel listed floating layers)
+    const now = findNode(this.doc(), id)?.node;
+    if (wasInFlow && now?.absolute && this.floating().some(x => x.id === id)) {
+      const after = this.doc();
+      Dialog.undoToast(tr('fl.became'), tr('fl.undoFloat'), 8000).then(yes => {
+        if (!yes) return;
+        if (this.doc() === after) this.undo();
+        else this.unfloat([id]);
+      });
+    }
   }
 
   moveBy(id: string, delta: number) {

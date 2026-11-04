@@ -71,7 +71,7 @@ func (a *API) listTaxonomies(w http.ResponseWriter, r *http.Request) {
 
 // postTermsInput checks PostInput.terms against the post type: every
 // taxonomy must apply to typ ("" = ok).
-func (a *API) postTermsInput(typ string, terms map[string][]int64) string {
+func (a *API) postTermsInput(typ string, terms map[string][]termRef) string {
 	if len(terms) == 0 {
 		return ""
 	}

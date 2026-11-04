@@ -22,7 +22,7 @@ describe('ServicePage admin frame', () => {
   it('grows the frame to the page height (at least the default frame)', () => {
     const { root, frame, self, send } = setup();
     send(frame.contentWindow, { type: 'ak:height', height: 1900 });
-    expect(self.contentHeight()).toBe(1900);
+    expect(self.contentHeight()).toBe(1902); // + the frame's 1px top and bottom border, or the page scrolls inside
     send(frame.contentWindow, { type: 'ak:height', height: 200 });
     expect(self.contentHeight()).toBe(480);
     root.remove();

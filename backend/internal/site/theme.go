@@ -20,6 +20,29 @@ type Theme struct {
 	Palette []PaletteColor `json:"palette,omitempty"`
 	// TextStyles are shared text looks (H1, Body…): style.textStyle = id.
 	TextStyles []TextStyle `json:"textStyles,omitempty"`
+	// Breakpoints (2.2.0): the widths (px, max-width) where the tablet and
+	// mobile designs start; 0 = the defaults 1024 / 640.
+	Breakpoints ThemeBreakpoints `json:"breakpoints,omitempty"`
+}
+
+// ThemeBreakpoints moves the tablet / mobile switch points, e.g. mobile 767
+// for layouts made for Tailwind's md (768).
+type ThemeBreakpoints struct {
+	Tablet int `json:"tablet,omitempty"`
+	Mobile int `json:"mobile,omitempty"`
+}
+
+// MediaMax is the max-width of each breakpoint for the renderer (only the
+// ones that differ from design.Breakpoints).
+func (b ThemeBreakpoints) MediaMax() map[string]int {
+	m := map[string]int{}
+	if b.Tablet > 0 {
+		m["tablet"] = b.Tablet
+	}
+	if b.Mobile > 0 {
+		m["mobile"] = b.Mobile
+	}
+	return m
 }
 
 // PaletteColor is one extra named color.
@@ -125,6 +148,17 @@ func ParseTheme(raw string) Theme {
 		}
 	}
 	t.Colors = colors
+	// mobile 480–900, tablet above mobile + 100 and up to 1600; otherwise the default
+	if b := &t.Breakpoints; b.Mobile < 480 || b.Mobile > 900 || b.Mobile == 640 {
+		b.Mobile = 0
+	}
+	mob := t.Breakpoints.Mobile
+	if mob == 0 {
+		mob = 640
+	}
+	if b := &t.Breakpoints; b.Tablet < mob+100 || b.Tablet > 1600 || b.Tablet == 1024 {
+		b.Tablet = 0
+	}
 	if !themeFontRe.MatchString(t.FontHeading) {
 		t.FontHeading = ""
 	}

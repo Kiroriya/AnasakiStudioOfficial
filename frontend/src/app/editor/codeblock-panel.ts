@@ -26,16 +26,25 @@ const SAVE_DELAY = 300;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="fg-sec cb-panel" id="codeblock-panel" [class.codeblock-locked]="!canEdit()">
-      <h5>{{ 'cb.title' | t }}</h5>
+      <h5>{{ 'cb.title' | t }}
+        <button type="button" class="fg-link" id="codeblock-expand" (click)="full.set(true)" [title]="'cb.expandTip' | t">⤢ {{ 'cb.expand' | t }}</button>
+      </h5>
       @if (!canEdit()) { <p class="cb-lock-hint" id="codeblock-locked-hint">🔒 {{ 'cb.locked' | t }}</p> }
-      <div class="cb-tabs" role="tablist">
-        @for (t of tabs; track t) {
-          <button type="button" role="tab" [id]="'codeblock-tab-' + t" [class.on]="tab() === t" [attr.aria-selected]="tab() === t" (click)="pick(t)">
-            {{ t.toUpperCase() }}@if (filled()[t]) {<i class="cb-dot"></i>}
-          </button>
+      <!-- 2.2.0: the editor can open large (⤢ / Esc), the same Monaco editor moved into an overlay -->
+      @if (full()) { <div class="cb-full-bg" (click)="full.set(false)"></div> }
+      <div class="cb-box" [class.cb-full]="full()" (keydown.escape)="full.set(false)" [attr.role]="full() ? 'dialog' : null" [attr.aria-label]="full() ? ('cb.title' | t) : null">
+        @if (full()) {
+          <div class="cb-full-head"><b>{{ 'cb.title' | t }}</b><button type="button" class="btn btn-sm" id="codeblock-collapse" (click)="full.set(false)">✕ {{ 'cb.collapse' | t }}</button></div>
         }
+        <div class="cb-tabs" role="tablist">
+          @for (t of tabs; track t) {
+            <button type="button" role="tab" [id]="'codeblock-tab-' + t" [class.on]="tab() === t" [attr.aria-selected]="tab() === t" [attr.aria-label]="t.toUpperCase()" (click)="pick(t)">
+              {{ t.toUpperCase() }}@if (filled()[t]) {<i class="cb-dot" aria-hidden="true"></i>}
+            </button>
+          }
+        </div>
+        <div class="cb-editor" #host [attr.data-tab]="tab()" [attr.aria-readonly]="!canEdit()"></div>
       </div>
-      <div class="cb-editor" #host [attr.data-tab]="tab()" [attr.aria-readonly]="!canEdit()"></div>
       @if (loadError(); as err) { <p class="alert small">{{ 'cb.loadFail' | t }} {{ err }}</p> }
       @else if (!ready()) { <p class="hint">{{ 'cb.loading' | t }}</p> }
       @if (tab() === 'css') { <p class="hint">{{ 'cb.cssHint' | t }}</p> }
@@ -51,6 +60,11 @@ const SAVE_DELAY = 300;
     .cb-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin-left: 4px; vertical-align: middle; opacity: .7; }
     .cb-editor { height: 280px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
     .codeblock-locked .cb-editor { background: #f8fafc; }
+    .cb-panel h5 { display: flex; justify-content: space-between; align-items: center; }
+    .cb-full { position: fixed; inset: 40px; z-index: 2000; display: flex; flex-direction: column; padding: 12px 16px 16px; background: #fff; border-radius: 12px; box-shadow: 0 24px 64px rgba(15,23,42,.35); }
+    .cb-full .cb-editor { flex: 1; height: auto; margin: 0; }
+    .cb-full-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+    .cb-full-bg { position: fixed; inset: 0; z-index: 1999; background: rgba(15,23,42,.45); }
     .cb-lock-hint { margin: 0 0 8px; padding: 6px 8px; border-radius: 6px; background: #f1f5f9; color: #334155; font-size: 12px; }
   `,
 })
@@ -68,6 +82,8 @@ export class CodeBlockPanel implements OnInit, OnDestroy {
   readonly tab = signal<CodeBlockTab>('html');
   readonly canEdit = computed(() => this.code.codeBlock().edit);
   readonly ready = signal(false);
+  /** The editor opened large (2.2.0). */
+  readonly full = signal(false);
   readonly loadError = signal('');
   /** Tabs with content (dot on the tab). */
   readonly filled = computed(() => {

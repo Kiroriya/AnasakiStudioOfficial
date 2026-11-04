@@ -18,6 +18,8 @@ interface Tile { type: NodeType; hint: string }
   selector: 'rea-insert-panel',
   imports: [TPipe, NewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Shift+click on an asset adds it after a selected frame, not inside (read by store.insertionPoint)
+  host: { '(pointerdown)': 'store.insertAfter = $event.shiftKey' },
   template: `
     <div class="insert">
       <p class="insert-tip" [innerHTML]="'ed.as.tip' | t"></p>

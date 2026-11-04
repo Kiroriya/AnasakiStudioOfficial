@@ -176,7 +176,11 @@ lookbehind.
 
 esbuild lowers what goja lacks: **async generators** (`async function*`). Not available: the RegExp
 `d` flag (match indices), `Intl`, `structuredClone`, `TextEncoder/Decoder`, `WeakRef`,
-`queueMicrotask`, and locale-aware `toLocaleString` (plain formatting only).
+`queueMicrotask`. `toLocaleString` / `toLocaleDateString` / `toLocaleTimeString` format plainly without
+`Intl` (2.1.1): numbers get `,` grouping, `minimumFractionDigits` / `maximumFractionDigits`, `style: 'percent'`
+and `'currency'`; dates follow the locale's order — `th` gives day/month/Buddhist year (`3/11/2569`), with Thai
+and English names for `{ month: 'long' | 'short', weekday }` — and `timeZone: 'UTC'`; other `Intl` options are
+ignored (no other time zones). Before 2.1.1 `(1234).toLocaleString('th-TH')` threw a RangeError.
 
 ## Runtime and safety
 
@@ -622,6 +626,7 @@ site.job('sendNewsletter', { timeout: 300, retries: 3, concurrency: 1 }, ({ data
 jobs.enqueue('sendNewsletter', { subject: 'x' }, { delay: '10m', key: 'oct' });   // → job id
 site.cron('0 8 * * *', 'sendNewsletter');                                         // site timezone
 site.cron('*/15 * * * *', () => db.table('carts').where('expired', true).delete());
+site.cron('30 3 * * *', () => cleanupLinks(), { name: 'linkCleanup' });             // listed as @linkCleanup (2.1.1)
 ```
 
 - Queue `script_jobs` (CMS database); workers started by the server claim due jobs with
@@ -633,7 +638,8 @@ site.cron('*/15 * * * *', () => db.table('carts').where('expired', true).delete(
   day-of-month/day-of-week rule, evaluated every minute; `script_cron(name, expr, next_run, last_run,
   last_status)` with a conditional UPDATE → one run per schedule per minute across instances (no catch-up
   after downtime). Schedule names: the job name (`<job>@2` for a second schedule of the same job), `@cron-N`
-  for function schedules.
+  for function schedules, or `@<name>` for a function schedule given `{ name }` (2.1.1; names are unique,
+  and renaming a schedule starts its history afresh).
 - Safe mode, `SITE_CODE_DISABLED` and demo mode pause the workers and cron. The server stops them cleanly on
   SIGINT/SIGTERM (running handlers are interrupted and their jobs go back to the queue).
 

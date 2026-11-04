@@ -11,12 +11,12 @@ func TestRuntimeScriptSize(t *testing.T) {
 		t.Fatal("runtime was not minified")
 	}
 	// phase 3 budget was 6 KB; phase 5 (window.anasaki get/post/refresh/on)
-	// raised it to 7 KB
-	if len(js) >= 7*1024 {
-		t.Fatalf("runtime is %d bytes minified (budget < 7 KB)", len(js))
+	// raised it to 7 KB; 2.2.0 (ref/refs, lib/style for public/ files) to 8 KB
+	if len(js) >= 8*1024 {
+		t.Fatalf("runtime is %d bytes minified (budget < 8 KB)", len(js))
 	}
 	for _, want := range []string{"/_a/", "/_c/", "X-CSRF-Token", "anasaki_csrf", "data-rea-action", "pushState",
-		"window.anasaki", "refresh:", "on:", "get:", "post:", "anasaki:", "data-rea-source"} {
+		"window.anasaki", "refresh:", "ref:", "lib:", "style:", "/site-assets/", "on:", "get:", "post:", "anasaki:", "data-rea-source"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("runtime lacks %q", want)
 		}

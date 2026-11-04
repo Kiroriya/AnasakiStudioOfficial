@@ -228,7 +228,7 @@ func (r *renderer) pageScan() *pageScan {
 			walk(&merged, depth+1)
 			delete(seen, id)
 			return
-		case TypeCollection:
+		case TypeCollection, TypePostList: // a post list can be filtered too (2.2.0)
 			ps.colls[n.ID] = n
 		case TypePagination:
 			if c := getStr(n.Props, "collection"); c != "" {
@@ -732,8 +732,8 @@ func paginationDecls(m map[string]any) []Decl {
 	if v, ok := getNum(m, "fontWeight"); ok && v > 0 {
 		d = append(d, Decl{"font-weight", fnum(v)})
 	}
-	if f := FontName(getStr(m, "fontFamily")); f != "" {
-		d = append(d, Decl{"font-family", "'" + f + "'"})
+	if f := FontStack(getStr(m, "fontFamily")); f != "" {
+		d = append(d, Decl{"font-family", f})
 	}
 	return d
 }
@@ -743,7 +743,7 @@ func (r *renderer) paginationCSS(n *Node, sel string) {
 		{"activeStyle", ".rea-pagination .rea-pg-item.rea-pg-active"}, {"disabledStyle", ".rea-pagination .rea-pg-item.is-disabled"}} {
 		if m, ok := n.Props[x[0]].(map[string]any); ok {
 			writeRule(&r.cssBuf, sel+x[1], paginationDecls(m))
-			if f := FontName(getStr(m, "fontFamily")); f != "" {
+			if f := PrimaryFont(getStr(m, "fontFamily")); f != "" {
 				r.fonts[f] = true
 			}
 		}
@@ -754,6 +754,29 @@ func (r *renderer) paginationCSS(n *Node, sel string) {
 
 var inputKinds = map[string]bool{"text": true, "search": true, "number": true, "email": true, "select": true,
 	"checkbox": true, "textarea": true, "hidden": true}
+
+// inputBoxed reports whether an input layer draws its own box (fill, border
+// or radius, at any breakpoint). The design styles go on the wrapper, so the
+// control inside then loses the browser's border, background and padding —
+// the layer's padding is the only one (2.1.1; before, both boxes showed).
+func inputBoxed(n *Node) bool {
+	boxed := func(style map[string]any) bool {
+		if getStr(style, "fill") != "" || getStr(style, "stroke") != "" {
+			return true
+		}
+		r, _ := getNum(style, "radius")
+		return r != 0
+	}
+	if boxed(n.Style) {
+		return true
+	}
+	for _, o := range n.Responsive {
+		if st, _ := o["style"].(map[string]any); boxed(st) {
+			return true
+		}
+	}
+	return false
+}
 
 // renderInput renders a form field:
 //
@@ -797,7 +820,9 @@ func (r *renderer) renderInput(n *Node, cls string, sc scope) {
 		}
 	}
 	value := ""
-	if v, ok := n.Props["value"].(string); ok && v != "" {
+	if v, ok := n.Props["value"].(string); ok && v != "" && getBool(n.Props, "valueText") {
+		value = v // plain text (2.2.0), not an expression
+	} else if ok && v != "" {
 		value = Stringify(EvalString(v, env))
 	} else if filterAttrs != "" {
 		value = r.ctx.Query.Get(name)
@@ -814,6 +839,9 @@ func (r *renderer) renderInput(n *Node, cls string, sc scope) {
 	errSlot := ""
 	if name != "" && kind != "hidden" {
 		errSlot = `<span class="rea-error" data-rea-error-for="` + attr(name) + `"></span>`
+	}
+	if kind != "checkbox" && inputBoxed(n) {
+		cls += " rea-field-box" // the layer draws the box: the control inside drops its own
 	}
 	var b strings.Builder
 	switch kind {
@@ -1132,6 +1160,9 @@ const RuntimeCSS = `.rea-field{display:flex;flex-direction:column}
 .rea-field-el{font:inherit;color:inherit;width:100%;min-width:0;box-sizing:border-box}
 .rea-field.rea-check{flex-direction:row;flex-wrap:wrap;align-items:center;gap:.5em;cursor:pointer}
 .rea-check .rea-field-el{width:auto}
+.rea-field-box .rea-field-el{border:0;background:transparent;padding:0;outline:0;border-radius:0;box-shadow:none}
+.rea-field-box .rea-field-el::placeholder{color:inherit;opacity:.55}
+.rea-field-box:focus-within{outline:2px solid #2563eb;outline-offset:2px}
 .rea-check .rea-error{flex-basis:100%}
 .rea-error{display:block;color:#dc2626;font-size:.85em;margin-top:4px}
 .rea-error:empty{display:none}

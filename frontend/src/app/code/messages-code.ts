@@ -64,7 +64,7 @@ registerMessages({
   'code.path.backslash': { th: 'ใช้ / คั่นโฟลเดอร์ (ห้ามใช้ \\)', en: 'Use / between folders (not \\)' },
   'code.path.dotSegment': { th: 'ห้ามใช้ . หรือ .. เป็นชื่อโฟลเดอร์', en: '. and .. are not allowed as names' },
   'code.path.badSegment': { th: 'ชื่อใช้ได้เฉพาะ A-Z a-z 0-9 . _ - (ห้ามเว้นวรรค และห้ามว่าง)', en: 'Names may only use A-Z a-z 0-9 . _ - (no spaces, not empty)' },
-  'code.path.badExtension': { th: 'รับเฉพาะไฟล์ .ts .js .mjs .json .md', en: 'Only .ts .js .mjs .json .md files are allowed' },
+  'code.path.badExtension': { th: 'รับเฉพาะไฟล์ .ts .js .mjs .json .md — ไฟล์ static (.css .svg .txt …) ใส่ในโฟลเดอร์ public/', en: 'Only .ts .js .mjs .json .md files — static files (.css .svg .txt …) go in the public/ folder' },
   'code.path.duplicate': { th: 'มีไฟล์หรือโฟลเดอร์ชื่อนี้อยู่แล้ว (ไม่สนตัวพิมพ์เล็ก/ใหญ่)', en: 'A file or folder with this name already exists (case-insensitive)' },
 
   // problems / build

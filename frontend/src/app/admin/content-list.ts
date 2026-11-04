@@ -40,7 +40,7 @@ import { Pager } from '../shared/pager';
       @if (type() === 'post' && auth.can('edit_others_posts')) {
         <button class="btn" (click)="openOrder()" [title]="'order.hint' | t">↕ {{ 'order.open' | t }}</button>
       }
-      <button class="btn btn-primary" id="content-new" (click)="create()">+ {{ newLabel() }}</button>
+      <button class="btn btn-primary" id="content-new" (click)="create()" [disabled]="creating()">+ {{ newLabel() }}</button>
     </header>
 
     @if (custom()) {
@@ -126,7 +126,7 @@ import { Pager } from '../shared/pager';
             <tr><td [attr.colspan]="6 + metaCols().length" class="empty-state">
               <div class="empty-icon">{{ icon() }}</div>
               <p>{{ 'content.empty' | t }}</p>
-              <button class="btn btn-primary" (click)="create()">+ {{ newLabel() }}</button>
+              <button class="btn btn-primary" (click)="create()" [disabled]="creating()">+ {{ newLabel() }}</button>
             </td></tr>
           }
         </tbody>
@@ -270,14 +270,24 @@ export class ContentList {
       this.router.navigate(editRoute(this.type()));
       return;
     }
+    if (this.creating()) return;
+    // 2.1.1: ask for the name first (it also becomes the address) — a click used to create
+    // "หน้าใหม่" at once, and a second click while it loaded made another one
+    this.creating.set(true);
+    const title = (await Dialog.prompt({
+      title: this.newLabel(), label: this.i18n.t('content.newName'), value: this.i18n.t(`content.${this.type()}.newTitle`), required: true,
+    }))?.trim();
+    if (!title) { this.creating.set(false); return; }
     try {
       const design = starterPage(await this.api.components(), this.type() === 'template' ? 'template' : 'page');
-      const p = await this.api.createPost({ type: this.type(), title: this.i18n.t(`content.${this.type()}.newTitle`), design });
+      const p = await this.api.createPost({ type: this.type(), title, design });
       this.router.navigate(['/design', p.id]);
     } catch (e) {
       this.error.set(errorMessage(e));
+      this.creating.set(false);
     }
   }
+  readonly creating = signal(false);
 
   async assign(key: string, p: Post) {
     this.more.set(null);
@@ -340,7 +350,15 @@ export class ContentList {
 
   async remove(p: Post) {
     this.more.set(null);
-    if (!(await Dialog.confirmDelete(p.title))) return;
+    // 2.1.1: the server also removes the menu links to the page — say which menus first
+    const at = this.path(p);
+    const norm = (u: string) => { try { u = decodeURIComponent(u); } catch { /* keep */ } return u.length > 1 ? u.replace(/\/+$/, '') : u; };
+    let inMenus: string[] = [];
+    if (at !== '/' && p.type !== 'template') {
+      try { inMenus = (await this.api.menus()).filter(m => m.items.some(it => norm(it.url) === norm(at))).map(m => m.name); } catch { /* ask without it */ }
+    }
+    const text = inMenus.length ? this.i18n.t('list.deleteInMenus', { menus: inMenus.join(', ') }) : undefined;
+    if (!(await Dialog.confirmDelete(p.title, text))) return;
     try { await this.api.deletePost(p.id); await this.load(); } catch (e) { this.error.set(errorMessage(e)); }
   }
 }

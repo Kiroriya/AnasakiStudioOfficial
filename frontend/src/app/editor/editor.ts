@@ -43,9 +43,12 @@ import { vectorShortcut } from './vector-ops';
     @if (error()) {
       <div class="ed-error">{{ error() }} <a routerLink="/">{{ 'ed.backHome' | t }}</a></div>
     } @else {
-      <div class="fg-body">
+      <div class="fg-body" [style.--fg-left-w.px]="leftW()" [style.--fg-right-w.px]="rightW()">
         <!-- ================= left panel ================= -->
         <aside class="fg-left">
+          <!-- 2.2.0: drag the edge to widen the panel (double-click = default width), remembered per browser -->
+          <div class="fg-resize fg-resize-left" role="separator" aria-orientation="vertical" [attr.aria-label]="'ed.ui.resizeLeft' | t" [title]="'ed.ui.resizeTip' | t"
+               (pointerdown)="startResize($event, 'left')" (dblclick)="setPanelW('left', 280)"></div>
           <div class="fg-left-head">
             <button class="fg-back" (click)="back()" [title]="'ed.backTitle' | t">←</button>
             <button class="fg-logo" [class.on]="mainMenu()" (click)="mainMenu.set(!mainMenu())" [title]="'ed.ui.mainMenu' | t">◆ <span>▾</span></button>
@@ -113,6 +116,8 @@ import { vectorShortcut } from './vector-ops';
 
         <!-- ================= right panel ================= -->
         <aside class="fg-right">
+          <div class="fg-resize fg-resize-right" role="separator" aria-orientation="vertical" [attr.aria-label]="'ed.ui.resizeRight' | t" [title]="'ed.ui.resizeTip' | t"
+               (pointerdown)="startResize($event, 'right')" (dblclick)="setPanelW('right', 300)"></div>
           <div class="fg-right-head">
             <div class="fg-zoom">
               <button class="fg-zoom-btn" (click)="zoomMenu.set(!zoomMenu())" [title]="'ed.ui.zoom' | t">{{ zoomPct() }}% ▾</button>
@@ -218,6 +223,23 @@ import { vectorShortcut } from './vector-ops';
 })
 export class Editor implements OnInit, CommandHost {
   readonly store = inject(EditorStore);
+  /** Side panel widths (2.2.0): 280 / 300 by default, 220–480 by dragging their inner edge. */
+  readonly leftW = signal(panelWidth('left', 280));
+  readonly rightW = signal(panelWidth('right', 300));
+  setPanelW(side: 'left' | 'right', w: number) {
+    const v = Math.round(Math.min(480, Math.max(220, w)));
+    (side === 'left' ? this.leftW : this.rightW).set(v);
+    try { localStorage.setItem('anasaki.panel.' + side, String(v)); } catch { /* private mode */ }
+  }
+  startResize(e: PointerEvent, side: 'left' | 'right') {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = side === 'left' ? this.leftW() : this.rightW();
+    const move = (m: PointerEvent) => this.setPanelW(side, w0 + (side === 'left' ? m.clientX - x0 : x0 - m.clientX));
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.classList.remove('fg-resizing'); };
+    document.body.classList.add('fg-resizing');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
   readonly collab = inject(CollabStore);
   private api = inject(Api);
   private route = inject(ActivatedRoute);
@@ -463,6 +485,11 @@ export class Editor implements OnInit, CommandHost {
     if (e.key === 'Alt') { this.store.altDown.set(false); e.preventDefault(); }
   }
 
+  /** Event time of the last key typed in a field / of the last single-key shortcut (keydown). */
+  private lastTyped = -Infinity;
+  private lastLetter = -Infinity;
+  private typingWarned = false;
+
   keydown(e: KeyboardEvent) {
     const s = this.store;
     const mod = e.ctrlKey || e.metaKey;
@@ -473,6 +500,7 @@ export class Editor implements OnInit, CommandHost {
     if (mod && code === 'KeyS' && !e.altKey) { e.preventDefault(); this.save(); return; }
     if (e.key === 'Alt') { s.altDown.set(true); e.preventDefault(); return; } // measure works even from a field
     if (typing) {
+      this.lastTyped = e.timeStamp;
       if (e.key === 'Escape') t.blur();
       return;
     }
@@ -535,6 +563,19 @@ export class Editor implements OnInit, CommandHost {
       }
     }
 
+    if (code === 'F2' && id) return go(() => s.renamingId.set(id)); // rename, as in Figma / VS Code (Ctrl+R too)
+    // Single-key shortcuts follow the physical key, so Thai letters trigger them too. Text typed just
+    // after a field lost focus (or a fast burst of letters) is someone typing, not choosing tools (2.1.1).
+    if (/^Key[A-Z]$/.test(code) && !e.shiftKey) { // digits stay free: 5 then 0 = 50% opacity
+      const burst = e.timeStamp - this.lastLetter < 250;
+      this.lastLetter = e.timeStamp;
+      if (e.timeStamp - this.lastTyped < 1000 || burst) {
+        this.lastTyped = e.timeStamp; // keep ignoring while the typing goes on
+        if (!this.typingWarned) { this.typingWarned = true; s.notify(tr('ed.keys.typingIgnored'), true); }
+        e.preventDefault();
+        return;
+      }
+    }
     if (code === 'KeyC' && !e.shiftKey) return go(() => this.collab.toggleMode()); // comment mode (comments.ts)
     const tools: Record<string, Tool> = { KeyV: 'move', KeyH: 'hand', KeyF: 'frame', KeyA: 'frame', KeyR: 'rect', KeyO: 'ellipse', KeyT: 'text', KeyP: 'pen' };
     if (!e.shiftKey && tools[code]) return go(() => s.tool.set(tools[code]));
@@ -600,8 +641,17 @@ function showSandboxedPreview(w: Window, html: string, title: string) {
   d.title = title || 'Preview';
   const f = d.createElement('iframe');
   // allow-scripts keeps interactions/animations working; no allow-same-origin => opaque origin.
-  f.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals');
+  // allow-downloads: a code block's <a download> (a generated QR / image) works as on the live page.
+  f.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads');
   f.setAttribute('referrerpolicy', 'no-referrer');
   f.srcdoc = page;
   d.body.appendChild(f);
+}
+
+/** A side panel's saved width (localStorage), or `def`. */
+function panelWidth(side: 'left' | 'right', def: number): number {
+  try {
+    const v = Number(localStorage.getItem('anasaki.panel.' + side));
+    return v >= 220 && v <= 480 ? v : def;
+  } catch { return def; }
 }

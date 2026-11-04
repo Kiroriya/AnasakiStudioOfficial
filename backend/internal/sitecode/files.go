@@ -62,8 +62,15 @@ func ValidPath(p string) error {
 	if err := checkSegments(p); err != nil {
 		return err
 	}
-	if !allowedExt[strings.ToLower(path.Ext(p))] {
-		return perr("ไม่อนุญาตไฟล์ชนิดนี้: %s (ใช้ได้เฉพาะ .ts .js .mjs .json .md)", p)
+	ext := strings.ToLower(path.Ext(p))
+	if isPublic(p) { // static files (2.2.0): served at /site-assets/, never bundled
+		if _, ok := publicExt[ext]; !ok {
+			return perr("ไม่อนุญาตไฟล์ชนิดนี้ใน public/: %s (ใช้ได้ .css .js .mjs .json .svg .txt .xml .webmanifest .md)", p)
+		}
+		return nil
+	}
+	if !allowedExt[ext] {
+		return perr("ไม่อนุญาตไฟล์ชนิดนี้: %s (ใช้ได้เฉพาะ .ts .js .mjs .json .md — ไฟล์ static เช่น .css .svg ใส่ในโฟลเดอร์ public/)", p)
 	}
 	return nil
 }

@@ -221,7 +221,7 @@ registerMessages({
   'ed.tag.nav': { th: 'nav — เมนู', en: 'nav — navigation' },
 
   // assets panel
-  'ed.as.tip': { th: '<b>ลาก</b>ไปวางตรงไหนก็ได้บนหน้า หรือ<b>คลิก</b>เพื่อเพิ่มต่อจากชิ้นที่เลือก', en: '<b>Drag</b> onto the page anywhere, or <b>click</b> to add after the selection' },
+  'ed.as.tip': { th: '<b>ลาก</b>ไปวางตรงไหนก็ได้บนหน้า หรือ<b>คลิก</b>เพื่อเพิ่มต่อจากชิ้นที่เลือก — ถ้าเลือก Frame อยู่ จะใส่ไว้<b>ข้างใน</b>ท้ายสุด · <b>Shift+คลิก</b> = ต่อหลัง Frame นั้น', en: '<b>Drag</b> onto the page anywhere, or <b>click</b> to add after the selection — with a frame selected it goes <b>inside</b>, last · <b>Shift+click</b> = after that frame' },
   'ed.as.sections': { th: '🧩 ส่วนสำเร็จรูป', en: '🧩 Sections' },
   'ed.as.sectionsHint': { th: '— แค่คลิกแล้วแก้ข้อความ', en: '— click, then edit the text' },
   'ed.as.basic': { th: '✏️ ชิ้นส่วนพื้นฐาน', en: '✏️ Basic elements' },

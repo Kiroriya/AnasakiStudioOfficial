@@ -264,7 +264,7 @@ func (s *Source) Media(id int64) *design.MediaInfo {
 
 func (s *Source) QueryPosts(q design.Query) []design.PostCtx {
 	f := model.PostFilter{Type: q.PostType, Status: model.StatusPublish,
-		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true}
+		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true, Search: q.Search}
 	if q.TermIDs != nil { // a taxonomy term's archive (2.1.0)
 		f.Type, f.Types, f.TermIDs = "", q.PostTypes, q.TermIDs
 	}
@@ -763,6 +763,7 @@ func designContext(opts map[string]string, post design.PostCtx, category, path s
 		Post:       post,
 		Category:   category,
 		TextStyles: ParseTheme(opts["theme"]).DesignTextStyles(),
+		MediaMax:   ParseTheme(opts["theme"]).Breakpoints.MediaMax(),
 		Page:       page,
 		Query:      query,
 		Path:       path,
@@ -899,6 +900,7 @@ h1,h2,h3,h4,h5,h6,p,blockquote{margin:0;font-size:inherit;font-weight:inherit}
 .rea-burger .rea-bl a:hover{background:#f3f4f6;opacity:1}
 .rea-burger .rea-bt:checked~.rea-bl{display:flex}}
 .rea-btn{transition:filter .15s}.rea-btn:hover{filter:brightness(.92)}
+:where(.rea-btn:has(.rea-btn-ic)){gap:.5em}.rea-btn-ic{flex-shrink:0}
 .rea-download{gap:.5em}
 .rea-file-meta{font-size:.8em;opacity:.75;font-weight:400;white-space:nowrap}
 .rea-content{line-height:1.75;overflow-wrap:break-word}
@@ -972,7 +974,11 @@ func wrap(d Doc, pi plugin.PageInfo, icon, body, css string, fonts []string) str
 	}
 	b.WriteString(`<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`)
 	b.WriteString(`<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=` + strings.Join(families, "&family=") + `&display=swap">`)
-	b.WriteString("<style>\n" + BaseCSS + theme.CSS() + css + "</style>" + d.Head + "</head><body>")
+	base := BaseCSS
+	if m := theme.Breakpoints.Mobile; m > 0 { // the burger menu folds at the site's mobile width (2.2.0)
+		base = strings.ReplaceAll(base, "@media (max-width:640px)", "@media (max-width:"+strconv.Itoa(m)+"px)")
+	}
+	b.WriteString("<style>\n" + base + theme.CSS() + css + "</style>" + d.Head + "</head><body>")
 	b.WriteString(body)
 	b.WriteString(d.BodyEnd)
 	b.WriteString(`</body></html>`)

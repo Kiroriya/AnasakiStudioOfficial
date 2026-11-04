@@ -597,6 +597,10 @@ declare const site: Site;
 declare const db: Db;
 /** Logging. / บันทึก */
 declare const log: Logger;
+/** Base64 of a "binary string" (each char ≤ 0xFF), as in browsers (CMS 2.2.0). Thai text: btoa(unescape(encodeURIComponent(s))). */
+declare function btoa(data: string): string;
+/** Decodes base64 to a "binary string" (CMS 2.2.0). */
+declare function atob(data: string): string;
 /** Same as log (console.log = log.info). */
 declare const console: Logger & { log(...args: any[]): void };
 /** In-memory cache shared by every request (usable only inside handlers). / แคชในหน่วยความจำ */
@@ -991,8 +995,11 @@ interface Site {
   /** A background job (jobs.enqueue, site.cron). / งานเบื้องหลัง */
   job(name: string, fn: (ctx: JobContext) => any): void;
   job(name: string, opts: JobOptions, fn: (ctx: JobContext) => any): void;
-  /** 5-field cron in the site timezone ('0 8 * * *', '@daily'): runs a job (by name) or a function. */
-  cron(expr: string, target: string | (() => any)): void;
+  /** 5-field cron in the site timezone ('0 8 * * *', '@daily'): runs a job (by name) or a function.
+   *  A function schedule is listed as "@cron-N" in Background jobs unless given { name } (CMS 2.1.1),
+   *  e.g. site.cron('30 3 * * *', cleanup, { name: 'linkCleanup' }) → "@linkCleanup". */
+  cron(expr: string, target: string): void;
+  cron(expr: string, target: () => any, opts?: { name?: string }): void;
   /** A page in the admin (Developer menu), shown in a sandboxed iframe. / หน้าในแอดมิน */
   adminPage(id: string, spec: AdminPageSpec): void;
 }
@@ -1185,7 +1192,8 @@ interface PageInfo {
 interface Site {
   /**
    * A file of this plugin's package (not code/, migrations/ or manifest.json; at most 5 MB, cached per
-   * version). Site Code has no package: throws. / อ่านไฟล์ในแพ็กเกจของปลั๊กอิน
+   * version). In Site Code (CMS 2.2.0): a file of the public/ folder of the live version, e.g.
+   * site.asset('public/qr.js').url → '/site-assets/qr.js?v=<version>'. / อ่านไฟล์ในแพ็กเกจ หรือ public/ ของ Site Code
    */
   asset(path: string): PackageAsset;
   /**

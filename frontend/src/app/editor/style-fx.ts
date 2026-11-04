@@ -39,7 +39,7 @@ const SHADOWS = {
     <!-- Gradient -->
     <section class="fg-sec">
       <h5>{{ 'fx.gradient' | t }}
-        @if (!grad()) { <button class="fg-add" [title]="'fx.gradientAdd' | t" (click)="setGrad(parse(presets[0])!)">+</button> }
+        @if (!grad()) { <button class="fg-add" [title]="'fx.gradientAdd' | t" [attr.aria-label]="'fx.gradientAdd' | t" (click)="setGrad(parse(presets[0])!)">+</button> }
       </h5>
       @if (isText()) {
         <div class="fg-seg fx-target">
@@ -55,7 +55,7 @@ const SHADOWS = {
           </select>
           @if (g.kind === 'linear') {
             <label class="fg-field" [title]="'fx.angle' | t"><span [reaScrub]="g.angle" (scrub)="setGrad({ ...g, angle: $event })">∠</span>
-              <input type="number" [value]="g.angle" (change)="setGrad({ ...g, angle: num($event) ?? 0 })" /><em>°</em></label>
+              <input [attr.aria-label]="'fx.angle' | t" type="number" [value]="g.angle" (change)="setGrad({ ...g, angle: num($event) ?? 0 })" /><em>°</em></label>
           } @else { <span></span> }
         </div>
         @for (stop of g.stops; track $index; let i = $index) {
@@ -72,7 +72,7 @@ const SHADOWS = {
         </div>
       }
       <div class="swatches">
-        @for (p of presets; track p) { <button [style.background]="p" [title]="p" (click)="setGrad(parse(p)!)"></button> }
+        @for (p of presets; track p) { <button [style.background]="p" [title]="p" [attr.aria-label]="p" (click)="setGrad(parse(p)!)"></button> }
       </div>
     </section>
 
@@ -94,13 +94,13 @@ const SHADOWS = {
     <!-- Corners & border style -->
     <section class="fg-sec">
       <h5>{{ 'fx.corners' | t }}
-        <button class="fg-add" [class.on]="!!s.radii" [title]="'fx.cornersEach' | t" (click)="toggleRadii()">{{ s.radii ? '◻' : '⌗' }}</button>
+        <button class="fg-add" [class.on]="!!s.radii" [title]="'fx.cornersEach' | t" [attr.aria-label]="'fx.cornersEach' | t" (click)="toggleRadii()">{{ s.radii ? '◻' : '⌗' }}</button>
       </h5>
       @if (s.radii; as r) {
         <div class="fg-row4">
           @for (c of corners; track c.i) {
             <label class="fg-field" [title]="c.title | t"><span [reaScrub]="r[c.i]" [minValue]="0" (scrub)="setCorner(r, c.i, $event)">{{ c.icon }}</span>
-              <input type="number" min="0" [value]="r[c.i]" (change)="setCorner(r, c.i, num($event) ?? 0)" /></label>
+              <input [attr.aria-label]="c.title | t" type="number" min="0" [value]="r[c.i]" (change)="setCorner(r, c.i, num($event) ?? 0)" /></label>
           }
         </div>
       } @else {
@@ -109,7 +109,7 @@ const SHADOWS = {
       @if (s.stroke) {
         <div class="fg-seg">
           @for (b of borders; track b.id) {
-            <button [class.on]="(s.strokeStyle ?? 'solid') === b.id" [title]="b.title | t" (click)="style({ strokeStyle: b.id === 'solid' ? undefined : $any(b.id) })">{{ b.icon }}</button>
+            <button [class.on]="(s.strokeStyle ?? 'solid') === b.id" [title]="b.title | t" [attr.aria-label]="b.title | t" (click)="style({ strokeStyle: b.id === 'solid' ? undefined : $any(b.id) })">{{ b.icon }}</button>
           }
         </div>
       }
@@ -122,9 +122,9 @@ const SHADOWS = {
       </h5>
       <div class="fg-row2">
         <label class="fg-field" [title]="'fx.blur' | t"><span [reaScrub]="s.blur ?? 0" [minValue]="0" (scrub)="style({ blur: $event || undefined })">◌</span>
-          <input type="number" min="0" [value]="s.blur ?? 0" (change)="style({ blur: num($event) || undefined })" /></label>
+          <input [attr.aria-label]="'fx.blur' | t" type="number" min="0" [value]="s.blur ?? 0" (change)="style({ blur: num($event) || undefined })" /></label>
         <label class="fg-field" [title]="'fx.glass' | t"><span [reaScrub]="s.backdropBlur ?? 0" [minValue]="0" (scrub)="style({ backdropBlur: $event || undefined })">❄</span>
-          <input type="number" min="0" [value]="s.backdropBlur ?? 0" (change)="style({ backdropBlur: num($event) || undefined })" /></label>
+          <input [attr.aria-label]="'fx.glass' | t" type="number" min="0" [value]="s.backdropBlur ?? 0" (change)="style({ backdropBlur: num($event) || undefined })" /></label>
       </div>
       <button class="fg-link" (click)="glass()">✨ {{ 'fx.glassPreset' | t }}</button>
       @for (f of filters; track f.key) {
@@ -142,9 +142,9 @@ const SHADOWS = {
         <h5>{{ 'fx.textFx' | t }}</h5>
         <div class="fg-row2">
           <div class="fg-seg">
-            <button [class.on]="!!s.italic" [title]="'fx.italic' | t" (click)="style({ italic: !s.italic || undefined })"><i>I</i></button>
-            <button [class.on]="s.textDecoration === 'underline'" [title]="'fx.underline' | t" (click)="style({ textDecoration: s.textDecoration === 'underline' ? undefined : 'underline' })"><u>U</u></button>
-            <button [class.on]="s.textDecoration === 'line-through'" [title]="'fx.strike' | t" (click)="style({ textDecoration: s.textDecoration === 'line-through' ? undefined : 'line-through' })"><s>S</s></button>
+            <button [class.on]="!!s.italic" [title]="'fx.italic' | t" [attr.aria-label]="'fx.italic' | t" (click)="style({ italic: !s.italic || undefined })"><i>I</i></button>
+            <button [class.on]="s.textDecoration === 'underline'" [title]="'fx.underline' | t" [attr.aria-label]="'fx.underline' | t" (click)="style({ textDecoration: s.textDecoration === 'underline' ? undefined : 'underline' })"><u>U</u></button>
+            <button [class.on]="s.textDecoration === 'line-through'" [title]="'fx.strike' | t" [attr.aria-label]="'fx.strike' | t" (click)="style({ textDecoration: s.textDecoration === 'line-through' ? undefined : 'line-through' })"><s>S</s></button>
           </div>
           <select [value]="textShadowKind()" (change)="setTextShadow(val($event))" [title]="'fx.textShadow' | t">
             <option value="">{{ 'fx.tsNone' | t }}</option>
@@ -165,20 +165,24 @@ const SHADOWS = {
       <div class="fg-seg fx-presets">
         @for (p of hoverPresets; track p.id) { <button [title]="p.title | t" (click)="hoverPreset(p.id)">{{ p.icon }} {{ p.label | t }}</button> }
       </div>
+      <!-- colours on hover are always offered (2.2.0: they only showed after picking an effect) -->
+      <div class="fx-colors" id="fx-hover-colors">
+        <label [title]="'fx.hoverFill' | t">{{ 'fx.fill' | t }}
+          <input type="color" id="fx-hover-fill" [attr.aria-label]="'fx.hoverFill' | t" [value]="hex(s.hover?.fill, hoverBase(s.fill, '#ffffff'))" (change)="hover({ fill: val($event) })" />
+          @if (s.hover?.fill) { <button class="fg-rm" (click)="hover({ fill: undefined })">−</button> }</label>
+        <label [title]="'fx.hoverColor' | t">{{ 'fx.text' | t }}
+          <input type="color" id="fx-hover-color" [attr.aria-label]="'fx.hoverColor' | t" [value]="hex(s.hover?.color, hoverBase(s.color, '#111827'))" (change)="hover({ color: val($event) })" />
+          @if (s.hover?.color) { <button class="fg-rm" (click)="hover({ color: undefined })">−</button> }</label>
+        <label [title]="'fx.hoverStroke' | t">{{ 'fx.strokeShort' | t }}
+          <input type="color" id="fx-hover-stroke" [attr.aria-label]="'fx.hoverStroke' | t" [value]="hex(s.hover?.stroke, hoverBase(s.stroke, '#d1d5db'))" (change)="hover({ stroke: val($event) })" />
+          @if (s.hover?.stroke) { <button class="fg-rm" (click)="hover({ stroke: undefined })">−</button> }</label>
+      </div>
       @if (s.hover; as h) {
         <div class="fg-row2">
           <label class="fg-field" [title]="'fx.scale' | t"><span [reaScrub]="pct(h.scale)" [minValue]="50" (scrub)="hover({ scale: $event / 100 })">⤢</span>
-            <input type="number" min="50" max="200" [value]="pct(h.scale)" (change)="hover({ scale: (num($event) ?? 100) / 100 })" /><em>%</em></label>
+            <input [attr.aria-label]="'fx.scale' | t" type="number" min="50" max="200" [value]="pct(h.scale)" (change)="hover({ scale: (num($event) ?? 100) / 100 })" /><em>%</em></label>
           <label class="fg-field" [title]="'fx.lift' | t"><span [reaScrub]="h.lift ?? 0" (scrub)="hover({ lift: $event || undefined })">↑</span>
-            <input type="number" [value]="h.lift ?? 0" (change)="hover({ lift: num($event) || undefined })" /><em>px</em></label>
-        </div>
-        <div class="fx-colors">
-          <label [title]="'fx.hoverFill' | t">{{ 'fx.fill' | t }}
-            <input type="color" [value]="hex(h.fill, '#ffffff')" (change)="hover({ fill: val($event) })" />
-            @if (h.fill) { <button class="fg-rm" (click)="hover({ fill: undefined })">−</button> }</label>
-          <label [title]="'fx.hoverColor' | t">{{ 'fx.text' | t }}
-            <input type="color" [value]="hex(h.color, '#111827')" (change)="hover({ color: val($event) })" />
-            @if (h.color) { <button class="fg-rm" (click)="hover({ color: undefined })">−</button> }</label>
+            <input [attr.aria-label]="'fx.lift' | t" type="number" [value]="h.lift ?? 0" (change)="hover({ lift: num($event) || undefined })" /><em>px</em></label>
         </div>
         <div class="fg-row2">
           <select [value]="shadowKind(h.shadow)" (change)="hover({ shadow: shadowOf(val($event)) })" [title]="'fx.hoverShadow' | t">
@@ -186,7 +190,7 @@ const SHADOWS = {
             <option value="strong">{{ 'fx.shStrong' | t }}</option><option value="glow">{{ 'fx.shGlow' | t }}</option>
           </select>
           <label class="fg-field" [title]="'fx.duration' | t"><span>⏱</span>
-            <input type="number" min="0" step="50" [value]="h.duration ?? 250" (change)="hover({ duration: num($event) })" /><em>ms</em></label>
+            <input [attr.aria-label]="'fx.duration' | t" type="number" min="0" step="50" [value]="h.duration ?? 250" (change)="hover({ duration: num($event) })" /><em>ms</em></label>
         </div>
         <button class="fg-link" (click)="style({ hover: undefined })">{{ 'fx.remove' | t }}</button>
       }
@@ -204,9 +208,9 @@ const SHADOWS = {
       @if (s.anim; as a) {
         <div class="fg-row2">
           <label class="fg-field" [title]="'fx.duration' | t"><span>⏱</span>
-            <input type="number" min="100" step="100" [value]="a.duration ?? 700" (change)="style({ anim: { ...a, duration: num($event) } })" /><em>ms</em></label>
+            <input [attr.aria-label]="'fx.duration' | t" type="number" min="100" step="100" [value]="a.duration ?? 700" (change)="style({ anim: { ...a, duration: num($event) } })" /><em>ms</em></label>
           <label class="fg-field" [title]="'fx.delay' | t"><span>⏳</span>
-            <input type="number" min="0" step="100" [value]="a.delay ?? 0" (change)="style({ anim: { ...a, delay: num($event) || undefined } })" /><em>ms</em></label>
+            <input [attr.aria-label]="'fx.delay' | t" type="number" min="0" step="100" [value]="a.delay ?? 0" (change)="style({ anim: { ...a, delay: num($event) || undefined } })" /><em>ms</em></label>
         </div>
         <p class="hint">{{ 'fx.animHint' | t }}</p>
       }
@@ -294,6 +298,13 @@ export class StyleFx {
     return v === def ? undefined : v;
   }
   hex(c?: string, def = '#000000') { return parseColor(c)?.hex ?? def; }
+  /** Where an unset hover colour picker starts: the layer's own colour a little darker (#FF7A7A → #E06B6B). */
+  hoverBase(c: string | undefined, def: string): string {
+    const h = parseColor(c)?.hex;
+    if (!h) return def;
+    const ch = (i: number) => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.88).toString(16).padStart(2, '0');
+    return '#' + ch(1) + ch(3) + ch(5);
+  }
   pct(v?: number) { return Math.round((v ?? 1) * 100); }
   without<T>(list: T[], i: number) { return list.filter((_, j) => j !== i); }
 
