@@ -1,0 +1,25 @@
+<div class="ptw-root notranslate" translate="no"
+     data-mode="{{settings.mode}}"
+     data-site-lang="{{settings.siteLang}}"
+     style="--ptw-color: {{settings.buttonColor}}">
+  <button type="button" class="ptw-btn" aria-haspopup="menu" aria-expanded="false"
+          aria-label="Translate this page" title="Translate this page">
+    <span class="ptw-icon">🌐</span><span class="ptw-btn-text">Translate</span>
+  </button>
+  <div class="ptw-menu" role="menu" hidden>
+    <div class="ptw-menu-title" data-i18n="choose">Choose a language</div>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="en">🇬🇧 English</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="th">🇹🇭 ไทย</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="ja">🇯🇵 日本語</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="zh-CN">🇨🇳 中文 (简体)</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="zh-TW">🇹🇼 中文 (繁體)</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="ko">🇰🇷 한국어</button>
+    <button type="button" class="ptw-opt" role="menuitemradio" data-lang="vi">🇻🇳 Tiếng Việt</button>
+    <hr class="ptw-sep">
+    <button type="button" class="ptw-restore" role="menuitem" data-lang="__restore">↩︎ <span data-i18n="original">Show original</span></button>
+  </div>
+  <div class="ptw-status" hidden></div>
+  <!-- hidden container for the free-mode Google Translate widget -->
+  <div id="google_translate_element" hidden></div>
+  <div id="gt-hidden-bar" hidden></div>
+</div>

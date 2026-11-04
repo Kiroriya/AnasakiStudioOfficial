@@ -1,0 +1,64 @@
+{
+  "id": "page-translate",
+  "name": "Page Translate",
+  "version": "1.4.0",
+  "description": "Translate page content — free mode via the Google Translate widget (no API key, no billing) or Google Cloud Translation API mode. / แปลภาษาหน้าเว็บ โหมดฟรีผ่าน Google Translate widget หรือโหมด Google Cloud Translation API",
+  "author": "Anasaki Studio",
+  "icon": "🌐",
+  "category": "utilities",
+  "tags": ["translate", "language", "google", "i18n"],
+  "license": "MIT",
+  "minCore": "2.0.0",
+  "runtime": "js",
+  "permissions": ["code", "head", "bodyEnd", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "ตั้งค่าการแปลภาษา", "en": "Manage page translation" },
+      "description": { "th": "เปิดหน้า แปลภาษา (ตั้งค่า) และแก้โหมด ภาษาต้นฉบับ และสีปุ่มลอย", "en": "Open the Page Translate page and change the mode, site language and button color" },
+      "default": ["administrator", "editor"] },
+    { "id": "api_key", "label": { "th": "แก้ Google API Key", "en": "Change the Google API key" },
+      "description": { "th": "ใส่ เปลี่ยน หรือลบ API key ของโหมด API (ต้องมีสิทธิ์ตั้งค่าการแปลภาษาด้วย)", "en": "Set, change or clear the API-mode key (also needs Manage page translation)" },
+      "default": ["administrator"] }
+  ],
+  "settings": [
+    {
+      "key": "mode",
+      "type": "select",
+      "label": { "th": "โหมดการแปล", "en": "Translation mode" },
+      "options": [
+        { "value": "free", "label": { "th": "ฟรี — Google Translate Widget (ไม่ต้องใช้ API key)", "en": "Free — Google Translate Widget (no API key)" } },
+        { "value": "api", "label": { "th": "Google Cloud Translation API (ต้องมี API key)", "en": "Google Cloud Translation API (API key required)" } }
+      ],
+      "default": "free"
+    },
+    {
+      "key": "apiKey",
+      "type": "text",
+      "label": { "th": "Google Translate API Key", "en": "Google Translate API Key" },
+      "default": ""
+    },
+    {
+      "key": "siteLang",
+      "type": "select",
+      "label": { "th": "ภาษาต้นฉบับของเว็บ", "en": "Original language of the site" },
+      "options": [
+        { "value": "th", "label": "ไทย (th)" },
+        { "value": "en", "label": "English (en)" },
+        { "value": "ja", "label": "日本語 (ja)" },
+        { "value": "zh", "label": "中文 (zh)" }
+      ],
+      "default": "th"
+    },
+    {
+      "key": "buttonColor",
+      "type": "color",
+      "label": { "th": "สีปุ่มลอย", "en": "Floating button color" },
+      "default": "#4f46e5"
+    }
+  ],
+  "head": ["assets/translate.css", "assets/translate.js"],
+  "bodyEnd": "templates/body.html",
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["admin-pages"]
+  }
+}

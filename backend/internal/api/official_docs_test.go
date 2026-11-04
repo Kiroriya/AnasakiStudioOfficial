@@ -54,7 +54,7 @@ func TestOfficialDocs(t *testing.T) {
 	if err := json.Unmarshal([]byte(files["manifest.json"]), &mf); err != nil {
 		t.Fatal(err)
 	}
-	if mf["id"] != "docs" || mf["version"] != "1.1.3" || mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["minCore"] != "2.0.5" {
+	if mf["id"] != "docs" || mf["version"] != "1.1.4" || mf["author"] != "Anasaki Studio" || mf["runtime"] != "js" || mf["minCore"] != "2.0.5" {
 		t.Fatalf("manifest: %v", mf)
 	}
 	if s := files["README.md"]; !strings.Contains(s, "## ภาษาไทย") || !strings.Contains(s, "## English") {
@@ -77,7 +77,7 @@ func TestOfficialDocs(t *testing.T) {
 
 	// admin page (editors and administrators) + import
 	html, call := adminPage(t, e.toSample(), admin, "docs:docs", "")
-	offBContains(t, "admin page", html, `id="docs-data"`, `src="/plugin-assets/docs/assets/admin.js?v=1.1.3" defer`, `data-tab="import"`, `"canSettings":true`)
+	offBContains(t, "admin page", html, `id="docs-data"`, `src="/plugin-assets/docs/assets/admin.js?v=1.1.4" defer`, `data-tab="import"`, `"canSettings":true`)
 	if code, _ := user("Au", "author").do("POST", "/api/v1/code/admin-pages/docs:docs/ticket", map[string]any{}); code == 200 {
 		t.Fatal("author may open the docs admin page")
 	}
@@ -121,7 +121,7 @@ func TestOfficialDocs(t *testing.T) {
 	// editors import too; the same slug is updated, never duplicated
 	_, edCall := adminPage(t, e.toSample(), user("Ed", "editor"), "docs:docs", "")
 	res = imp(edCall, []any{map[string]any{"slug": "studio-setup", "title": "Setup wizard", "excerpt": "ตั้งค่าครั้งแรกหลังติดตั้ง", "product": "studio",
-		"section": "เริ่มต้น", "order": 2, "content": `<h2>Run the wizard</h2><p>Open <code>/setup</code>.</p><h2>Recommended plugins</h2>`}})
+		"section": "เริ่มต้น", "order": 2, "content": `<h2>Run the wizard</h2><p>Open <code>/setup</code>.</p><h2>Recommended plugins</h2><h2>The "Setup" page</h2>`}})
 	if res["created"] != float64(0) || res["updated"] != float64(1) {
 		t.Fatalf("upsert: %v", res)
 	}
@@ -144,7 +144,7 @@ func TestOfficialDocs(t *testing.T) {
 
 	// hub
 	h := page("/docs", 200)
-	offBContains(t, "hub", h, `<link rel="stylesheet" href="/plugin-assets/docs/assets/docs.css?v=1.1.3">`, `<script defer src="/plugin-assets/docs/assets/docs.js?v=1.1.3">`,
+	offBContains(t, "hub", h, `<link rel="stylesheet" href="/plugin-assets/docs/assets/docs.css?v=1.1.4">`, `<script defer src="/plugin-assets/docs/assets/docs.js?v=1.1.4">`,
 		`class="dx dx-hub"`, "ศูนย์รวมเอกสาร", `data-dx-search`, `<a class="dx-stretch" href="/docs/studio">Anasaki Studio</a>`, "4 บทความ", "1 บทความ", "0 บทความ",
 		`<a class="dx-pcard-cta" href="/docs/studio/studio-install">เริ่มอ่าน`, "เริ่มต้นอย่างรวดเร็ว", `href="/docs/developers/dev-cli"`, "<title>ศูนย์รวมเอกสาร")
 	if strings.Contains(h, "Secret draft doc") {
@@ -166,6 +166,8 @@ func TestOfficialDocs(t *testing.T) {
 		`<ol><li><a href="/docs">เอกสาร</a></li><li><a href="/docs/studio">Anasaki Studio</a></li><li><span aria-current="page">เริ่มต้น</span></li></ol>`,
 		`<h1>Setup wizard</h1>`, `<p class="dx-lead">ตั้งค่าครั้งแรกหลังติดตั้ง</p>`, `<h2 id="run-the-wizard">Run the wizard<a class="dx-anchor" href="#run-the-wizard"`,
 		`<a href="#recommended-plugins" data-dx-toc="recommended-plugins">Recommended plugins</a>`, `<p class="dx-toc-title">ในหน้านี้</p>`,
+		// 1.1.4: the sanitizer stores " as &#34; — the TOC shows the quote, not the entity
+		`data-dx-toc="the-setup-page">The &quot;Setup&quot; page</a>`,
 		`<a class="dx-pager-prev" href="/docs/studio/studio-install" rel="prev">`, `<a class="dx-pager-next" href="/docs/studio/studio-designer" rel="next">`,
 		"อัปเดตล่าสุด", `<time datetime="`, `<meta name="description" content="ตั้งค่าครั้งแรกหลังติดตั้ง">`,
 		`<link rel="canonical" href="http://example.com/docs/studio/studio-setup">`, `<meta property="og:type" content="article">`, `<details class="dx-toc-m">`,
@@ -220,7 +222,7 @@ func TestOfficialDocs(t *testing.T) {
 	found := false
 	for _, it := range idx.Items {
 		if it.URL == "/docs/studio/studio-setup" && it.ProductName == "Anasaki Studio" && it.Section == "เริ่มต้น" &&
-			len(it.Headings) == 2 && it.Headings[1]["id"] == "recommended-plugins" && it.Headings[1]["text"] == "Recommended plugins" {
+			len(it.Headings) == 3 && it.Headings[1]["id"] == "recommended-plugins" && it.Headings[1]["text"] == "Recommended plugins" && it.Headings[2]["text"] == `The "Setup" page` {
 			found = true
 		}
 	}
@@ -252,14 +254,14 @@ func TestOfficialDocs(t *testing.T) {
 	}
 
 	// assets
-	for _, p := range []string{"/plugin-assets/docs/assets/docs.css?v=1.1.3", "/plugin-assets/docs/assets/docs.js?v=1.1.3"} {
+	for _, p := range []string{"/plugin-assets/docs/assets/docs.css?v=1.1.4", "/plugin-assets/docs/assets/docs.js?v=1.1.4"} {
 		if r := e.offBSend(offBReq{path: p}); r.Code != 200 || r.Body.Len() < 2000 {
 			t.Fatalf("%s: %d", p, r.Code)
 		}
 	}
 	// 1.1.2: the chips (a button and a link) look the same on any theme — no invalid `font: … inherit`
 	// shorthand, and the rule outweighs `.dx a { color: inherit }`
-	css := e.offBSend(offBReq{path: "/plugin-assets/docs/assets/docs.css?v=1.1.3"}).Body.String()
+	css := e.offBSend(offBReq{path: "/plugin-assets/docs/assets/docs.css?v=1.1.4"}).Body.String()
 	offBContains(t, "docs.css", css, ".dx .dx-chip { display: inline-flex;", "font-size: 13px; font-weight: 600;")
 	if regexp.MustCompile(`font:\s*[^;\s][^;]*\sinherit\s*;`).MatchString(css) {
 		t.Fatal("docs.css: `font` shorthand with inherit is invalid and dropped by browsers")

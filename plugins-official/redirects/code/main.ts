@@ -6,7 +6,7 @@
 //    response so a visitor never waits for the database
 //  - admin page "Redirects": add / edit / delete rules (loop check), the 404 list with "Fix", clear
 //  - export legacyImport: the built-in's redirects_rules and redirects_404 rows
-import { Rule, normalize, target, findLoop, validate, CODES, EN, clipRunes, esc, one, toDate } from './lib';
+import { Rule, normalize, target, findLoop, validate, isSystemPath, CODES, EN, clipRunes, esc, one, toDate } from './lib';
 
 /**
  * Who manages the rules. CMS 2.0.6+: the plugin's own capability redirects.manage (manifest "capabilities",
@@ -27,15 +27,25 @@ function allRules(): any[] {
   return db.table('rules').orderBy('id', 'desc').get();
 }
 
-/** The rules by normalised path, cached for five seconds (dropped at once when an admin edits them). */
+/**
+ * The rules by normalised path. site.middleware has a 20 ms budget, so the rules must be in the cache — a cold
+ * read of the database can miss it and the visitor gets the 404 instead of the redirect. 2.0.2: kept for five
+ * minutes (every edit drops and rebuilds it at once; 2.0.1 expired it every five seconds) and tagged with a
+ * generation that every edit bumps: site.afterResponse runs after the response, so a lookup can read the rules
+ * just before a save and store them just after it — the older generation keeps that stale copy from being used.
+ */
+const GEN_KEY = 'redirects:gen';
+const generation = () => Number(cache.get<number>(GEN_KEY)) || 0;
+
 function compiled(): Compiled {
-  const c = cache.get<Compiled>(RULES_KEY);
-  if (c) return c;
+  const g = generation(); // read before the rules: a copy built from older rows carries an older generation
+  const c = cache.get<{ g: number; m: Compiled }>(RULES_KEY);
+  if (c && c.g === g && c.m) return c.m;
   const m: Compiled = {};
   for (const r of db.table('rules').select('id', 'from_path', 'to_url', 'code').get()) {
     m[normalize(r.from_path)] = [Number(r.id), r.to_url, Number(r.code)];
   }
-  cache.set(RULES_KEY, m, 5);
+  cache.set(RULES_KEY, { g, m }, 300);
   return m;
 }
 
@@ -45,7 +55,11 @@ function lookup(path: string): { id: number; to: string; code: number } | null {
   return Array.isArray(hit) ? { id: hit[0], to: hit[1], code: hit[2] } : null;
 }
 
-const invalidate = () => cache.delete(RULES_KEY);
+const invalidate = () => {
+  cache.set(GEN_KEY, generation() + 1, 0);
+  cache.delete(RULES_KEY);
+  compiled(); // warm again, so the next visitor's middleware does not read the database
+};
 
 // ---------------------------------------------------------------- public site
 
@@ -61,7 +75,8 @@ site.middleware((ctx) => {
 
 site.afterResponse((info) => {
   if (info.status === 404 && info.method === 'GET') {
-    count404(info.path);
+    // 2.0.2: 404s of API calls, uploads and plugin files are not broken links of the site
+    if (!isSystemPath(info.path)) count404(info.path);
     return;
   }
   if ((info.method === 'GET' || info.method === 'HEAD') && CODES.includes(info.status)) {

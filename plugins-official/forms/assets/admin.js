@@ -212,7 +212,7 @@
   }
 
   function inbox() {
-    var cols = (st.sel ? st.sel.fields : []).map(function (f) { return { key: f.key, label: f.label }; });
+    var cols = (st.sel ? st.sel.fields : []).map(function (f) { return { key: f.key, label: f.label, long: f.type === 'textarea' }; });
     var box = el('div', { id: 'forms-subs' });
     box.append(el('div', { class: 'ak-row' }, [
       el('span', { class: 'ak-muted ak-small', text: t('count', st.subs.length) }), el('span', { class: 'ak-grow' }),
@@ -225,8 +225,8 @@
     shown.forEach(function (s) {
       body.append(el('tr', { class: s.read ? '' : 'forms-unread', 'data-id': s.id }, [
         el('td', {}, [el('button', { type: 'button', class: 'ak-btn ak-btn-sm ak-btn-ghost', title: s.read ? t('markUnread') : t('markRead'), onclick: function () { toggleRead(s); }, text: s.read ? '○' : '●' })]),
-      ].concat(cols.map(function (c) { return el('td', { text: s.data[c.key] == null ? '' : s.data[c.key] }); }), [
-        el('td', { class: 'ak-muted ak-small', text: new Date(s.createdAt).toLocaleString(loc) }),
+      ].concat(cols.map(function (c) { return el('td', { class: c.long ? 'forms-long' : '', text: s.data[c.key] == null ? '' : s.data[c.key] }); }), [
+        el('td', { class: 'ak-muted ak-small forms-nowrap', text: new Date(s.createdAt).toLocaleString(loc) }),
         el('td', {}, [el('button', { type: 'button', class: 'ak-btn ak-btn-sm ak-btn-danger', onclick: function () { removeSub(s); }, text: '🗑' })]),
       ])));
     });
@@ -260,15 +260,17 @@
   }
 
   var css = document.createElement('style');
-  css.textContent = '.forms-layout{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start}' +
-    '@media (max-width:760px){.forms-layout{grid-template-columns:1fr}}' +
+  // minmax(0,1fr): a wide inbox table scrolls inside its card instead of pushing the card past the page
+  css.textContent = '.forms-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px;align-items:start}' +
+    '@media (max-width:760px){.forms-layout{grid-template-columns:minmax(0,1fr)}}' +
     '.forms-nav{display:flex;flex-direction:column;gap:4px;padding:8px}.forms-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;' +
     'border:1px solid transparent;border-radius:8px;padding:8px 10px;background:none;color:inherit;font:inherit;cursor:pointer}' +
     '.forms-item.on{border-color:var(--ak-primary,#4f46e5);background:var(--ak-muted-bg,rgba(79,70,229,.08))}' +
     '.forms-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:760px){.forms-2{grid-template-columns:1fr}}' +
     '.forms-fields{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}' +
     '.forms-field{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.forms-field-label{flex:1 1 180px}.forms-options{flex:1 1 100%}' +
-    '.forms-type{width:24px;text-align:center}.forms-unread td{font-weight:600}.forms-pick{margin-bottom:8px}';
+    '.forms-type{width:24px;text-align:center}.forms-unread td{font-weight:600}.forms-pick{margin-bottom:8px}' +
+    '#forms-subs td{vertical-align:top}#forms-subs td.forms-long{min-width:220px;white-space:pre-wrap}#forms-subs td.forms-nowrap{white-space:nowrap}';
   document.head.append(css);
 
   var first = st.forms.filter(function (f) { return f.id === boot.selected; })[0] || st.forms[0];

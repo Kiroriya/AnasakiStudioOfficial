@@ -112,6 +112,10 @@ func TestOfficialRedirects(t *testing.T) {
 	}
 	c.send("GET", "/missing", nil, nil)
 	c.send("GET", "/missing", nil, nil)
+	// 2.0.2: 404s of the system's own paths are not broken links of the site
+	for _, p := range []string{"/api/v1/no-such-endpoint", "/uploads/2026/01/deleted.png", "/plugin-assets/x/y.js"} {
+		c.send("GET", p, nil, nil)
+	}
 
 	// hits and the 404 log (written by site.afterResponse): 3 × /old, 1 promo, 1 deep; GET 404s only
 	e.code.WaitAfterResponse()

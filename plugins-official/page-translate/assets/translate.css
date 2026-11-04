@@ -1,0 +1,80 @@
+/* Page Translate widget — scoped under .ptw-root */
+.ptw-root {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ptw-color: #4f46e5;
+}
+
+.ptw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--ptw-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.ptw-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0, 0, 0, .3); }
+.ptw-icon { font-size: 16px; line-height: 1; }
+
+.ptw-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  min-width: 190px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .18);
+}
+.ptw-menu-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6b7280;
+  padding: 6px 10px 8px;
+}
+.ptw-opt, .ptw-restore {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 14px;
+  color: #111827;
+  cursor: pointer;
+}
+.ptw-opt:hover, .ptw-restore:hover { background: #f3f4f6; }
+.ptw-opt[aria-checked="true"] { background: #eef2ff; color: var(--ptw-color); font-weight: 600; }
+.ptw-sep { border: none; border-top: 1px solid #e5e7eb; margin: 6px 4px; }
+
+.ptw-status {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  background: #111827;
+  color: #fff;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.ptw-status[data-state="error"] { background: #b91c1c; }
+
+/* --- hide Google widget's own UI (free mode) --- */
+body { top: 0 !important; }
+.skiptranslate, #google_translate_element, .goog-te-banner-frame { display: none !important; }
+.goog-text-highlight { background: transparent !important; box-shadow: none !important; }

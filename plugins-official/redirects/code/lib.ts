@@ -79,6 +79,10 @@ export function byteLen(s: string): number {
 
 export const CODES = [301, 302, 307, 308];
 
+/** The system's own paths: never redirected, and their 404s are not broken links of the site (API calls, missing uploads). */
+export const SYSTEM_PATHS = ['/api/', '/uploads/', '/plugin-assets/', '/ext-ui/'];
+export const isSystemPath = (path: string) => SYSTEM_PATHS.some((p) => (String(path ?? '') + '/').startsWith(p));
+
 /** Normalises a rule in place; a Thai error message when it is invalid (same messages as the built-in). */
 export function validate(r: Rule): string | null {
   r.from = String(r.from ?? '').trim();
@@ -88,9 +92,7 @@ export function validate(r: Rule): string | null {
   if (!r.from.startsWith('/') || r.from.startsWith('//') || byteLen(r.from) > 191 || r.from === '/') {
     return 'เส้นทางต้นทางต้องขึ้นต้นด้วย / เช่น /old-page';
   }
-  for (const reserved of ['/api/', '/uploads/', '/plugin-assets/']) {
-    if ((r.from + '/').startsWith(reserved)) return 'ไม่สามารถ redirect เส้นทางของระบบได้';
-  }
+  if (isSystemPath(r.from)) return 'ไม่สามารถ redirect เส้นทางของระบบได้';
   if (r.to === '' || byteLen(r.to) > 1000 || !safeURL(r.to)) return 'ปลายทางต้องเป็นลิงก์ http(s):// หรือเส้นทางที่ขึ้นต้นด้วย /';
   if (normalize(r.to) === normalize(r.from)) return 'ปลายทางต้องไม่ซ้ำกับต้นทาง';
   if (!r.code) r.code = 301;

@@ -163,6 +163,8 @@ export function parseRedirects(raw: unknown): { items: Redirect[]; errors: strin
 
 // ---------------------------------------------------------------- headings and TOC
 
+const fromCode = (n: number, raw: string) => (n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : raw);
+
 /** Plain text of an HTML fragment (tags dropped, common entities decoded, spaces collapsed). */
 export function textOf(html: string): string {
   return String(html ?? '')
@@ -171,7 +173,9 @@ export function textOf(html: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
+    // numeric entities too: the content sanitizer stores " as &#34; and ' as &#39;
+    .replace(/&#(\d{1,7});/g, (m, d: string) => fromCode(Number(d), m))
+    .replace(/&#x([0-9a-f]{1,6});/gi, (m, h: string) => fromCode(parseInt(h, 16), m))
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();

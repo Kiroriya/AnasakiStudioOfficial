@@ -10,6 +10,7 @@
   (ข้อความสั้น อีเมล เบอร์โทร ข้อความยาว ตัวเลือก ช่องติ๊ก ตัวเลข วันที่) จำเป็น/ไม่จำเป็น เรียงลำดับได้, ข้อความขอบคุณ,
   หน้าที่จะพาไปหลังส่ง (เฉพาะหน้าในเว็บนี้), กล่องข้อความ (อ่านแล้ว/ยังไม่อ่าน, ลบ, แบ่งหน้า) และปุ่ม **CSV**
   (UTF-8 BOM, กันสูตร Excel)
+  · 2.0.2: ตารางกล่องข้อความที่กว้างเลื่อนดูได้ภายในการ์ด (เดิมดันการ์ดล้นหน้าจนปุ่ม CSV ถูกตัด) ช่องข้อความยาวอ่านง่ายขึ้น
 - **บล็อกดีไซเนอร์** "ฟอร์ม": แผงเพิ่ม → บล็อกปลั๊กอิน → ฟอร์ม แล้ว **เลือกฟอร์มจากรายการ** — ฟอร์มถูกสร้างฝั่ง
   เซิร์ฟเวอร์ (ใช้ได้แม้ปิด JavaScript และ Google อ่านได้) สคริปต์เล็ก ๆ ทำให้ส่งแบบไม่โหลดหน้าใหม่; หน้าฟอร์มเดี่ยว
   `/forms/<id>` แสดงในหัว/ท้ายของเว็บ
@@ -49,5 +50,8 @@ plugin; forms and submissions are migrated with their ids, so pages that already
 - Settings (Plugins → Forms → Settings): `notifyEmail`, `siteTitle`, `webhookUrl`. Scopes: `db`, `routes`, `mail`,
   `admin-pages`, `webhooks`.
 - Legacy import: `forms_forms`, `forms_submissions` (ids kept, idempotent). Small differences: `../GAPS.md` (port B).
+
+**2.0.2:** a wide inbox table scrolls inside its card (it used to push the card past the page and cut off the CSV
+button); long text answers are easier to read.
 
 **Permissions (CMS 2.0.6+):** `forms.manage` — build / edit / delete forms · `forms.view_submissions` — the inbox and CSV export (default: administrators, editors) — change them in Users → Roles · older CMS versions keep the former role list
