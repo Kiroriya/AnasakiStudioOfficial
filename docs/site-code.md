@@ -1012,7 +1012,7 @@ site.afterResponse((info) => {  // {method, path, query, status, contentType, re
   (`Engine.MiddlewareTimeout`); a failure or timeout skips it (logged) and counts against the circuit
   breaker (20 in a minute → skipped for 5 minutes).
 - `site.afterResponse(fn)` runs after the response was written, in a queue (1000 items, one worker,
-  **500 ms** each, a full queue drops items with a warning). It never delays a response.
+  **2 s** each (500 ms before 2.2.0), a full queue drops items with a warning). It never delays a response.
 
 ### Head and body HTML, page.meta, sitemap and robots
 
@@ -1237,7 +1237,7 @@ Core keeps the rendered `/sitemap.xml` (5 minutes) while nothing it depends on c
 | client runtime | < 7 KB minified |
 | binary bodies | 20 MB (routes, webhook replies, admin page downloads) |
 | site.asset | 5 MB per file (cached per plugin version) |
-| site.middleware / afterResponse | 20 ms / 500 ms each; afterResponse queue 1,000 |
+| site.middleware / afterResponse | 20 ms / 2 s each (500 ms before 2.2.0); afterResponse queue 1,000 |
 | site.head / bodyEnd / page.meta | 50 ms each |
 
 ## Capabilities

@@ -1,7 +1,7 @@
 {
   "id": "analytics",
   "name": "Analytics",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Privacy-friendly server-side page-view counter: no cookies, no third-party script, raw IPs never stored — popular pages, daily visitors and referrers. / นับยอดเข้าชมฝั่งเซิร์ฟเวอร์ ไม่ใช้คุกกี้ ไม่เก็บ IP — หน้ายอดนิยม ผู้เข้าชมรายวัน และแหล่งที่มา",
   "author": "Anasaki Studio",
   "icon": "📈",

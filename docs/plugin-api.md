@@ -401,7 +401,7 @@ site.taxonomy('shop_brand', {
 | hook | runs | limit |
 |---|---|---|
 | `site.middleware(fn, {priority})` | before routing, for every public request; return nothing to continue, a result to answer, or `{headers}` to add allowed headers and continue | 20 ms |
-| `site.afterResponse(fn)` | after the response, in a queue; `{method, path, query, status, contentType, referrer, userAgent, ip, durationMs, title, isAdminUser, at, host, headers}` | 500 ms |
+| `site.afterResponse(fn)` | after the response, in a queue; `{method, path, query, status, contentType, referrer, userAgent, ip, durationMs, title, isAdminUser, at, host, headers}` | 2 s (500 ms before 2.2.0) |
 | `site.head(fn(page))` / `site.bodyEnd(fn(page))` | HTML in `<head>` / before `</body>`; sanitised without `head-scripts` | 50 ms |
 | filter `page.meta` | `{title, fullTitle, description, image, canonical, robots, noindex, og}` | 50 ms |
 | package `head` / `bodyEnd` | static assets / an escaped template from the manifest | — |

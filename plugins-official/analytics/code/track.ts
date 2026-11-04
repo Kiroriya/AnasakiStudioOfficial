@@ -71,11 +71,13 @@ export interface Hit {
 export function store(h: Hit): void {
   let title = h.title;
   if (byteLen(title) > 255) title = Array.from(title).slice(0, 80).join('');
-  bump('daily', { day: h.day, path: h.path }, { views: 1 }, title ? { title } : {});
+  // the day's totals first (2.0.4): if the handler runs out of time on a slow database, the details
+  // (pages, referrers) may miss a hit, never the views / visitors of the day
   const newVisitor = addOnce('visitors', { day: h.day, hash: h.visitor });
+  bump('days', { day: h.day }, newVisitor ? { views: 1, visitors: 1 } : { views: 1 });
+  bump('daily', { day: h.day, path: h.path }, { views: 1 }, title ? { title } : {});
   addOnce('page_visitors', { day: h.day, path: h.path, hash: h.visitor });
   if (h.ref) bump('referrers', { day: h.day, host: h.ref }, { views: 1 });
-  bump('days', { day: h.day }, newVisitor ? { views: 1, visitors: 1 } : { views: 1 });
 }
 
 /** site.afterResponse: counts successful HTML page views by people (not bots, prefetches, API calls…). */

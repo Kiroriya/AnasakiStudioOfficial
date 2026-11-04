@@ -43,7 +43,7 @@ const maxPageHooks = 20
 // Page hook limits (Engine fields override them).
 const (
 	defaultMiddlewareTimeout = 20 * time.Millisecond
-	defaultAfterTimeout      = 500 * time.Millisecond
+	defaultAfterTimeout      = 2 * time.Second // 500 ms before 2.2.0: too short for a first hit on a slow database
 	afterQueueSize           = 1000
 )
 

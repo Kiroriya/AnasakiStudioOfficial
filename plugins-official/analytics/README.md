@@ -1,4 +1,4 @@
-# Analytics (`analytics`) — สถิติผู้เข้าชม · official plugin 2.0.2
+# Analytics (`analytics`) — สถิติผู้เข้าชม · official plugin 2.0.4
 
 ## ภาษาไทย
 
