@@ -100,6 +100,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 	h("GET "+p+"/posts/{id}/revisions/{rid}", "", a.getRevision)
 	h("POST "+p+"/posts/{id}/revisions/{rid}/restore", "", a.restoreRevision)
 	a.postTypeRoutes(h)
+	a.contentTypeRoutes(h) // content types made in the admin (2.2.2, contenttypes.go)
 
 	// categories: the post editor (edit_own_posts), the designer (edit_pages) and the categories screen
 	h("GET "+p+"/terms", "", needAny(a.listTerms, auth.CapEditOwnPosts, auth.CapEditPages, auth.CapManageTerms))

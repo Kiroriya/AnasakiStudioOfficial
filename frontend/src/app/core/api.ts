@@ -1,4 +1,5 @@
 import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
+import type { ContentTypeRow, TakenType } from '../admin/content-types-utils';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { DNode } from '../editor/design-types';
@@ -101,6 +102,10 @@ export class Api {
 
   // menus
   menus() { return this.get<Menu[]>('/menus'); }
+  /** Content types made in the admin (2.2.2). */
+  contentTypes() { return this.get<{ types: ContentTypeRow[]; taken: TakenType[] }>('/content-types'); }
+  saveContentType(type: string, spec: Record<string, unknown>) { return this.put<ContentTypeRow>(`/content-types/${encodeURIComponent(type)}`, spec); }
+  deleteContentType(type: string) { return this.del(`/content-types/${encodeURIComponent(type)}`); }
   saveMenu(m: Menu) { return m.id ? this.put<Menu>(`/menus/${m.id}`, m) : this.post<Menu>('/menus', m); }
   deleteMenu(id: number) { return this.del(`/menus/${id}`); }
 

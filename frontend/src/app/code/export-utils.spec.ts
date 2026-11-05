@@ -1,4 +1,4 @@
-import { exportRequest, exportValid, formFromDryRun, parseRoutes, slugId, toggleIn, validateExport, warningText } from './export-utils';
+import { exportRequest, exportValid, formFromDryRun, keepTouched, parseRoutes, slugId, toggleIn, validateExport, warningText } from './export-utils';
 
 describe('export as plugin', () => {
   it('prefills from the dry run manifest', () => {
@@ -29,6 +29,8 @@ describe('export as plugin', () => {
     expect(validateExport({ ...ok, version: '1.0' }).errors.version).toBe('cx.err.version');
     expect(validateExport({ ...ok, version: '1.0.0-beta.1' }).errors.version).toBeUndefined();
     expect(validateExport({ ...ok, description: 'x'.repeat(501) }).errors.description).toBe('cx.err.description');
+    expect(validateExport({ ...ok, description: 'ก'.repeat(167) }).errors.description).toBe('cx.err.description'); // 501 bytes
+    expect(validateExport({ ...ok, description: 'ก'.repeat(166) }).errors.description).toBeUndefined();
     const r = validateExport({ ...ok, routes: '/shop\n/admin/x' });
     expect([r.errors.routes, r.badRoute]).toEqual(['cx.err.route', '/admin/x']);
     expect(validateExport({ ...ok, routes: 'shop' }).badRoute).toBe('shop');
@@ -52,5 +54,16 @@ describe('export as plugin', () => {
     expect(toggleIn(['a'], 'b', true)).toEqual(['a', 'b']);
     expect(toggleIn(['a', 'b'], 'a', false)).toEqual(['b']);
     expect(toggleIn(['a'], 'a', true)).toEqual(['a']);
+  });
+});
+
+describe('keepTouched', () => {
+  it('keeps what the user typed while the first dry run was on its way', () => {
+    const pre = formFromDryRun({ manifest: { id: 'site-code', name: 'Site', version: '1.0.0', code: { scopes: ['db'] } } } as never, 'Site');
+    const cur = { ...pre, id: 'my-plugin', name: 'Mine' };
+    const out = keepTouched(pre, cur, new Set(['id'] as const));
+    expect(out.id).toBe('my-plugin');
+    expect(out.name).toBe(pre.name);
+    expect(out.scopes).toEqual(['db']);
   });
 });

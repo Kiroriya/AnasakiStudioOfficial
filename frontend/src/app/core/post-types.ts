@@ -37,6 +37,8 @@ export class PostTypes {
   }
 
   async ensureLoaded() { if (!this.loaded) await this.load(); }
+  /** Reads the types again (after Settings → Content types changed them). */
+  reload(): Promise<void> { this.loaded = false; this.loading = null; return this.load(); }
 
   get(type: string): CodePostType | undefined { return this.list().find(p => p.type === type); }
 

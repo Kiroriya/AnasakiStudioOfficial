@@ -72,3 +72,12 @@ func TestInteractionsInsideComponents(t *testing.T) {
 		t.Fatalf("each placement must toggle its own answer: %+v", out.Actions)
 	}
 }
+
+// 2.2.2: tab triggers are announced as tabs (role=tab + aria-selected in a tablist, the panel a tabpanel).
+func TestInteractScriptTabsAria(t *testing.T) {
+	for _, want := range []string{`setAttribute('role','tab')`, `setAttribute('role','tablist')`, `setAttribute('role','tabpanel')`, `setAttribute('aria-selected',String(s===t))`} {
+		if !strings.Contains(InteractScript, want) {
+			t.Errorf("InteractScript lacks %s", want)
+		}
+	}
+}

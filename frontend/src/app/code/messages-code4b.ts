@@ -54,7 +54,7 @@ registerMessages({
   'cx.err.name': { th: 'ต้องมีชื่อ (ไม่เกิน 80 ตัว)', en: 'A name is required (up to 80 chars)' },
   'cx.err.version': { th: 'เวอร์ชันต้องเป็นแบบ 1.0.0', en: 'Use a version like 1.0.0' },
   'cx.err.route': { th: 'route ต้องขึ้นต้นด้วย / และไม่ใช่ที่อยู่ของระบบ: {r}', en: 'Routes must start with / and not be a system path: {r}' },
-  'cx.err.description': { th: 'คำอธิบายยาวเกิน 500 ตัว', en: 'Description is longer than 500 chars' },
+  'cx.err.description': { th: 'คำอธิบายยาวเกิน 500 ไบต์ที่ Plugin Store รับ (ภาษาไทยประมาณ 160 ตัวอักษร)', en: 'Description is longer than the 500 bytes the Plugin Store accepts' },
   'cx.noLive': { th: 'ยังไม่มีเวอร์ชันที่เผยแพร่ — เผยแพร่ก่อนจึงส่งออกได้', en: 'Nothing is published yet — publish first to export' },
 
   // designer source groups

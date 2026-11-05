@@ -1,7 +1,7 @@
 {
   "id": "forms",
   "name": "Forms",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Form builder: contact, newsletter or quote forms placed with the designer block, an inbox with CSV export, spam protection, mail notification, webhooks and the form.submitted event. / สร้างฟอร์ม วางบนหน้าเว็บด้วยดีไซเนอร์ ดูข้อความที่ส่งเข้ามา ส่งออก CSV แจ้งเตือนทางอีเมล และ webhook",
   "author": "Anasaki Studio",
   "icon": "📝",

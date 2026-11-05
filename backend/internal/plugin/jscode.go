@@ -47,6 +47,8 @@ var CodeScopes = map[string]bool{"db": true, "content": true, "content-write": t
 	"content-fields": true, "webhooks": true,
 	// 2.0.5: site.postType in a plugin (type ids "<id>_<name>")
 	"post-types": true,
+	// 2.2.2: db.users — read-only public profiles (author pages, team lists)
+	"users": true,
 	// 2.1.0: site.taxonomy, db.terms writes, the media library from code, the plugin's own files
 	"taxonomies": true, "terms-write": true, "media": true, "media-write": true, "files": true}
 
@@ -153,6 +155,10 @@ var (
 
 // reservedCodeRoute are first path segments a JS plugin route prefix can
 // never take (the install also checks the site's admin path / bases).
+// codeRouteRe: a path prefix of a JS plugin; segments may hold a dot (2.2.2: /feed.xml, /ads.txt,
+// /.well-known is still refused — a segment starts with a letter or digit)
+var codeRouteRe = regexp.MustCompile(`^/[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)*$`)
+
 var reservedCodeRoute = map[string]bool{"api": true, "admin": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true,
 	"_a": true, "_c": true, "ext-ui": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
 	"assets": true, "static": true, "blog": true, "category": true}
@@ -244,7 +250,7 @@ func (mf *Manifest) validateCode(files map[string][]byte) error {
 		}
 	}
 	if err := uniqueList("code.scopes", c.Scopes, len(CodeScopes), func(s string) bool { return CodeScopes[s] },
-		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks, post-types, taxonomies, terms-write, media, media-write, files)"); err != nil {
+		"unknown scope (db, content, content-write, mail, http, visitor, admin-pages, jobs, routes, filters-core, middleware, head-scripts, content-fields, webhooks, post-types, users, taxonomies, terms-write, media, media-write, files)"); err != nil {
 		return err
 	}
 	if err := uniqueList("code.hosts", c.Hosts, maxCodeHosts, func(h string) bool { return len(h) <= 253 && codeHostRe.MatchString(h) },
@@ -254,8 +260,8 @@ func (mf *Manifest) validateCode(files map[string][]byte) error {
 	if len(c.Hosts) > 0 && !c.HasScope("http") {
 		return pkgErr(`manifest: code.hosts needs the "http" scope`)
 	}
-	if err := uniqueList("code.routes", c.Routes, maxCodeRoutes, func(p string) bool { return len(p) <= 60 && servicePathRe.MatchString(p) },
-		"a route must be a path prefix such as /shop (a-z 0-9 _ -)"); err != nil {
+	if err := uniqueList("code.routes", c.Routes, maxCodeRoutes, func(p string) bool { return len(p) <= 60 && codeRouteRe.MatchString(p) && !strings.Contains(p, "..") },
+		"a route must be a path prefix such as /shop or /feed.xml (a-z 0-9 _ - .)"); err != nil {
 		return err
 	}
 	for _, p := range c.Routes {

@@ -29,6 +29,7 @@ registerMessages({
   'ed.cmd.duplicate': { th: 'ทำสำเนา', en: 'Duplicate' },
   'ed.cmd.delete': { th: 'ลบ', en: 'Delete' },
   'ed.cmd.copyProps': { th: 'คัดลอกคุณสมบัติ', en: 'Copy properties' },
+  'ed.cmd.copyCss': { th: 'คัดลอก CSS (Dev mode)', en: 'Copy CSS' },
   'ed.cmd.pasteProps': { th: 'วางคุณสมบัติ', en: 'Paste properties' },
   'ed.cmd.selectAll': { th: 'เลือกทั้งหมด', en: 'Select all' },
   'ed.cmd.selectMatching': { th: 'เลือกชั้นที่เหมือนกันทั้งหมด', en: 'Select all matching layers' },

@@ -807,7 +807,7 @@ site.export('shout', (s) => String(s).toUpperCase());`,
 	}
 	m := dry["manifest"].(map[string]any)
 	cd := m["code"].(map[string]any)
-	if m["runtime"] != "js" || cd["entry"] != "code/main.ts" || strs(cd["scopes"]) != "db,routes" || strs(cd["routes"]) != "/xp" ||
+	if m["runtime"] != "js" || m["category"] != "utilities" || cd["entry"] != "code/main.ts" || strs(cd["scopes"]) != "db,routes" || strs(cd["routes"]) != "/xp" ||
 		strs(cd["exports"]) != "shout" {
 		t.Fatalf("prefilled manifest = %v", m)
 	}

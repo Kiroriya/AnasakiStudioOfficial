@@ -1,0 +1,15 @@
+[
+  {"name": "blend", "type": "frame", "style": {"blend": "multiply"}, "expect": {"mix-blend-mode": "multiply"}},
+  {"name": "blend unknown is dropped", "type": "frame", "style": {"blend": "x;color:red"}, "absent": ["mix-blend-mode"]},
+  {"name": "scroll x", "type": "frame", "style": {"scroll": "x", "clip": true}, "expect": {"overflow": "hidden", "overflow-x": "auto", "overflow-y": "hidden"}},
+  {"name": "scroll y", "type": "frame", "style": {"scroll": "y"}, "expect": {"overflow-y": "auto"}},
+  {"name": "scroll both", "type": "frame", "style": {"scroll": "both", "clip": true}, "expect": {"overflow": "auto"}},
+  {"name": "min width / max height", "type": "frame", "style": {"minWidth": 240, "maxHeight": 400}, "expect": {"min-width": "240px", "max-height": "400px"}},
+  {"name": "aspect", "type": "image", "style": {"aspect": "16/9"}, "expect": {"aspect-ratio": "16 / 9"}},
+  {"name": "aspect bad is dropped", "type": "image", "style": {"aspect": "16/9;x"}, "absent": ["aspect-ratio"]},
+  {"name": "max lines on text", "type": "text", "style": {"maxLines": 2}, "expect": {"display": "-webkit-box", "-webkit-line-clamp": "2", "-webkit-box-orient": "vertical", "overflow": "hidden"}},
+  {"name": "max lines capped at 20", "type": "text", "style": {"maxLines": 99}, "expect": {"-webkit-line-clamp": "20"}},
+  {"name": "max lines only for text", "type": "frame", "style": {"maxLines": 2}, "absent": ["-webkit-line-clamp"]},
+  {"name": "stroke bottom only", "type": "frame", "style": {"stroke": "#e5e7eb", "strokeWidth": 1, "strokeSides": [false, false, true, false]}, "expect": {"border": "1px solid #e5e7eb", "border-width": "0 0 1px 0"}},
+  {"name": "stroke all sides", "type": "frame", "style": {"stroke": "#000", "strokeWidth": 2, "strokeSides": [true, true, true, true]}, "expect": {"border": "2px solid #000"}, "absent": ["border-width"]}
+]

@@ -106,6 +106,18 @@ export interface Style {
   hover?: Hover;
   /** Scroll-in animation. */
   anim?: Anim;
+  /** 2.2.2 (Figma parity): layer blend mode (CSS mix-blend-mode). */
+  blend?: string;
+  /** Scrolls inside the layer instead of growing / clipping. */
+  scroll?: 'x' | 'y' | 'both';
+  minWidth?: number;
+  maxHeight?: number;
+  /** Width / height ratio kept when the layer resizes, e.g. "16/9". */
+  aspect?: string;
+  /** Text cut after this many lines with "…". */
+  maxLines?: number;
+  /** Stroke on these sides only: top, right, bottom, left. */
+  strokeSides?: [boolean, boolean, boolean, boolean];
 }
 
 /** What changes while the mouse is over a layer (published page). */

@@ -38,6 +38,7 @@ export const routes: Routes = [
       { path: 'users', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/users-page').then(m => m.Users) },
       { path: 'roles', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/users-page').then(m => m.Roles) },
       { path: 'settings', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/settings-page').then(m => m.SettingsPage) },
+      { path: 'content-types', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/content-types').then(m => m.ContentTypes) },
       { path: 'plugins', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/plugins-page').then(m => m.PluginsPage) },
       { path: 'p/:id', canActivate: [capGuard('manage_options')], data: { kind: 'builtin' }, loadComponent: () => import('./admin/plugin-settings').then(m => m.PluginSettings) },
       { path: 'x/:id/:page', canActivate: [pluginPageGuard], loadComponent: () => import('./admin/service-page').then(m => m.ServicePage) },

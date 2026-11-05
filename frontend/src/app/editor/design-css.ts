@@ -8,6 +8,11 @@ import { safeImageSrc, safeUrl } from '../shared/safe-url';
  * IMPORTANT: mirrors Decls() in backend/internal/design/css.go so the editor
  * canvas matches the published page. Keep both in sync.
  */
+/** style.blend values (CSS mix-blend-mode) — css.go blendModes. */
+export const BLEND_MODES = new Set(['multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light',
+  'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity']);
+const ASPECT_RE = /^\d{1,4}(\.\d{1,3})?\/\d{1,4}(\.\d{1,3})?$/;
+
 export function nodeCss(n: DNode, parentMode: LayoutMode | ''): Record<string, string> {
   if (n.absolute && parentMode !== '') parentMode = 'none'; // ignore parent's auto layout, like Figma
   const d: Record<string, string> = {};
@@ -141,7 +146,12 @@ export function nodeCss(n: DNode, parentMode: LayoutMode | ''): Record<string, s
   }
   const ov = cssSafe(s.overlay);
   if (ov && bg) d['background-image'] = `linear-gradient(${ov},${ov}),${bg}`;
-  if ((s.strokeWidth ?? 0) > 0 && s.stroke && n.type !== 'vector') d['border'] = `${px(s.strokeWidth!)} ${s.strokeStyle === 'dashed' || s.strokeStyle === 'dotted' ? s.strokeStyle : 'solid'} ${s.stroke}`;
+  if ((s.strokeWidth ?? 0) > 0 && s.stroke && n.type !== 'vector') {
+    d['border'] = `${px(s.strokeWidth!)} ${s.strokeStyle === 'dashed' || s.strokeStyle === 'dotted' ? s.strokeStyle : 'solid'} ${s.stroke}`;
+    // 2.2.2: a stroke on some sides only ([top, right, bottom, left]) — mirrors css.go
+    const sides = s.strokeSides;
+    if (sides && sides.length === 4 && !sides.every(Boolean)) d['border-width'] = sides.map(on => (on ? px(s.strokeWidth!) : '0')).join(' ');
+  }
   if (s.radius) d['border-radius'] = px(s.radius);
   const rs = s.radii;
   if (rs && rs.length === 4 && rs[0] + rs[1] + rs[2] + rs[3] !== 0) d['border-radius'] = rs.map(px).join(' ');
@@ -153,6 +163,20 @@ export function nodeCss(n: DNode, parentMode: LayoutMode | ''): Record<string, s
   if (s.backdropBlur && s.backdropBlur > 0) {
     d['backdrop-filter'] = `blur(${px(s.backdropBlur)})`;
     d['-webkit-backdrop-filter'] = `blur(${px(s.backdropBlur)})`;
+  }
+  // 2.2.2 (what Figma has): blend mode, scrolling, min W / max H, aspect ratio, text cut to N lines — mirrors css.go
+  if (s.blend && BLEND_MODES.has(s.blend)) d['mix-blend-mode'] = s.blend;
+  if (s.scroll === 'x') { d['overflow-x'] = 'auto'; d['overflow-y'] = 'hidden'; }
+  else if (s.scroll === 'y') d['overflow-y'] = 'auto';
+  else if (s.scroll === 'both') d['overflow'] = 'auto';
+  if (s.minWidth && s.minWidth > 0) d['min-width'] = px(s.minWidth);
+  if (s.maxHeight && s.maxHeight > 0) d['max-height'] = px(s.maxHeight);
+  if (s.aspect && ASPECT_RE.test(s.aspect)) d['aspect-ratio'] = s.aspect.replace('/', ' / ');
+  if (s.maxLines && s.maxLines >= 1 && n.type === 'text') {
+    d['display'] = '-webkit-box';
+    d['-webkit-line-clamp'] = String(Math.min(Math.trunc(s.maxLines), 20));
+    d['-webkit-box-orient'] = 'vertical';
+    d['overflow'] = 'hidden';
   }
 
   if (s.color) d['color'] = s.color;

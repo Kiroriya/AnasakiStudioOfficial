@@ -296,7 +296,7 @@ func (s *Session) CodeBlock(c design.BlockCall) (string, string, bool) {
 	vals := renderValues(b, c.Values)
 	var key string
 	if b.Cache > 0 {
-		kj, _ := json.Marshal([]any{lp.unit.ID, lp.unit.Version, b.Type, vals, c.Post["id"], c.Item["id"], s.e.gen(lp.unit.ID)})
+		kj, _ := json.Marshal([]any{lp.unit.ID, lp.unit.Version, b.Type, vals, c.Post["id"], c.Item["id"], s.e.gen(lp.unit.ID), c.Preview})
 		key = "block:" + string(kj)
 		if hit, ok := s.e.blockCache.Get(key); ok {
 			var r [2]string
@@ -305,7 +305,7 @@ func (s *Session) CodeBlock(c design.BlockCall) (string, string, bool) {
 			}
 		}
 	}
-	ctx := map[string]any{"site": c.Site, "post": c.Post, "item": c.Item, "path": s.request().URL.Path}
+	ctx := map[string]any{"site": c.Site, "post": c.Post, "item": c.Item, "path": s.request().URL.Path, "preview": c.Preview}
 	if b.Cache == 0 {
 		// the query string (first value per key) — only for uncached blocks, a cached render would leak it
 		q := map[string]string{}

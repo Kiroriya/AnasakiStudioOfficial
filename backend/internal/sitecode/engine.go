@@ -1256,7 +1256,7 @@ func (e *Engine) ManifestFor(opts map[string]string) Manifest {
 	m.normalize()
 	id := liveID(opts)
 	if id == 0 || e.cfg.Demo {
-		e.pushTypeSlugs(0, m)
+		e.pushTypeSlugs(0, m, opts[OptContentTypes])
 		return m
 	}
 	if c, ok := e.manifests.Load(id); ok {
@@ -1269,7 +1269,7 @@ func (e *Engine) ManifestFor(opts map[string]string) Manifest {
 		e.manifests.Store(id, row.Manifest)
 		m = row.Manifest
 	}
-	e.pushTypeSlugs(id, m)
+	e.pushTypeSlugs(id, m, opts[OptContentTypes])
 	return m
 }
 
@@ -1278,12 +1278,12 @@ func (e *Engine) ManifestFor(opts map[string]string) Manifest {
 // when the live version or the set of plugin units changed. It reads the
 // current unit set without reloading it (ManifestFor runs while the units
 // load).
-func (e *Engine) pushTypeSlugs(id int64, m Manifest) {
+func (e *Engine) pushTypeSlugs(id int64, m Manifest, adminTypes string) {
 	if e.cfg.TypeSlugs == nil {
 		return
 	}
 	set := e.unitSetP.Load()
-	key := strconv.FormatInt(id, 10)
+	key := strconv.FormatInt(id, 10) + "|" + adminTypes // 2.2.2: the admin-defined types are part of the set
 	if set != nil {
 		key += "|" + set.fp
 	}
@@ -1291,7 +1291,7 @@ func (e *Engine) pushTypeSlugs(id int64, m Manifest) {
 		return
 	}
 	slugs := map[string]string{}
-	for _, t := range withUnits(m, set.loaded()).PostTypes {
+	for _, t := range withAdminTypes(withUnits(m, set.loaded()), adminTypes).PostTypes {
 		slugs[t.Type] = t.Slug
 	}
 	e.cfg.TypeSlugs(slugs)
@@ -1310,9 +1310,11 @@ func (e *Engine) PostTypes() Manifest {
 }
 
 // ContentFor is ManifestFor(opts) with the post types and custom fields of
-// the running JS plugins (WithUnitFields).
+// the running JS plugins (WithUnitFields) and, since 2.2.2, the content types
+// made in the admin (option content_types; code and plugin types win a clash).
 func (e *Engine) ContentFor(opts map[string]string) Manifest {
-	return e.WithUnitFields(e.ManifestFor(opts))
+	m := e.ManifestFor(opts)
+	return expandAllTypes(withAdminTypes(withUnits(m, e.units().loaded()), opts[OptContentTypes]))
 }
 
 func jsonUnmarshal(s string, v any) error { return json.Unmarshal([]byte(s), v) }

@@ -225,7 +225,7 @@ func (a *API) renderBlock(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	call := design.BlockCall{Plugin: in.Plugin, Block: in.Block, Values: in.Values,
+	call := design.BlockCall{Plugin: in.Plugin, Block: in.Block, Values: in.Values, Preview: true,
 		Site: map[string]string{"title": opts["site_title"], "tagline": opts["tagline"], "url": "/"}}
 	inner, css, ok := a.plugins.RenderBlock(call)
 	if !ok {

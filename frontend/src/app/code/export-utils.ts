@@ -64,7 +64,8 @@ export function validateExport(f: ExportForm): { errors: ExportErrors; badRoute?
   else if (!PKG_ID_RE.test(id)) errors.id = 'cx.err.id';
   if (!f.name.trim() || f.name.trim().length > 80) errors.name = 'cx.err.name';
   if (!SEMVER_RE.test(f.version.trim())) errors.version = 'cx.err.version';
-  if (f.description.length > 500) errors.description = 'cx.err.description';
+  // the Plugin Store counts bytes (a Thai letter is 3): 500 bytes ≈ 166 Thai letters
+  if (new TextEncoder().encode(f.description.trim()).length > 500) errors.description = 'cx.err.description';
   const bad = parseRoutes(f.routes).find(r => r === '/' || !ROUTE_RE.test(r) || RESERVED_ROUTES.some(x => r === x || r.startsWith(x + '/')));
   if (bad) errors.routes = 'cx.err.route';
   return { errors, badRoute: bad };
@@ -92,4 +93,11 @@ export function warningText(w: string | { message?: string; file?: string; line?
 
 export function toggleIn(list: string[], v: string, on: boolean): string[] {
   return on ? (list.includes(v) ? list : [...list, v]) : list.filter(x => x !== v);
+}
+
+/** The prefilled form, with the fields the user already edited taken from `current`. */
+export function keepTouched(pre: ExportForm, current: ExportForm, touched: ReadonlySet<keyof ExportForm>): ExportForm {
+  const out = { ...pre } as Record<keyof ExportForm, unknown>;
+  for (const k of touched) out[k] = current[k];
+  return out as unknown as ExportForm;
 }

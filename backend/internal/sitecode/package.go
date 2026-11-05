@@ -75,6 +75,7 @@ var (
 		{regexp.MustCompile(`\bsite\.postType\s*\(`), "post-types"},
 		{regexp.MustCompile(`\bsite\.taxonomy\s*\(`), "taxonomies"},
 		{regexp.MustCompile(`\bdb\.terms\.(list|get)\s*\(`), "content"},
+		{regexp.MustCompile(`\bdb\.users\.(list|get)\s*\(`), "users"},
 		{regexp.MustCompile(`\bdb\.terms\.(create|update|delete)\s*\(`), "terms-write"},
 		{regexp.MustCompile(`\bmedia\.(list|get|read)\s*\(`), "media"},
 		{regexp.MustCompile(`\bmedia\.(upload|update|replace|delete)\s*\(`), "media-write"},
@@ -273,8 +274,9 @@ func (e *Engine) ExportPackage(in PackageRequest, dryRun bool) (*PackageResult, 
 	if len(hk) > 0 {
 		code["hooks"] = hk
 	}
+	// category: the Plugin Store refuses a manifest without one; "utilities" until the author picks another
 	man := map[string]any{"id": in.ID, "name": in.Name, "version": in.Version, "minCore": plugin.CoreVersion,
-		"runtime": plugin.RuntimeJS, "permissions": []string{"code"}, "code": code}
+		"runtime": plugin.RuntimeJS, "permissions": []string{"code"}, "code": code, "category": "utilities"}
 	if d := strings.TrimSpace(in.Description); d != "" {
 		man["description"] = d
 	}

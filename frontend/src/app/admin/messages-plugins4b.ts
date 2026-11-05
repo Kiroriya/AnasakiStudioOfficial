@@ -39,6 +39,7 @@ registerMessages({
   'scope.filters-core': { th: 'แก้ไขข้อมูลของระบบผ่านตัวกรองหลัก (เนื้อหา, head, อีเมล…)', en: 'Change core data through core filters (content, head, mail…)' },
   'scope.content-fields': { th: 'เพิ่มช่องข้อมูลในหน้าแก้ไขโพสต์/หน้า (บันทึกใน post meta ของปลั๊กอินเอง)', en: "Add fields to the post/page editor (stored in the plugin's own post meta)" },
   'scope.post-types': { th: 'เพิ่มประเภทเนื้อหาใหม่ (เมนูและหน้าแก้ไขในหลังบ้าน)', en: 'Add content types (admin menu and editor)' },
+  'scope.users': { th: 'อ่านโปรไฟล์สาธารณะของผู้ใช้ (ชื่อ รูป ประวัติ — ไม่รวมอีเมล)', en: "Read users' public profiles (name, avatar, bio — never the email)" },
   'scope.taxonomies': { th: 'เพิ่มชุดหมวดหมู่ใหม่ (เช่น หมวดสินค้า) พร้อมหน้าจัดการในหลังบ้าน', en: 'Add taxonomies (e.g. product categories) with admin screens' },
   'scope.terms-write': { th: 'สร้าง แก้ไข และลบหมวดหมู่/แท็ก', en: 'Create, edit and delete categories and terms' },
   'scope.media': { th: 'อ่านคลังสื่อ (รูปและไฟล์ที่อัปโหลด)', en: 'Read the media library' },

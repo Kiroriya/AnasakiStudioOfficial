@@ -6,7 +6,7 @@ import { SiteInfo } from '../core/site';
 import { saveBlob } from '../shared/download';
 import { CODE_SCOPES, isSensitiveScope, scopeLabel, sortScopes } from '../admin/plugin-deps';
 import { filenameFromDisposition } from './code-utils';
-import { ExportForm, exportRequest, formFromDryRun, toggleIn, validateExport, warningText } from './export-utils';
+import { ExportForm, exportRequest, formFromDryRun, keepTouched, toggleIn, validateExport, warningText } from './export-utils';
 import './messages-code4b';
 
 /**
@@ -127,7 +127,9 @@ export class ExportPlugin implements OnInit {
   val(e: Event) { return (e.target as HTMLInputElement).value; }
   label(s: string) { return scopeLabel(s); }
   sensitive(s: string) { return isSensitiveScope(s); }
-  set<K extends keyof ExportForm>(k: K, v: ExportForm[K]) { this.form.update(f => ({ ...f, [k]: v })); }
+  /** Fields the user changed: the first dry run (answering after the dialog opened) must not overwrite them. */
+  private readonly touched = new Set<keyof ExportForm>();
+  set<K extends keyof ExportForm>(k: K, v: ExportForm[K]) { this.touched.add(k); this.form.update(f => ({ ...f, [k]: v })); }
   toggleScope(s: string, on: boolean) { this.set('scopes', toggleIn(this.form().scopes, s, on)); }
   toggleExport(x: string, on: boolean) { this.set('exports', toggleIn(this.form().exports, x, on)); }
 
@@ -146,10 +148,10 @@ export class ExportPlugin implements OnInit {
       this.inferred.set(dry?.manifest?.code?.scopes ?? []);
       this.exportNames.set([...new Set([...(dry?.manifest?.code?.exports ?? []), ...(keepEdits ? this.form().exports : [])])]);
       this.warnings.set((dry?.warnings ?? []).map(warningText).filter(Boolean));
-      if (!keepEdits) this.form.set(pre);
+      if (!keepEdits) this.form.set(keepTouched(pre, this.form(), this.touched));
     } catch (e) {
       this.error.set(errorMessage(e));
-      if (!keepEdits) this.form.set(formFromDryRun(null, this.site.title()));
+      if (!keepEdits) this.form.set(keepTouched(formFromDryRun(null, this.site.title()), this.form(), this.touched));
     } finally {
       this.checking.set(false);
     }

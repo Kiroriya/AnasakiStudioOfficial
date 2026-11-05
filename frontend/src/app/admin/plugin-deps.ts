@@ -188,7 +188,7 @@ export function destructiveText(d: CodeDestructive): string {
 
 // ------------------------------------------------------------------ code scopes
 
-export const CODE_SCOPES = ['db', 'content', 'content-write', 'mail', 'http', 'visitor', 'admin-pages', 'jobs', 'routes', 'filters-core', 'content-fields', 'webhooks', 'post-types', 'taxonomies', 'terms-write', 'media', 'media-write', 'files'] as const;
+export const CODE_SCOPES = ['db', 'content', 'content-write', 'mail', 'http', 'visitor', 'admin-pages', 'jobs', 'routes', 'filters-core', 'content-fields', 'webhooks', 'post-types', 'users', 'taxonomies', 'terms-write', 'media', 'media-write', 'files'] as const;
 export type CodeScope = (typeof CODE_SCOPES)[number];
 /** Scopes reviewers and admins should look at twice. */
 export const SENSITIVE_SCOPES: readonly string[] = ['content-write', 'mail', 'http', 'visitor', 'filters-core', 'content-fields', 'webhooks', 'terms-write', 'media-write'];

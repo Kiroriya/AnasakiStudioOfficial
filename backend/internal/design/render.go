@@ -65,6 +65,9 @@ type BlockCall struct {
 	Site   map[string]string
 	Post   PostCtx
 	Item   PostCtx // current collection item, nil outside collections
+	// Preview is true when the designer canvas asks for the block (POST /api/v1/blocks/render), so a block can
+	// show hints there ("choose a form") that visitors must not see (CMS 2.2.2: ctx.preview of site.block)
+	Preview bool
 }
 
 // Context holds binding values for the current request.

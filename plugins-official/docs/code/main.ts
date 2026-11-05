@@ -1,4 +1,4 @@
-// Docs (official plugin 1.1.4) — a documentation hub for the site:
+// Docs (official plugin 1.1.5) — a documentation hub for the site:
 //  - post type "docs_doc" (site.postType in a plugin, CMS 2.0.5, scope post-types) edited in the normal post
 //    editor, with the fields product, section, order and sectionOrder (post meta, unprefixed); public: false, so
 //    core does not route the type — the plugin serves its pages under /docs (core's post URL /docs/<slug> is

@@ -345,6 +345,10 @@ func (v *vm) install() {
 		"update": v.termsUpdate,
 		"delete": v.termsDelete,
 	}))
+	_ = db.Set("users", obj(map[string]func(goja.FunctionCall) goja.Value{ // 2.2.2, scope "users"
+		"list": v.usersList,
+		"get":  v.usersGet,
+	}))
 	v.installDB(db)
 	_ = rt.Set("db", db)
 	_ = rt.Set("migration", v.migrationGlobal)

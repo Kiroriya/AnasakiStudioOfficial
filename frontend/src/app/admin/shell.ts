@@ -14,6 +14,7 @@ import { PostTypes } from '../core/post-types';
 import { listRoute, typeSource } from '../core/post-type-utils';
 import { SiteInfo } from '../core/site';
 import { roleName } from '../core/roles';
+import './messages-content-types2';
 import './messages-platform';
 import './messages-content-types';
 import './messages-phase7';
@@ -154,7 +155,7 @@ export class Shell {
     // post types from site.postType that this user may edit (the server filters by access.edit)
     const typeItems: NavItem[] = this.postTypes.editable().map(p => ({
       path: listRoute(p.type), label: localized(p.label) || p.type, icon: p.icon || '📦', id: 'nav-type-' + p.type,
-      desc: typeSource(p) ? this.i18n.t('nav.type.plugin.d', { name: typeSource(p) }) : t('nav.type.d'),
+      desc: typeSource(p) ? this.i18n.t('nav.type.plugin.d', { name: typeSource(p) }) : p.admin ? t('nav.type.admin.d') : t('nav.type.d'),
     }));
     // taxonomies from site.taxonomy whose terms this user may manage (CMS 2.1.0)
     const taxItems: NavItem[] = this.postTypes.manageableTaxonomies().map(x => ({
@@ -162,7 +163,9 @@ export class Shell {
       desc: this.i18n.t('nav.terms.d', { name: x.pluginName || 'Site Code' }),
     }));
     const adminPages: NavItem[] = this.postTypes.adminPages().map(p => ({
-      path: '/x/code/' + p.id, label: localized(p.label) || p.id, desc: t('nav.adminPage.d'), icon: p.icon || '🧰', id: 'nav-code-page-' + p.id,
+      // "<plugin>:<name>" pages come from a plugin; the others from the site's own code
+      path: '/x/code/' + p.id, label: localized(p.label) || p.id, icon: p.icon || '🧰', id: 'nav-code-page-' + p.id,
+      desc: p.id.includes(':') ? this.i18n.t('nav.adminPage.plugin.d', { name: p.id.split(':')[0] }) : t('nav.adminPage.d'),
     }));
     const groups: NavGroup[] = [
       { title: t('nav.group.start'), items: [item('/', 'nav.dashboard', '🏠')] },
@@ -193,6 +196,7 @@ export class Shell {
         title: t('nav.group.settings'), items: [
           item('/plugins', 'nav.plugins', '🧩', 'manage_options'),
           item('/settings', 'nav.settings', '⚙️', 'manage_options'),
+          item('/content-types', 'nav.contentTypes', '🗂', 'manage_options'),
           { ...item('/tools/export', 'nav.tools', '💾', 'manage_options'), id: 'nav-tools' },
           item('/users', 'nav.users', '👥', 'manage_users'),
           item('/roles', 'nav.roles', '🛡', 'manage_users'),

@@ -9,6 +9,7 @@ import {
   Breakpoint, DNode, Layout, LayoutMode, Override, Props, Size, Style, cloneWithNewIds, dedupeIds, effective, findNode, isAncestor, isContainer, newId, pathTo,
 } from './design-types';
 import { PART_CLASS, Theme, ensureFont, partCss, partHoverCss, parseTheme, themeStyle } from './design-css';
+import { cssText } from './copy-css';
 import { LruCache, normalizeBlocks, replaceInRichHtml, richText, shareTree } from './editor-utils';
 import { SiteRole, siteRoleIds } from './site-role';
 import './messages-editor4';
@@ -1132,6 +1133,19 @@ export class EditorStore {
     const e = this.eff(n);
     this.propsClipboard = { style: structuredClone(e.style), layout: structuredClone(e.layout) };
     this.notify(tr('ed.toast.propsCopied'));
+  }
+
+  /** Copy CSS (2.2.2, like Figma's Dev Mode): the selected layer's CSS as the site renders it, to the clipboard. */
+  async copyCss() {
+    const n = this.selected()?.node;
+    if (!n) return;
+    const text = cssText(this.eff(n), this.parentMode(n.id));
+    try {
+      await navigator.clipboard.writeText(text);
+      this.notify(tr('ed.toast.cssCopied'));
+    } catch {
+      this.notify(tr('ed.toast.cssCopyFailed'));
+    }
   }
 
   pasteProps() {

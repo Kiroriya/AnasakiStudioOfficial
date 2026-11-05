@@ -1,4 +1,4 @@
-# Docs (`docs`) — official plugin 1.1.4
+# Docs (`docs`) — official plugin 1.1.5
 
 ## ภาษาไทย
 

@@ -231,6 +231,8 @@ export interface CodePostType {
   /** The JS plugin that registered the type (CMS 2.0.5); absent for Site Code types. */
   plugin?: string;
   pluginName?: string;
+  /** Made in Settings → Content types (CMS 2.2.2). */
+  admin?: boolean;
 }
 
 /** An admin page from site.adminPage (sidebar group Developer → /x/code/<id>). */

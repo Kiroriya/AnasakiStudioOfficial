@@ -122,6 +122,9 @@ func TestJSPluginRejects(t *testing.T) {
 		"reserved route api": {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/api/shop"} }, want: "reserved"},
 		"reserved blog":      {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/blog"} }, want: "reserved"},
 		"bad route":          {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"shop"} }, want: "route"},
+		"dot dot route":      {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/feed..xml"} }, want: "route"},
+		"hidden route":       {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/.well-known"} }, want: "route"},
+		"reserved robots":    {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/robots.txt"} }, want: "reserved"},
 		"duplicate route":    {mod: func(m map[string]any) { codeOf(m)["routes"] = []any{"/shop", "/shop"} }, want: "twice"},
 		"routes w/o scope":   {mod: func(m map[string]any) { codeOf(m)["scopes"] = []any{"db", "http"} }, want: `"routes"`},
 		"library missing":    {extra: map[string]string{"code/lib/index.ts": "\x00delete"}, want: "library"},
@@ -260,5 +263,13 @@ func TestReconsentCodeScopes(t *testing.T) {
 	}
 	if reconsentFor(old, &Manifest{Permissions: []string{"code"}, Code: &ManifestCode{Scopes: []string{"db"}}}) != nil {
 		t.Fatal("same scopes must not need consent")
+	}
+}
+
+// 2.2.2: a JS plugin may serve files such as /feed.xml (a dot inside a segment).
+func TestJSCodeDottedRoute(t *testing.T) {
+	files := jsFiles(t, func(m map[string]any) { codeOf(m)["routes"] = []any{"/shop", "/feed.xml", "/feeds/atom.xml"} }, nil)
+	if _, _, err := ParsePackage(zipOf(t, files)); err != nil {
+		t.Fatalf("dotted routes refused: %v", err)
 	}
 }

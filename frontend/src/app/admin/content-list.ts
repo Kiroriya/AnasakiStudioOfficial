@@ -10,6 +10,7 @@ import { editRoute, listColumns, metaCell, publicPath, supportsOf, typePrefix, t
 import { starterPage } from '../editor/presets';
 import './messages-admin';
 import './messages-content-types';
+import './messages-content-types2';
 import { SelectValue } from '../shared/select-value';
 import { Pager } from '../shared/pager';
 
@@ -29,6 +30,8 @@ import { Pager } from '../shared/pager';
           <h1 id="content-type-title">{{ typeLabel() }}</h1>
           @if (source()) {
             <p>{{ 'content.plugin.desc' | t: { name: typeLabel(), plugin: source() } }}</p>
+          } @else if (pt()?.admin) {
+            <p>{{ 'content.admin.desc' | t: { name: typeLabel() } }}</p>
           } @else {
             <p>{{ 'content.custom.desc' | t: { name: typeLabel() } }}</p>
           }

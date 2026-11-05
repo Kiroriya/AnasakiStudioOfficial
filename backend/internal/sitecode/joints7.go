@@ -389,8 +389,21 @@ func (v *vm) siteSetMeta(c goja.FunctionCall) goja.Value {
 // page and every custom type; m itself is not changed. A plugin type whose
 // id or slug is already taken in m is skipped (activation refuses it, but m
 // may be a draft).
+//
+// Since 2.2.2 the content types made in the admin (option content_types) are added too, after the code and
+// plugin types (which win a clash); CodeOwnedTypes leaves them out.
 func (e *Engine) WithUnitFields(m Manifest) Manifest {
-	return expandAllTypes(withUnits(m, e.units().loaded()))
+	raw := ""
+	if opts, err := e.st.Options(); err == nil {
+		raw = opts[OptContentTypes]
+	}
+	return expandAllTypes(withAdminTypes(withUnits(m, e.units().loaded()), raw))
+}
+
+// CodeOwnedTypes are the post types of Site Code (live version) and the running plugins, without the admin ones
+// (Settings → Content types checks its ids and addresses against them).
+func (e *Engine) CodeOwnedTypes(opts map[string]string) []PostTypeInfo {
+	return withUnits(e.ManifestFor(opts), e.units().loaded()).PostTypes
 }
 
 // expandAllTypes adds the site.fields('*') fields to post, page and every

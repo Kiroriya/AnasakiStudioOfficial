@@ -515,7 +515,7 @@ export class Editor implements OnInit, CommandHost {
       switch (code) {
         case 'KeyZ': return go(() => (e.shiftKey ? s.redo() : s.undo()));
         case 'KeyY': return go(() => s.redo());
-        case 'KeyC': return go(() => (e.altKey ? s.copyProps() : s.copy()));
+        case 'KeyC': return go(() => (e.altKey && e.shiftKey ? void s.copyCss() : e.altKey ? s.copyProps() : s.copy()));
         case 'KeyX': return go(() => s.cut());
         case 'KeyV': return go(() => (e.altKey ? s.pasteProps() : s.paste(e.shiftKey)));
         case 'KeyD': return go(() => s.duplicateMany());

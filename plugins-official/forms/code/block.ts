@@ -14,11 +14,15 @@ export function registerBlock(): void {
     script: SCRIPT,
     render: (ctx, props) => {
       const id = /^\d+$/.test(String(props.formId ?? '').trim()) ? Number(props.formId) : 0;
-      if (!id) return { html: CHOOSE, css: formCSS() };
+      // 2.0.3: "choose a form" / "form not found" are hints for the designer canvas; visitors see nothing
+      // (ctx.preview since CMS 2.2.2 — older cores do not tell, and keep showing the hint)
+      const hint = (h: string) => ({ html: (ctx as any).preview === false ? '' : h, css: formCSS() });
+      if (!id) return hint(CHOOSE);
       const fm = getForm(id);
+      if (!fm) return hint(NOT_FOUND);
       // ?sent=<id>: back from a no-JavaScript submit — show the success message (the script does it with JS)
       const sent = String(ctx.query?.sent ?? '') === String(id);
-      return { html: fm ? renderForm(fm, sent) : NOT_FOUND, css: formCSS() };
+      return { html: renderForm(fm, sent), css: formCSS() };
     },
   });
 }

@@ -126,9 +126,11 @@ registerMessages({
   'ed.toast.saved': { th: 'บันทึกแล้ว ✓', en: 'Saved ✓' },
   'ed.toast.saveFail': { th: 'บันทึกไม่สำเร็จ', en: 'Could not save' },
   'ed.toast.propsCopied': { th: 'คัดลอกคุณสมบัติแล้ว (Ctrl+Alt+V เพื่อวาง)', en: 'Properties copied (Ctrl+Alt+V to paste)' },
+  'ed.toast.cssCopied': { th: 'คัดลอก CSS ของชั้นนี้แล้ว', en: 'CSS of the layer copied' },
+  'ed.toast.cssCopyFailed': { th: 'คัดลอกไม่ได้ — เบราว์เซอร์ไม่อนุญาตให้เขียนคลิปบอร์ด', en: 'Could not copy — the browser blocked the clipboard' },
   'ed.toast.groupMixed': { th: 'จัดกลุ่มได้เฉพาะชิ้นที่อยู่ในกล่องเดียวกัน — ชิ้นที่เลือกอยู่คนละกล่อง', en: 'Only layers inside the same frame can be grouped — the selection spans several frames.' },
   'ed.toast.componentCycle': { th: 'วาง component นี้ที่นี่ไม่ได้ — จะซ้อนตัวเองไม่รู้จบ', en: 'This component cannot go here — it would contain itself' },
-  'ed.toast.componentMade': { th: 'สร้าง component "{name}" แล้ว — ใช้ซ้ำได้จากแท็บ Assets', en: 'Component "{name}" created — reuse it from the Assets tab' },
+  'ed.toast.componentMade': { th: 'สร้าง component "{name}" แล้ว — ใช้ซ้ำได้จากแท็บองค์ประกอบ', en: 'Component "{name}" created — reuse it from the Assets tab' },
 
   // canvas placeholders
   'ed.ph.chooseMenu': { th: '— เลือกเมนู —', en: '— choose a menu —' },
@@ -260,7 +262,7 @@ registerMessages({
   'ed.def.noPosts': { th: 'ยังไม่มีบทความ', en: 'No posts yet' },
   'ed.def.postCard': { th: 'การ์ดบทความ', en: 'Post card' },
   'ed.def.newPage': { th: 'หน้าใหม่ของคุณ', en: 'Your new page' },
-  'ed.def.newPageText': { th: 'ดับเบิลคลิกเพื่อแก้ข้อความนี้ หรือลากของจากแท็บ Assets มาวาง', en: 'Double-click to edit this text, or drag things in from the Assets tab' },
+  'ed.def.newPageText': { th: 'ดับเบิลคลิกเพื่อแก้ข้อความนี้ หรือลากของจากแท็บองค์ประกอบมาวาง', en: 'Double-click to edit this text, or drag things in from the Assets tab' },
   'ed.def.heroTitle': { th: 'หัวข้อหลักที่ดึงดูดใจ', en: 'A headline that grabs attention' },
   'ed.def.heroText': { th: 'คำอธิบายสั้น ๆ ที่บอกว่าทำไมผู้เยี่ยมชมควรสนใจ', en: 'A short line about why visitors should care' },
   'ed.def.start': { th: 'เริ่มต้นเลย', en: 'Get started' },

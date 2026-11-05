@@ -139,7 +139,7 @@ import { Pager } from '../shared/pager';
                 <span class="plugin-icon">@if (p.iconUrl) { <img [src]="p.iconUrl" alt="" /> } @else { {{ p.icon || '📦' }} }</span>
                 <div>
                   <h3>{{ p.name }} @if (officialIds()[p.id]) { <span class="badge badge-info plugin-official" [attr.data-id]="p.id" [title]="'store.officialHint' | t">★ {{ 'store.official' | t }}</span> }</h3>
-                  <p class="muted small">v{{ p.version }} · {{ p.author }} · {{ (p.source === 'store' ? 'plugins.fromStore' : 'plugins.fromUpload') | t }}</p>
+                  <p class="muted small">v{{ p.version }}@if (p.author) { · {{ p.author }}} · {{ (p.source === 'store' ? 'plugins.fromStore' : 'plugins.fromUpload') | t }}</p>
                 </div>
                 @if (isJs(p)) { <span class="badge badge-info plugin-runtime-badge" data-runtime="js" [title]="'pjs.runtimeHint' | t">JS</span> }
                 <span class="badge" [class.badge-live]="p.active">{{ (p.active ? 'plugins.on' : 'plugins.off') | t }}</span>

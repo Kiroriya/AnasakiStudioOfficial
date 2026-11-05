@@ -147,11 +147,11 @@ function run(a,t){var el=a.t?one(a.t):null;
 if(a.a==='open')show(el&&el.closest('.rea-pop'));
 else if(a.a==='close')hide((el&&el.closest('.rea-pop'))||t.closest('.rea-pop'));
 else if(a.a==='toggle'&&el){var c=el.classList,o;if(c.contains('rea-open')){c.remove('rea-open');o=false}else if(c.contains('rea-collapsed')){c.add('rea-open');o=true}else{c.add('rea-collapsed');o=false}t.classList.toggle('rea-active',o);t.setAttribute('aria-expanded',String(o))}
-else if(a.a==='tab'&&el){ea(el.parentElement.children,function(s){var on=s===el;s.classList.toggle('rea-open',on);if(!on)s.classList.add('rea-collapsed')});ea(t.parentElement.children,function(s){s.classList.toggle('rea-active',s===t)})}
+else if(a.a==='tab'&&el){ea(el.parentElement.children,function(s){var on=s===el;s.classList.toggle('rea-open',on);if(!on)s.classList.add('rea-collapsed')});ea(t.parentElement.children,function(s){s.classList.toggle('rea-active',s===t);if(s.getAttribute('role')==='tab')s.setAttribute('aria-selected',String(s===t))})}
 else if(a.a==='scroll'&&el)el.scrollIntoView({behavior:'smooth',block:'start'})}
 A.forEach(function(a){ea(d.querySelectorAll('.'+a.s),function(t){t.style.cursor='pointer';if(!/^(A|BUTTON)$/.test(t.tagName)){t.setAttribute('role','button');t.tabIndex=0}
 t.addEventListener('click',function(e){e.preventDefault();run(a,t)});t.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();run(a,t)}});
-if(a.a==='tab'&&t===t.parentElement.firstElementChild)t.classList.add('rea-active')})});
+if(a.a==='tab'){var first=t===t.parentElement.firstElementChild,pn=a.t&&one(a.t);t.setAttribute('role','tab');t.setAttribute('aria-selected',String(first));t.parentElement.setAttribute('role','tablist');if(pn)pn.setAttribute('role','tabpanel');if(first)t.classList.add('rea-active')}})});
 ea(d.querySelectorAll('.rea-pop'),function(p){p.querySelector('.rea-pop-bg').addEventListener('click',function(){hide(p)});var s=+p.dataset.delay;if(s>0)setTimeout(function(){var k='rea-pop-'+p.dataset.id;try{if(p.dataset.once){if(localStorage.getItem(k))return;localStorage.setItem(k,'1')}}catch(e){}show(p)},s*1000)});
 d.addEventListener('keydown',function(e){if(e.key==='Escape')ea(d.querySelectorAll('.rea-pop.rea-open'),hide)});
 ea(d.querySelectorAll('.rea-car'),function(c){var tr=c.querySelector('.rea-track');if(!tr)return;

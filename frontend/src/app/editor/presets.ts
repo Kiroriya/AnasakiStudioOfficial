@@ -231,7 +231,7 @@ export const PRESETS: { name: string; desc: string; icon: string; plugin?: strin
       children: [
         { id: newId(), type: 'text', name: L('Headline'), width: fill, height: hug, style: { fontSize: 56, fontWeight: 800, lineHeight: 1.1, maxWidth: 820 }, props: { text: tr('ed.def.heroTitle'), tag: 'h1' }, responsive: { mobile: { style: { fontSize: 34 } } } },
         { id: newId(), type: 'text', name: L('Subtitle'), width: fill, height: hug, style: { fontSize: 20, opacity: 0.9, maxWidth: 620, lineHeight: 1.6 }, props: { text: tr('ed.def.heroText') } },
-        { id: newId(), type: 'button', name: L('CTA'), width: hug, height: hug, layout: { padding: [14, 30, 14, 30] }, style: { fill: '#ffffff', color: '#1e293b', radius: 999, fontWeight: 700 }, props: { text: tr('ed.def.start'), href: '#' } },
+        { id: newId(), type: 'button', name: L('Button'), width: hug, height: hug, layout: { padding: [14, 30, 14, 30] }, style: { fill: '#ffffff', color: '#1e293b', radius: 999, fontWeight: 700 }, props: { text: tr('ed.def.start'), href: '#' } },
       ],
     }),
   },
@@ -282,15 +282,21 @@ export const PRESETS: { name: string; desc: string; icon: string; plugin?: strin
     },
   },
   {
+    // the box sits in a padded section like the other presets, so it keeps its distance from the footer
     name: 'ed.preset.cta', desc: 'ed.preset.cta.d', icon: '📣', build: () => ({
-      id: newId(), type: 'frame', name: L('CTA'), width: fill, height: hug,
-      layout: { mode: 'horizontal', justify: 'between', align: 'center', gap: 24, padding: [48, 56, 48, 56], wrap: true },
-      style: { fill: '#111827', color: '#ffffff', radius: 24, maxWidth: 1180 },
-      responsive: { mobile: { layout: { mode: 'vertical', padding: [36, 24, 36, 24] } } },
-      children: [
-        { id: newId(), type: 'text', name: L('Text'), width: hug, height: hug, style: { fontSize: 28, fontWeight: 700 }, props: { text: tr('ed.def.ctaText'), tag: 'h2' } },
-        { id: newId(), type: 'button', name: L('Button'), width: hug, height: hug, layout: { padding: [14, 28, 14, 28] }, style: { fill: '#6366f1', color: '#ffffff', radius: 12, fontWeight: 700 }, props: { text: tr('ed.def.contact'), href: '#' } },
-      ],
+      id: newId(), type: 'frame', name: L('Section'), width: fill, height: hug,
+      layout: { mode: 'vertical', align: 'center', padding: [48, 24, 72, 24] },
+      responsive: { mobile: { layout: { padding: [32, 16, 48, 16] } } },
+      children: [{
+        id: newId(), type: 'frame', name: L('CTA'), width: fill, height: hug,
+        layout: { mode: 'horizontal', justify: 'between', align: 'center', gap: 24, padding: [48, 56, 48, 56], wrap: true },
+        style: { fill: '#111827', color: '#ffffff', radius: 24, maxWidth: 1180 },
+        responsive: { mobile: { layout: { mode: 'vertical', padding: [36, 24, 36, 24] } } },
+        children: [
+          { id: newId(), type: 'text', name: L('Text'), width: hug, height: hug, style: { fontSize: 28, fontWeight: 700 }, props: { text: tr('ed.def.ctaText'), tag: 'h2' } },
+          { id: newId(), type: 'button', name: L('Button'), width: hug, height: hug, layout: { padding: [14, 28, 14, 28] }, style: { fill: '#6366f1', color: '#ffffff', radius: 12, fontWeight: 700 }, props: { text: tr('ed.def.contact'), href: '#' } },
+        ],
+      }],
     }),
   },
 ];

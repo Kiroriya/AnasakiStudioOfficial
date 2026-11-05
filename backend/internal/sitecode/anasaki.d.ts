@@ -554,6 +554,28 @@ interface Db extends DbTables {
     /** Its children move up to its parent. */
     delete(id: number): boolean;
   };
+  /**
+   * Public profiles of the site's users (CMS 2.2.2, scope "users"): author pages, team lists. Read only;
+   * never the email or login details, and suspended users are left out. / โปรไฟล์ผู้ใช้
+   */
+  users: {
+    list(opts?: { role?: string; search?: string; page?: number; perPage?: number }): { items: UserProfile[]; total: number; page: number; perPage: number };
+    get(id: number): UserProfile | null;
+  };
+}
+
+interface UserProfile {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  bio: string;
+  website: string;
+  /** Image URL ('' = none). */
+  avatar: string;
+  role: string;
+  /** Published posts of type post written by this user. */
+  postCount: number;
 }
 
 interface Logger {

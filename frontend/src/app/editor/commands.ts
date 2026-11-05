@@ -58,6 +58,7 @@ export function buildCommands(h: CommandHost): Record<string, Command[]> {
       { id: 'delete', label: 'Delete', keys: 'Delete', run: () => s.removeMany(), enabled: has },
       { id: 'copyProps', label: 'Copy properties', keys: 'Ctrl+Alt+C', run: () => s.copyProps(), enabled: one },
       { id: 'pasteProps', label: 'Paste properties', keys: 'Ctrl+Alt+V', run: () => s.pasteProps(), enabled: has },
+      { id: 'copyCss', label: 'Copy CSS', keys: 'Ctrl+Alt+Shift+C', run: () => void s.copyCss(), enabled: one },
       { id: 'selectAll', label: 'Select all', keys: 'Ctrl+A', run: () => s.selectAll() },
       { id: 'selectMatching', label: 'Select all matching layers', keys: 'Ctrl+Alt+A', run: () => s.selectMatching(), enabled: one },
       { id: 'find', label: 'Find and replace…', keys: 'Ctrl+F', run: () => h.openFind() },

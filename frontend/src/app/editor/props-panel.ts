@@ -7,12 +7,13 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { Dialog } from '../core/dialog';
 import { Media } from '../core/models';
 import { MediaPicker } from '../shared/media-picker';
-import { BINDINGS, FONTS, THEME_COLOR_KEYS, Theme, ThemeColorKey, bind, tokenOf } from './design-css';
+import { BINDINGS, BLEND_MODES, FONTS, THEME_COLOR_KEYS, Theme, ThemeColorKey, bind, tokenOf } from './design-css';
 import { CARD_STYLES } from './presets';
 import { I18n, TPipe, localized, tr } from '../core/i18n';
 import { SchemaForm } from '../shared/schema-form';
 import { BREAKPOINTS, DNode, Layout, Override, SizeMode, Style, findNode } from './design-types';
 import './messages-editor';
+import './messages-editor222';
 import { AlignDir, EditorStore } from './editor-store';
 import { Scrub } from './scrub';
 import { StyleFx } from './style-fx';
@@ -164,6 +165,21 @@ const OVR_LABEL: Record<string, string> = {
                 <span>Min H</span><input type="number" min="0" [attr.aria-label]="'ed.pp.minH' | t" [value]="e.style?.minHeight || ''" placeholder="—" (change)="style({ minHeight: num($event) || 0 })" /></label>
             }
           </div>
+          <!-- 2.2.2: min W / max H, aspect ratio (Figma: min/max sizes, lock ratio) -->
+          <div class="fg-row2">
+            <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'minWidth')" [title]="'ed.pp.minW' | t">
+              <span>Min W</span><input id="pp-min-w" [attr.aria-label]="'ed.pp.minW' | t" type="number" min="0" [value]="e.style?.minWidth || ''" placeholder="—" (change)="style({ minWidth: num($event) || undefined })" /></label>
+            <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'maxHeight')" [title]="'ed.pp.maxH' | t">
+              <span>Max H</span><input id="pp-max-h" [attr.aria-label]="'ed.pp.maxH' | t" type="number" min="0" [value]="e.style?.maxHeight || ''" placeholder="—" (change)="style({ maxHeight: num($event) || undefined })" /></label>
+          </div>
+          @if (n.type === 'frame' || n.type === 'image' || n.type === 'rect' || n.type === 'embed') {
+            <label class="fg-field pp-aspect" [class.ovr]="store.isOverridden(n, 'style', 'aspect')" [title]="'ed.pp.aspectTip' | t">
+              <span>⧉</span>
+              <select id="pp-aspect" [attr.aria-label]="'ed.pp.aspect' | t" [value]="e.style?.aspect ?? ''" (change)="style({ aspect: val($event) || undefined })">
+                <option value="">{{ 'ed.pp.aspectFree' | t }}</option>
+                @for (a of aspects; track a) { <option [value]="a">{{ a.replace('/', ':') }}</option> }
+              </select></label>
+          }
           <label class="fg-check pp-screen" [class.ovr]="store.isOverridden(n, 'style', 'minHeightScreen')" [title]="'ed.pp.screenTip' | t">
             <input type="checkbox" id="pp-screen-h" [checked]="!!e.style?.minHeightScreen" (change)="style({ minHeightScreen: checked($event) || (store.bp() === 'desktop' ? undefined : false) })" /> {{ 'ed.pp.screenH' | t }}
           </label>
@@ -174,6 +190,14 @@ const OVR_LABEL: Record<string, string> = {
           </div>
           @if (n.type === 'frame' || n.type === 'postList') {
             <label class="fg-check"><input type="checkbox" [checked]="!!e.style?.clip" (change)="style({ clip: checked($event) || undefined })" /> {{ 'ed.pp2.clip' | t }}</label>
+            <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'scroll')" [title]="'ed.pp.scrollTip' | t">
+              <span>⇆</span>
+              <select id="pp-scroll" [attr.aria-label]="'ed.pp.scroll' | t" [value]="e.style?.scroll ?? ''" (change)="style({ scroll: $any(val($event)) || undefined })">
+                <option value="">{{ 'ed.pp.scrollNone' | t }}</option>
+                <option value="x">{{ 'ed.pp.scrollX' | t }}</option>
+                <option value="y">{{ 'ed.pp.scrollY' | t }}</option>
+                <option value="both">{{ 'ed.pp.scrollBoth' | t }}</option>
+              </select></label>
           }
         </section>
 
@@ -261,6 +285,12 @@ const OVR_LABEL: Record<string, string> = {
             <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'opacity')" [title]="'ed.pp.opacity' | t">
               <span [reaScrub]="opacityPct()" [minValue]="0" (scrub)="setOpacity($event)">◐</span>
               <input [attr.aria-label]="'ed.pp.opacity' | t" type="number" min="0" max="100" [value]="opacityPct()" (change)="setOpacity(num($event) ?? 100)" /><em>%</em></label>
+            <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'blend')" [title]="'ed.pp.blend' | t">
+              <span>◑</span>
+              <select id="pp-blend" [attr.aria-label]="'ed.pp.blend' | t" [value]="e.style?.blend ?? ''" (change)="style({ blend: val($event) || undefined })">
+                <option value="">{{ 'ed.pp.blendNormal' | t }}</option>
+                @for (b of blends; track b) { <option [value]="b">{{ b }}</option> }
+              </select></label>
             @if (s.parent) {
               <button class="fg-toggle" [class.on]="e.visible === false" (click)="store.toggleVisible()" [title]="'ed.pp.toggleVis' | t: { bp: bpLabel() }">
                 {{ e.visible === false ? '◌ ' + ('ed.pp2.hidden' | t) : '👁 ' + ('ed.pp2.visible' | t) }}</button>
@@ -386,6 +416,10 @@ const OVR_LABEL: Record<string, string> = {
                 <span [reaScrub]="e.style?.letterSpacing ?? 0" [step]="0.1" (scrub)="style({ letterSpacing: $event || undefined })">|A|</span>
                 <input [attr.aria-label]="'ed.pp2.letterSpacing' | t" type="number" step="0.1" [value]="e.style?.letterSpacing ?? 0" (change)="style({ letterSpacing: num($event) || undefined })" /></label>
             </div>
+            @if (n.type === 'text') {
+              <label class="fg-field" [class.ovr]="store.isOverridden(n, 'style', 'maxLines')" [title]="'ed.pp.maxLinesTip' | t">
+                <span>≡…</span><input id="pp-max-lines" [attr.aria-label]="'ed.pp.maxLines' | t" type="number" min="0" max="20" [value]="e.style?.maxLines || ''" [placeholder]="'ed.pp.maxLinesAll' | t" (change)="style({ maxLines: num($event) || undefined })" /></label>
+            }
             <div class="fg-paint" [class.ovr]="store.isOverridden(n, 'style', 'color')">
               @if (tokenOf(e.style?.color); as k) {
                 <span class="fg-token"><i [style.background]="e.style!.color"></i>{{ tokenName(k) }}</span>
@@ -777,6 +811,9 @@ export class PropsPanel {
   readonly bpLabel = computed(() => BREAKPOINTS.find(b => b.id === this.store.bp())!.label);
 
   readonly axes = ['width', 'height'] as const;
+  /** 2.2.2: aspect ratios offered (Figma "lock ratio"), blend modes (Figma layer blend). */
+  readonly aspects = ['1/1', '4/3', '3/2', '16/9', '21/9', '3/4', '2/3', '9/16'];
+  readonly blends = [...BLEND_MODES];
 
   readonly anchors: { id: 'left' | 'center' | 'right' | 'scale'; icon: string }[] = [
     { id: 'left', icon: '⇤' }, { id: 'center', icon: '⇔' }, { id: 'right', icon: '⇥' }, { id: 'scale', icon: '↔%' },

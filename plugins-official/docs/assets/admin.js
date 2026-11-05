@@ -247,7 +247,13 @@
     bar.appendChild(cancelOrder);
     bar.appendChild(saveOrder);
     listEl.insertBefore(bar, listEl.firstChild);
-    var dirty = function () { bar.hidden = false; if (window.AK && AK.height) AK.height(); };
+    // 1.1.5: only what moved is saved — a section whose rows changed, or a whole product when its sections
+    // moved (saving all 37 articles of a big hub on the first save could run past the action's time limit)
+    var changed = new Set();
+    var dirty = function (where) {
+      if (where) changed.add(where);
+      bar.hidden = false; if (window.AK && AK.height) AK.height();
+    };
     cancelOrder.addEventListener('click', function () { window.location.reload(); });
 
     var dragging = null; // a <tr> or a .docs-sec
@@ -258,8 +264,9 @@
     var moveBtns = function (target) {
       var up = el('button', { type: 'button', className: 'docs-mini', text: '↑', title: data.moveUp || t.up, 'aria-label': data.moveUp || t.up });
       var down = el('button', { type: 'button', className: 'docs-mini', text: '↓', title: data.moveDown || t.down, 'aria-label': data.moveDown || t.down });
-      up.addEventListener('click', function () { var p = target.previousElementSibling; if (p && p.matches(target.tagName === 'TR' ? 'tr' : '.docs-sec')) { target.parentNode.insertBefore(target, p); dirty(); up.focus(); } });
-      down.addEventListener('click', function () { var n = target.nextElementSibling; if (n && n.matches(target.tagName === 'TR' ? 'tr' : '.docs-sec')) { target.parentNode.insertBefore(n, target); dirty(); down.focus(); } });
+      var scope = function () { return target.tagName === 'TR' ? target.closest('.docs-sec') : target.closest('[data-product]'); };
+      up.addEventListener('click', function () { var p = target.previousElementSibling; if (p && p.matches(target.tagName === 'TR' ? 'tr' : '.docs-sec')) { target.parentNode.insertBefore(target, p); dirty(scope()); up.focus(); } });
+      down.addEventListener('click', function () { var n = target.nextElementSibling; if (n && n.matches(target.tagName === 'TR' ? 'tr' : '.docs-sec')) { target.parentNode.insertBefore(n, target); dirty(scope()); down.focus(); } });
       return [up, down];
     };
     Array.prototype.forEach.call(listEl.querySelectorAll('.docs-sec'), function (sec) {
@@ -279,7 +286,7 @@
         var done = function (ok) {
           if (ok) {
             var v = inp.value.trim();
-            if (v !== (sec.getAttribute('data-section') || '')) { sec.setAttribute('data-section', v); name.textContent = v || t.general; dirty(); }
+            if (v !== (sec.getAttribute('data-section') || '')) { sec.setAttribute('data-section', v); name.textContent = v || t.general; dirty(sec); }
           }
           inp.remove(); name.hidden = false; rn.focus();
         };
@@ -296,13 +303,13 @@
           if (dragging === sec) return;
           var r = sec.getBoundingClientRect();
           sec.parentNode.insertBefore(dragging, e.clientY < r.top + r.height / 2 ? sec : sec.nextSibling);
-          dirty();
+          dirty(sec.closest('[data-product]'));
         } else {
           var tbody = sec.querySelector('tbody');
           var rows = Array.prototype.filter.call(tbody.children, function (x) { return x !== dragging; });
           var before = null;
           for (var i = 0; i < rows.length; i++) { var rr = rows[i].getBoundingClientRect(); if (e.clientY < rr.top + rr.height / 2) { before = rows[i]; break; } }
-          if (dragging.parentNode !== tbody || dragging.nextSibling !== before) { tbody.insertBefore(dragging, before); dirty(); }
+          if (dragging.parentNode !== tbody || dragging.nextSibling !== before) { dirty(dragging.closest('.docs-sec')); tbody.insertBefore(dragging, before); dirty(sec); }
         }
       });
       sec.addEventListener('drop', function (e) { if (dragging) e.preventDefault(); });
@@ -323,17 +330,20 @@
       Array.prototype.forEach.call(listEl.querySelectorAll('[data-product]'), function (card) {
         Array.prototype.forEach.call(card.querySelectorAll('.docs-sec'), function (sec, si) {
           var name = sec.getAttribute('data-section') || '';
+          if (!changed.has(sec) && !changed.has(card)) return;
           Array.prototype.forEach.call(sec.querySelectorAll('tbody tr[data-id]'), function (tr, di) {
             items.push({ id: Number(tr.getAttribute('data-id')), section: name, order: (di + 1) * 10, sectionOrder: si + 1 });
           });
         });
       });
+      if (!items.length) { bar.hidden = true; changed.clear(); return; }
       saveOrder.disabled = true;
       call('reorder', { items: items })
         .then(function (r) {
           if (r && r.errors && r.errors.length) throw new Error(r.errors.map(function (x) { return '#' + x.id + ': ' + x.error; }).join(', '));
           toast(t.orderSaved.replace('{n}', r ? r.updated : 0), 'success');
           bar.hidden = true;
+          changed.clear();
         })
         .catch(function (e) { toast(e.message, 'error'); })
         .then(function () { saveOrder.disabled = false; if (window.AK && AK.height) AK.height(); });

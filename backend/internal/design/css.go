@@ -216,6 +216,17 @@ func Decls(n *Node, parentMode string) []Decl {
 			style = v
 		}
 		add("border", px(w)+" "+style+" "+safeCSS(getStr(s, "stroke")))
+		// 2.2.2: a stroke on some sides only ([top, right, bottom, left])
+		if sides, ok := s["strokeSides"].([]any); ok && len(sides) == 4 && !(getBoolAny(sides[0]) && getBoolAny(sides[1]) && getBoolAny(sides[2]) && getBoolAny(sides[3])) {
+			ws := make([]string, 4)
+			for i, on := range sides {
+				ws[i] = "0"
+				if getBoolAny(on) {
+					ws[i] = px(w)
+				}
+			}
+			add("border-width", strings.Join(ws, " "))
+		}
 	}
 	if r, ok := getNum(s, "radius"); ok && r != 0 {
 		add("border-radius", px(r))
@@ -238,6 +249,36 @@ func Decls(n *Node, parentMode string) []Decl {
 	if b, ok := getNum(s, "backdropBlur"); ok && b > 0 { // frosted glass
 		add("backdrop-filter", "blur("+px(b)+")")
 		add("-webkit-backdrop-filter", "blur("+px(b)+")")
+	}
+	// 2.2.2 (what Figma has): blend mode, scrolling inside the layer, min width / max height, aspect ratio and
+	// text cut to a number of lines
+	if v := getStr(s, "blend"); blendModes[v] {
+		add("mix-blend-mode", v)
+	}
+	switch getStr(s, "scroll") {
+	case "x":
+		add("overflow-x", "auto")
+		add("overflow-y", "hidden")
+	case "y":
+		add("overflow-y", "auto")
+	case "both":
+		add("overflow", "auto")
+	}
+	if v, ok := getNum(s, "minWidth"); ok && v > 0 {
+		add("min-width", px(v))
+	}
+	if v, ok := getNum(s, "maxHeight"); ok && v > 0 {
+		add("max-height", px(v))
+	}
+	if v := getStr(s, "aspect"); aspectRe.MatchString(v) {
+		a, b, _ := strings.Cut(v, "/")
+		add("aspect-ratio", a+" / "+b)
+	}
+	if v, ok := getNum(s, "maxLines"); ok && v >= 1 && n.Type == TypeText {
+		add("display", "-webkit-box")
+		add("-webkit-line-clamp", fnum(min(float64(int(v)), 20)))
+		add("-webkit-box-orient", "vertical")
+		add("overflow", "hidden")
 	}
 
 	// Typography (inherited by descendants, like CSS)
@@ -780,3 +821,13 @@ func partExtra(m map[string]any) []Decl {
 	}
 	return d
 }
+
+// blendModes are the values of style.blend (CSS mix-blend-mode, Figma layer blend).
+var blendModes = map[string]bool{"multiply": true, "screen": true, "overlay": true, "darken": true, "lighten": true,
+	"color-dodge": true, "color-burn": true, "hard-light": true, "soft-light": true, "difference": true, "exclusion": true,
+	"hue": true, "saturation": true, "color": true, "luminosity": true}
+
+// aspectRe: style.aspect "16/9", "1/1", "4/3", "1.91/1".
+var aspectRe = regexp.MustCompile(`^\d{1,4}(\.\d{1,3})?/\d{1,4}(\.\d{1,3})?$`)
+
+func getBoolAny(v any) bool { b, _ := v.(bool); return b }

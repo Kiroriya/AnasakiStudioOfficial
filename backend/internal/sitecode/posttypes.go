@@ -78,6 +78,8 @@ type PostTypeInfo struct {
 	// 2.0.5, scope "post-types"); "" for Site Code.
 	Plugin     string `json:"plugin,omitempty"`
 	PluginName string `json:"pluginName,omitempty"`
+	// Admin: made in the admin without code (2.2.2, Settings → Content types).
+	Admin bool `json:"admin,omitempty"`
 }
 
 type regPostType struct {

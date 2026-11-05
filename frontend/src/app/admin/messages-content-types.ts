@@ -4,6 +4,7 @@ import { registerMessages } from '../core/messages';
 registerMessages({
   'nav.type.d': { th: 'ประเภทเนื้อหาจากโค้ดของเว็บไซต์', en: 'Content type from the site code' },
   'nav.adminPage.d': { th: 'หน้าผู้ดูแลจากโค้ดของเว็บไซต์', en: 'Admin page from the site code' },
+  'nav.adminPage.plugin.d': { th: 'หน้าจัดการของปลั๊กอิน {name}', en: 'Admin page of the {name} plugin' },
   'content.custom.desc': { th: 'รายการ{name}ทั้งหมด — ประเภทเนื้อหานี้ประกาศไว้ในโค้ดของเว็บไซต์ (site.postType)', en: 'All {name} — this content type is declared in the site code (site.postType)' },
   'nav.type.plugin.d': { th: 'ประเภทเนื้อหาจากปลั๊กอิน {name}', en: 'Content type from the {name} plugin' },
   'content.plugin.desc': { th: 'รายการ{name}ทั้งหมด — ประเภทเนื้อหานี้มาจากปลั๊กอิน {plugin}', en: 'All {name} — this content type comes from the {plugin} plugin' },

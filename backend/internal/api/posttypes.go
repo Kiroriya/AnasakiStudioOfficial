@@ -42,6 +42,8 @@ type postTypeOut struct {
 	// Plugin / PluginName: the JS plugin that registered the type (2.0.5).
 	Plugin     string `json:"plugin,omitempty"`
 	PluginName string `json:"pluginName,omitempty"`
+	// Admin: made in Settings → Content types (2.2.2).
+	Admin bool `json:"admin,omitempty"`
 }
 
 // postCatalog lists the custom post types (with canEdit for me) and the
@@ -52,7 +54,7 @@ func postCatalog(m sitecode.Manifest, me *auth.Principal) ([]postTypeOut, map[st
 		types = append(types, postTypeOut{Type: t.Type, Label: t.Label, Singular: t.Singular, Icon: t.Icon, Slug: t.Slug,
 			Public: t.Public, Supports: t.Supports, Fields: sitecode.FieldsObject(t.Fields), Access: t.Access, CanEdit: t.CanEditType(me.Role),
 			Caps: t.Caps, CanPublish: t.CanPublishType(me.Role),
-			Plugin: t.Plugin, PluginName: t.PluginName})
+			Plugin: t.Plugin, PluginName: t.PluginName, Admin: t.Admin})
 	}
 	fields := map[string]json.RawMessage{model.TypePost: json.RawMessage("{}"), model.TypePage: json.RawMessage("{}")}
 	for typ, list := range m.Fields {

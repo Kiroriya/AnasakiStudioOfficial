@@ -3,6 +3,7 @@ import { TPipe } from '../core/i18n';
 import { parseColor, toCss } from './color-utils';
 import { AnimType, DNode, Hover, Style } from './design-types';
 import { EditorStore } from './editor-store';
+import './messages-editor222';
 import './messages-fx';
 import { Scrub } from './scrub';
 
@@ -110,6 +111,12 @@ const SHADOWS = {
         <div class="fg-seg">
           @for (b of borders; track b.id) {
             <button [class.on]="(s.strokeStyle ?? 'solid') === b.id" [title]="b.title | t" [attr.aria-label]="b.title | t" (click)="style({ strokeStyle: b.id === 'solid' ? undefined : $any(b.id) })">{{ b.icon }}</button>
+          }
+        </div>
+        <!-- 2.2.2: stroke on some sides only (Figma per-side stroke) -->
+        <div class="fg-seg" id="fx-stroke-sides" [title]="'fx.strokeSides' | t">
+          @for (side of strokeSideList; track side.i) {
+            <button [class.on]="sideOn(side.i)" [attr.aria-pressed]="sideOn(side.i)" [title]="side.title | t" [attr.aria-label]="side.title | t" (click)="toggleSide(side.i)">{{ side.icon }}</button>
           }
         </div>
       }
@@ -271,6 +278,19 @@ export class StyleFx {
   });
 
   style(patch: Partial<Style>) { this.store.setStyle(this.store.selectedIds(), patch); }
+
+  /** 2.2.2: stroke sides (top, right, bottom, left); all on = no strokeSides. */
+  readonly strokeSideList = [
+    { i: 0, icon: '▔', title: 'fx.sideTop' }, { i: 1, icon: '▕', title: 'fx.sideRight' },
+    { i: 2, icon: '▁', title: 'fx.sideBottom' }, { i: 3, icon: '▏', title: 'fx.sideLeft' },
+  ];
+  sideOn(i: number): boolean { return this.st().strokeSides?.[i] ?? true; }
+  toggleSide(i: number) {
+    const sides = [0, 1, 2, 3].map(k => this.sideOn(k)) as [boolean, boolean, boolean, boolean];
+    sides[i] = !sides[i];
+    if (!sides.some(Boolean)) return; // at least one side: no stroke at all is "remove the stroke"
+    this.style({ strokeSides: sides.every(Boolean) ? undefined : sides });
+  }
 
   private live = false;
   private liveTimer?: ReturnType<typeof setTimeout>;
