@@ -43,7 +43,7 @@ func TestOfficialBooking(t *testing.T) {
 	}
 	day := days[1][1] // not today: every slot of it may be past
 	html = get("/booking?service=1&date=" + day)
-	times := regexp.MustCompile(`date=` + day + `&time=(\d+)">(\d\d:\d\d)</a>`).FindAllStringSubmatch(html, -1)
+	times := regexp.MustCompile(`date=`+day+`&time=(\d+)">(\d\d:\d\d)</a>`).FindAllStringSubmatch(html, -1)
 	if len(times) != 17 || times[0][2] != "09:00" || times[16][2] != "17:00" || times[1][2] != "09:30" {
 		t.Fatalf("slots of %s: %v", day, times)
 	}
