@@ -4,7 +4,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/chichat/anasaki-studio?logo=docker)](https://hub.docker.com/r/chichat/anasaki-studio)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[🌐 เว็บไซต์](https://anasaki.live) · [📚 เอกสาร](https://anasaki.live/docs) · [🧩 ปลั๊กอินทางการ](https://anasaki.live/plugins) · [🛍 Plugin Store](https://storecms.anasaki.live)**
+**[🧪 ลองใช้ demo](https://democms.anasaki.live/admin/) · [🌐 เว็บไซต์](https://anasaki.live) · [📚 เอกสาร](https://anasaki.live/docs) · [🧩 ปลั๊กอินทางการ](https://anasaki.live/plugins) · [🛍 Plugin Store](https://storecms.anasaki.live)**
 
 | SEO | แบบฟอร์ม | ศูนย์เอกสาร |
 |---|---|---|
@@ -33,6 +33,8 @@
 
 **ระบบสร้างและจัดการเว็บไซต์แบบโอเพนซอร์ส (MIT)** — จัดการเนื้อหา ออกแบบหน้าเว็บได้อิสระ และเพิ่มความสามารถด้วยปลั๊กอิน ในที่เดียว
 สร้างด้วย **Angular 22**, **Go** และ **MySQL 8**
+
+> 🧪 **ลองก่อนติดตั้ง:** [democms.anasaki.live](https://democms.anasaki.live/admin/) — อีเมล `demo@example.com` รหัสผ่าน `demo1234` แก้ได้ทุกอย่าง เว็บรีเซ็ตทุก 60 นาที
 
 - 🎨 **ออกแบบได้อิสระแบบ Figma** — ลากวาง, Auto layout, คอลัมน์, ส่วนที่ใช้ซ้ำ, ปรับแยกคอมพิวเตอร์/แท็บเล็ต/มือถือ; หน้าเว็บจริงแสดงผลตรงกับที่ออกแบบทุกพิกเซล
 - 🖌 **ธีมทั้งเว็บ** — ตั้งสีและฟอนต์ครั้งเดียว ทุกหน้าเปลี่ยนตาม · ข้อความหลายสี/ตัวหนา/ลิงก์ในบรรทัดเดียว · ประวัติเวอร์ชันของทุกหน้า
@@ -140,6 +142,8 @@ repository หลักของทีม (repository นี้ไม่มี C
 
 **Open-source website builder and CMS (MIT)** — content management, a free-form visual designer and plugins in one place.
 Built with **Angular 22**, **Go** and **MySQL 8**.
+
+> 🧪 **Try it first:** [democms.anasaki.live](https://democms.anasaki.live/admin/) — email `demo@example.com`, password `demo1234`; change anything, the site resets every 60 minutes.
 
 - 🎨 **Figma-like designer** — drag and drop, auto layout, grid columns, components, desktop/tablet/mobile overrides; the live site matches the canvas pixel for pixel
 - 🖌 **Site-wide theme** — set colors and fonts once, every page follows · mixed colors/bold/links inside one text · version history for every page
