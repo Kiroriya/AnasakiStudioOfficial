@@ -4,6 +4,12 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/chichat/anasaki-studio?logo=docker)](https://hub.docker.com/r/chichat/anasaki-studio)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+**[🌐 เว็บไซต์](https://anasaki.live) · [📚 เอกสาร](https://anasaki.live/docs) · [🧩 ปลั๊กอินทางการ](https://anasaki.live/plugins) · [🛍 Plugin Store](https://storecms.anasaki.live)**
+
+| SEO | แบบฟอร์ม | ศูนย์เอกสาร |
+|---|---|---|
+| ![หน้า SEO](https://anasaki.live/uploads/2026/11/plugin-seo-admin-71846070.png) | ![หน้าแบบฟอร์ม](https://anasaki.live/uploads/2026/11/plugin-forms-editor-869505851.png) | ![ศูนย์เอกสาร](https://anasaki.live/uploads/2026/11/plugin-docs-article-846460574.png) |
+
 **[ภาษาไทย](#ภาษาไทย) · [English](#english)**
 
 > [!IMPORTANT]
@@ -32,7 +38,7 @@
 - 🖌 **ธีมทั้งเว็บ** — ตั้งสีและฟอนต์ครั้งเดียว ทุกหน้าเปลี่ยนตาม · ข้อความหลายสี/ตัวหนา/ลิงก์ในบรรทัดเดียว · ประวัติเวอร์ชันของทุกหน้า
 - 📝 **จัดการเนื้อหา** — บทความพร้อม rich-text editor (หัวข้อ สี ตาราง วิดีโอ YouTube รูปพร้อมคำบรรยาย), ปักหมุดและจัดลำดับเอง, หมวดหมู่, เมนู, คลังไฟล์ (ดึงรูปจากลิงก์ได้)
 - 👥 **ผู้ใช้และสิทธิ์ละเอียด** — ตำแหน่งมาตรฐาน + สร้างเอง, ระงับบัญชี, ลืมรหัสผ่าน, อีเมลต้อนรับ
-- 🧩 **ปลั๊กอินในตัว** — สถิติผู้เข้าชม (ไม่ใช้คุกกี้), SEO + sitemap, แบบฟอร์ม, Redirects + 404 log, Cookie consent (PDPA), โหมดปิดปรับปรุง, Custom code, สำรองข้อมูล
+- 🧩 **[ปลั๊กอินทางการ 9 ตัว](https://anasaki.live/plugins)** จาก Plugin Store — สถิติผู้เข้าชม (ไม่ใช้คุกกี้), SEO + sitemap, แบบฟอร์ม, Redirects + 404 log, Cookie consent (PDPA), โหมดปิดปรับปรุง, Custom code, ศูนย์เอกสาร (Docs), ปุ่มแปลภาษา (Page Translate) — หน้าตั้งค่าเริ่มต้นแนะนำให้ติดตั้ง
 - 🛍 **Anasaki Plugin Store** — ติดตั้งปลั๊กอินเพิ่มได้คลิกเดียว; ปลั๊กอินที่มีโค้ดฝั่งเซิร์ฟเวอร์ (เช่น ร้านค้า) รันในกล่องปิด (WebAssembly) ภายในระบบ
 - ✉️ **ระบบอีเมลในตัว** (SMTP: Gmail, Microsoft 365, SendGrid ฯลฯ) · 🌏 หน้าจัดการภาษาไทย / English
 
@@ -42,9 +48,9 @@
 
 ```bash
 mkdir anasaki-studio && cd anasaki-studio
-curl -fsSLO https://raw.githubusercontent.com/chichat/AnasakiStudio/main/docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/chichat/AnasakiStudio/main/.env.example -o .env
-mkdir -p docker/mysql-init && curl -fsSL https://raw.githubusercontent.com/chichat/AnasakiStudio/main/docker/mysql-init/10-site-code.sh -o docker/mysql-init/10-site-code.sh
+curl -fsSLO https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/.env.example -o .env
+mkdir -p docker/mysql-init && curl -fsSL https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/docker/mysql-init/10-site-code.sh -o docker/mysql-init/10-site-code.sh
 nano .env              # ใส่ JWT_SECRET, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD, CODE_DB_PASSWORD (สุ่มด้วย: openssl rand -hex 32)
 docker compose up -d
 ```
@@ -108,7 +114,7 @@ PORT=8091
 ### พัฒนา (development)
 
 ```bash
-git clone https://github.com/chichat/AnasakiStudio.git && cd AnasakiStudio
+git clone https://github.com/Kiroriya/AnasakiStudioOfficial.git && cd AnasakiStudioOfficial
 
 # MySQL อย่างเดียว เปิดที่ 127.0.0.1:3306 (ตั้ง MYSQL_PORT ได้) user/รหัสผ่าน anasaki/anasaki
 MYSQL_PASSWORD=anasaki MYSQL_ROOT_PASSWORD=root CODE_DB_PASSWORD=anasaki_code JWT_SECRET=dev docker compose -f docker-compose.yml -f docker-compose.build.yml up -d mysql
@@ -139,7 +145,7 @@ Built with **Angular 22**, **Go** and **MySQL 8**.
 - 🖌 **Site-wide theme** — set colors and fonts once, every page follows · mixed colors/bold/links inside one text · version history for every page
 - 📝 **Content** — rich-text posts (headings, colors, tables, YouTube, captioned images), pinning and manual order, categories, menus, media library (import images by URL)
 - 👥 **Users and fine-grained roles** — built-in and custom roles, suspension, password reset, welcome emails
-- 🧩 **Official plugins** from the Plugin Store — cookie-less analytics, SEO + sitemap, forms, redirects + 404 log, cookie consent (PDPA/GDPR), maintenance mode, custom code (offered by the setup wizard; upgraded sites are migrated automatically, see [docs/plugins.md §5](docs/plugins.md))
+- 🧩 **[Nine official plugins](https://anasaki.live/plugins)** from the Plugin Store — cookie-less analytics, SEO + sitemap, forms, redirects + 404 log, cookie consent (PDPA/GDPR), maintenance mode, custom code, a docs hub, page translation (offered by the setup wizard; upgraded sites are migrated automatically, see [docs/plugins.md §5](docs/plugins.md))
 - 💾 **Export / import site** — the whole site (content, files, installed plugins list, Site Code draft) as one zip
 - 🛍 **Anasaki Plugin Store** — one-click installs; plugins with server code (e.g. a shop) run sandboxed (WebAssembly) inside the CMS
 - ✉️ **Built-in email** (SMTP: Gmail, Microsoft 365, SendGrid…) · 🌏 Thai / English admin per account
@@ -150,9 +156,9 @@ Requires Docker and Docker Compose — you only need [`docker-compose.yml`](dock
 
 ```bash
 mkdir anasaki-studio && cd anasaki-studio
-curl -fsSLO https://raw.githubusercontent.com/chichat/AnasakiStudio/main/docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/chichat/AnasakiStudio/main/.env.example -o .env
-mkdir -p docker/mysql-init && curl -fsSL https://raw.githubusercontent.com/chichat/AnasakiStudio/main/docker/mysql-init/10-site-code.sh -o docker/mysql-init/10-site-code.sh
+curl -fsSLO https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/.env.example -o .env
+mkdir -p docker/mysql-init && curl -fsSL https://raw.githubusercontent.com/Kiroriya/AnasakiStudioOfficial/main/docker/mysql-init/10-site-code.sh -o docker/mysql-init/10-site-code.sh
 nano .env              # set JWT_SECRET, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD, CODE_DB_PASSWORD (generate: openssl rand -hex 32)
 docker compose up -d
 ```
@@ -216,7 +222,7 @@ Guide: [docs/plugins.md](docs/plugins.md) · Go SDK: [sdk/go](sdk/go) · Example
 ### Development
 
 ```bash
-git clone https://github.com/chichat/AnasakiStudio.git && cd AnasakiStudio
+git clone https://github.com/Kiroriya/AnasakiStudioOfficial.git && cd AnasakiStudioOfficial
 
 # MySQL only, on 127.0.0.1:3306 (MYSQL_PORT to change) — user/password anasaki/anasaki
 MYSQL_PASSWORD=anasaki MYSQL_ROOT_PASSWORD=root CODE_DB_PASSWORD=anasaki_code JWT_SECRET=dev docker compose -f docker-compose.yml -f docker-compose.build.yml up -d mysql
