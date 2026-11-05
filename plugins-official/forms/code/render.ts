@@ -22,11 +22,23 @@ export function renderForm(fm: Form, sent = false): string {
     const star = fd.required ? '<span class="rea-form-req" aria-hidden="true"> *</span>' : '';
     const ph = fd.placeholder ? ` placeholder="${e(fd.placeholder)}"` : '';
     const name = ` name="${e(fd.key)}" id="${e(id)}"`;
+    // 2.1: shown only when an earlier field has a value (assets/form.js; without it every field shows)
+    const cond = fd.showIf ? ` data-show-if="${e(fd.showIf.field)}" data-show-value="${e(fd.showIf.value)}"` : '';
     if (fd.type === 'checkbox') {
-      b += `<div class="rea-form-field"><label class="rea-form-field rea-form-check"><input type="checkbox"${name} value="yes"${req}> ${e(fd.label)}${star}</label></div>`;
+      b += `<div class="rea-form-field"${cond}><label class="rea-form-field rea-form-check"><input type="checkbox"${name} value="yes"${req}> ${e(fd.label)}${star}</label></div>`;
       continue;
     }
-    b += `<div class="rea-form-field"><label for="${e(id)}">${e(fd.label)}${star}</label>`;
+    if (fd.type === 'radio' || fd.type === 'checkboxes') {
+      const multi = fd.type === 'checkboxes';
+      b += `<fieldset class="rea-form-field rea-form-group"${cond}${multi && fd.required ? ' data-required="1"' : ''}><legend>${e(fd.label)}${star}</legend>`;
+      fd.options.forEach((o, i) => {
+        b += `<label class="rea-form-check"><input type="${multi ? 'checkbox' : 'radio'}" name="${e(fd.key)}${multi ? '[]' : ''}" id="${e(id)}-${i}" value="${e(o)}"` +
+          `${!multi ? req : ''}> ${e(o)}</label>`;
+      });
+      b += '</fieldset>';
+      continue;
+    }
+    b += `<div class="rea-form-field"${cond}><label for="${e(id)}">${e(fd.label)}${star}</label>`;
     switch (fd.type) {
       case 'textarea':
         b += `<textarea${name}${ph}${req} maxlength="5000"></textarea>`;

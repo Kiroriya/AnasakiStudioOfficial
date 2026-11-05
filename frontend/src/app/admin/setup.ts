@@ -150,7 +150,7 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
                 <dt>{{ 'settings.tagline' | t }}</dt><dd>{{ tagline || '—' }}</dd>
                 <dt>{{ 'settings.contentLang' | t }}</dt><dd>{{ language === 'th' ? 'ไทย' : 'English' }}</dd>
                 <dt>{{ 'setup.step.admin' | t }}</dt><dd>{{ adminName }} · {{ adminEmail }}</dd>
-                <dt>{{ 'setup.adminLang' | t }}</dt><dd>{{ i18n.locale() === 'th' ? 'ไทย' : 'English' }}</dd>
+                <dt>{{ 'setup.adminLang' | t }}</dt><dd>{{ localeLabel() }}</dd>
                 <dt>{{ 'setup.demoShort' | t }}</dt><dd>{{ (demo ? 'common.yes' : 'setup.no') | t }}</dd>
               </dl>
             </section>
@@ -179,6 +179,8 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
 })
 export class Setup {
   readonly i18n = inject(I18n);
+  /** The chosen admin language's own name (ไทย, English, 日本語, 中文, 한국어). */
+  localeLabel() { return LOCALES.find(l => l.id === this.i18n.locale())?.label ?? this.i18n.locale(); }
   private api = inject(Api);
   private auth = inject(Auth);
   private state = inject(SetupState);

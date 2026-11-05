@@ -1,0 +1,58 @@
+{
+  "id": "eshop",
+  "name": "Shop",
+  "version": "1.0.0",
+  "description": "Online shop: products, add-to-cart blocks, cart and checkout, PromptPay QR for the exact amount, bank transfer or COD, slip upload, orders, stock and emails. / ร้านค้าออนไลน์ ตะกร้า ชำระด้วย QR พร้อมเพย์ แนบสลิป จัดการคำสั่งซื้อ",
+  "author": "Anasaki Studio",
+  "icon": "🛒",
+  "category": "ecommerce",
+  "tags": ["shop", "ecommerce", "promptpay", "cart", "orders", "thai"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "orders", "label": { "th": "จัดการคำสั่งซื้อ", "en": "Manage orders" },
+      "description": { "th": "ดูคำสั่งซื้อ สลิป เปลี่ยนสถานะ และส่งออก CSV", "en": "See orders and slips, change their status and export CSV" },
+      "default": ["administrator", "editor"] },
+    { "id": "products", "label": { "th": "จัดการสินค้า", "en": "Manage products" },
+      "description": { "th": "เพิ่ม แก้ไข และเผยแพร่สินค้า", "en": "Add, edit and publish products" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "promptpayId", "type": "text", "maxLength": 20, "placeholder": "0812345678",
+      "label": { "th": "พร้อมเพย์ (เบอร์โทรหรือเลขประจำตัว)", "en": "PromptPay ID (phone or tax ID)" },
+      "help": { "th": "เบอร์ 10 หลัก เลขบัตรประชาชน/เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก — เว้นว่าง = ไม่รับพร้อมเพย์", "en": "10-digit phone, 13-digit citizen / tax ID or 15-digit e-wallet — empty = no PromptPay" } },
+    { "key": "promptpayName", "type": "text", "maxLength": 120,
+      "label": { "th": "ชื่อบัญชีพร้อมเพย์", "en": "PromptPay account name" },
+      "help": { "th": "แสดงใต้ QR ให้ลูกค้าตรวจก่อนโอน", "en": "Shown under the QR so customers can check before paying" } },
+    { "key": "bankInfo", "type": "textarea", "maxLength": 1000,
+      "label": { "th": "บัญชีสำหรับโอนเงิน", "en": "Bank transfer details" },
+      "help": { "th": "เช่น ธนาคาร เลขบัญชี ชื่อบัญชี — เว้นว่าง = ไม่มีตัวเลือกโอนเงิน", "en": "Bank, account number and name — empty = no bank transfer option" } },
+    { "key": "allowCod", "type": "boolean", "default": false,
+      "label": { "th": "รับเก็บเงินปลายทาง", "en": "Cash on delivery" } },
+    { "key": "shippingFee", "type": "number", "default": 0, "min": 0, "max": 100000,
+      "label": { "th": "ค่าส่ง (บาทต่อคำสั่งซื้อ)", "en": "Shipping fee (THB per order)" } },
+    { "key": "freeShippingOver", "type": "number", "default": 0, "min": 0, "max": 10000000,
+      "label": { "th": "ส่งฟรีเมื่อยอดถึง (บาท)", "en": "Free shipping from (THB)" },
+      "help": { "th": "0 = ไม่มีส่งฟรี", "en": "0 = never free" } },
+    { "key": "notifyEmail", "type": "text", "maxLength": 200, "placeholder": "owner@example.com",
+      "label": { "th": "อีเมลรับแจ้งคำสั่งซื้อใหม่", "en": "New order email" },
+      "help": { "th": "เว้นว่าง = อีเมลผู้ดูแลเว็บ", "en": "Empty = the site's admin email" } },
+    { "key": "buyBox", "type": "boolean", "default": true,
+      "label": { "th": "แสดงราคาและปุ่มใส่ตะกร้าใต้รายละเอียดสินค้า", "en": "Price and add-to-cart under the product description" },
+      "help": { "th": "ปิดได้ถ้าวางบล็อก “ปุ่มใส่ตะกร้า” ในแม่แบบหน้าสินค้าเอง", "en": "Turn off when the product template has its own “Add to cart” block" } },
+    { "key": "cancelAfterHours", "type": "number", "default": 48, "min": 0, "max": 720,
+      "label": { "th": "ยกเลิกคำสั่งซื้อที่ไม่ชำระหลัง (ชั่วโมง)", "en": "Cancel unpaid orders after (hours)" },
+      "help": { "th": "คืนสต็อกให้อัตโนมัติ — 0 = ไม่ยกเลิกเอง (ไม่รวมเก็บเงินปลายทาง)", "en": "Stock goes back automatically — 0 = never (cash on delivery is never cancelled)" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "post-types", "content", "files", "jobs", "filters-core", "content-write"],
+    "routes": ["/shop", "/cart", "/checkout", "/product"],
+    "exports": ["orderTotal"],
+    "hooks": {
+      "events": ["eshop.order.created", "eshop.order.paid", "eshop.order.status"]
+    }
+  }
+}

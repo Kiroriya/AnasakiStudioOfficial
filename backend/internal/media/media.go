@@ -24,6 +24,7 @@ import (
 
 	"github.com/anasaki/studio/backend/internal/kses"
 	"github.com/anasaki/studio/backend/internal/model"
+	"github.com/anasaki/studio/backend/internal/respimg"
 	"github.com/anasaki/studio/backend/internal/store"
 )
 
@@ -320,6 +321,7 @@ func Delete(st *store.Store, uploadDir string, m *model.Media) error {
 	}
 	if p := Path(uploadDir, m); p != "" {
 		_ = os.Remove(p)
+		respimg.Forget(uploadDir, m.URL)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/anasaki/studio/backend/internal/legacy"
 	"github.com/anasaki/studio/backend/internal/mail"
 	"github.com/anasaki/studio/backend/internal/plugin"
+	"github.com/anasaki/studio/backend/internal/respimg"
 	"github.com/anasaki/studio/backend/internal/seed"
 	"github.com/anasaki/studio/backend/internal/site"
 	"github.com/anasaki/studio/backend/internal/sitecode"
@@ -136,7 +137,7 @@ func main() {
 	}
 	core.SetLegacy(migrator)
 	core.Routes(mux)
-	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", noListing(nosniff(sandboxUploads(http.FileServer(http.Dir(cfg.UploadDir)))))))
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", noListing(nosniff(sandboxUploads(respimg.Handler(cfg.UploadDir, http.FileServer(http.Dir(cfg.UploadDir))))))))
 	// Catch-all: the admin SPA under its configurable path, then the public site.
 	mux.Handle("/", adminOrSite(core.AdminPath, spa(cfg.AdminDir), plugins.Middleware(web)))
 

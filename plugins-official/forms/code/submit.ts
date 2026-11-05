@@ -46,7 +46,11 @@ function parseMultipart(body: string, boundary: string): Record<string, string> 
     if (!cd) continue;
     const name = /;\s*name="([^"]*)"/i.exec(cd[1]);
     if (!name || /;\s*filename=/i.test(cd[1])) continue; // files are not form values
-    if (!(name[1] in out)) out[name[1]] = p.slice(sep + 4).replace(/\r\n$/, '');
+    const val = p.slice(sep + 4).replace(/\r\n$/, '');
+    if (name[1].endsWith('[]')) {
+      const k = name[1].slice(0, -2);
+      out[k] = k in out && out[k] !== '' ? out[k] + '\n' + val : val; // 2.1: checkbox groups (key[])
+    } else if (!(name[1] in out)) out[name[1]] = val;
   }
   return out;
 }
@@ -81,7 +85,10 @@ export function readValues(request: SiteRequest): Record<string, string> | null 
       const q = parseQuery(request.body ?? '');
       if (!q) return null;
       const out: Record<string, string> = {};
-      for (const k of Object.keys(q)) out[k] = q[k][0];
+      for (const k of Object.keys(q)) {
+        if (k.endsWith('[]')) out[k.slice(0, -2)] = q[k].join('\n'); // 2.1: checkbox groups (key[])
+        else out[k] = q[k][0];
+      }
       return out;
     }
     default:
@@ -238,8 +245,24 @@ export function notifyMail(fm: Form, data: Record<string, string>, at: Date, sit
   return { subject, html, replyTo };
 }
 
-/** site.on('forms.submitted'): emails the site's admin address (asynchronous, after the answer). */
+/** 2.1: the form's auto-reply to the address in its first email field. */
+export function autoReply(fm: Form, data: Record<string, string>): void {
+  const subject = fm.autoReply?.subject ?? '';
+  const to = fm.fields.filter((f) => f.type === 'email').map((f) => data[f.key] ?? '').find((v) => v !== '') ?? '';
+  if (!subject || !to) return;
+  const message = fm.autoReply.message ?? '';
+  const html = message.split(/\n\s*\n/).map((p) => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  try {
+    mail.send({ to: [to], subject, html, text: message });
+  } catch (e) {
+    log.warn('forms: auto-reply:', String((e as Error).message ?? e));
+  }
+}
+
+/** site.on('forms.submitted'): emails the site's admin address (asynchronous, after the answer) and, 2.1, the auto-reply. */
 export function notify(ev: { formId: number; data: Record<string, string>; submittedAt: string }): void {
+  const form = getForm(Number(ev.formId));
+  if (form) autoReply(form, ev.data ?? {});
   const { title, adminEmail } = siteInfo();
   if (!adminEmail) return;
   const fm = getForm(Number(ev?.formId));

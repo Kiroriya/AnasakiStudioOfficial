@@ -94,7 +94,7 @@ export class SaveConflictDialog {
     if (!at) return '';
     const d = new Date(at);
     const sameDay = d.toDateString() === new Date().toDateString();
-    return sameDay ? d.toLocaleTimeString(this.i18n.locale() === 'th' ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) : this.i18n.date(at, true);
+    return sameDay ? d.toLocaleTimeString(this.i18n.intl(), { hour: '2-digit', minute: '2-digit' }) : this.i18n.date(at, true);
   }
 
   cancel() { this.collab.store.conflict.set(null); }

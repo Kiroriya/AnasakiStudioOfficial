@@ -68,11 +68,9 @@ interface NavGroup { title: string; items: NavItem[] }
             </nav>
           </div>
           <div class="topbar-right">
-            <div class="lang-switch" [title]="'common.language' | t">
-              @for (l of locales; track l.id) {
-                <button [class.on]="i18n.locale() === l.id" (click)="setLocale(l.id)">{{ l.short }}</button>
-              }
-            </div>
+            <select class="lang-select" id="admin-lang" [title]="'common.language' | t" [attr.aria-label]="'common.language' | t" [value]="i18n.locale()" (change)="setLocale($any($event.target).value)">
+              @for (l of locales; track l.id) { <option [value]="l.id" [selected]="i18n.locale() === l.id">🌐 {{ l.label }}</option> }
+            </select>
             <a class="btn btn-ghost" [href]="siteUrl()" target="_blank">🌐 {{ 'shell.viewSite' | t }}</a>
           </div>
         </header>
@@ -151,7 +149,7 @@ export class Shell {
   readonly groups = computed<NavGroup[]>(() => {
     const t = (k: string) => this.i18n.t(k);
     const item = (path: string, key: string, icon: string, cap?: Cap): NavItem => ({ path, label: t(key), desc: t(key + '.d'), icon, cap });
-    const en = this.i18n.locale() === 'en';
+    const en = this.i18n.locale() !== 'th';
     // post types from site.postType that this user may edit (the server filters by access.edit)
     const typeItems: NavItem[] = this.postTypes.editable().map(p => ({
       path: listRoute(p.type), label: localized(p.label) || p.type, icon: p.icon || '📦', id: 'nav-type-' + p.type,
@@ -223,7 +221,7 @@ export class Shell {
   /** Time of the next demo reset (HH:MM, local). */
   readonly nextReset = computed(() => {
     const d = this.site.demo();
-    return d?.nextReset ? new Date(d.nextReset).toLocaleTimeString(this.i18n.locale() === 'th' ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+    return d?.nextReset ? new Date(d.nextReset).toLocaleTimeString(this.i18n.intl(), { hour: '2-digit', minute: '2-digit' }) : '';
   });
 
   async demoSnapshot() {

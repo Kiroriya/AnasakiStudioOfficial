@@ -1,0 +1,40 @@
+{
+  "id": "members",
+  "name": "Members",
+  "version": "1.0.0",
+  "description": "Visitor accounts: sign up with email confirmation, sign in, password reset, a My account page, a member menu block, members-only sections (visitor.is.member) and a members admin screen with CSV export. / ระบบสมาชิก สมัคร ยืนยันอีเมล เข้าสู่ระบบ ลืมรหัส หน้าบัญชีของฉัน และส่วนเฉพาะสมาชิก",
+  "author": "Anasaki Studio",
+  "icon": "👥",
+  "category": "content",
+  "tags": ["members", "login", "accounts", "membership", "visitor"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "requireVerification", "type": "boolean", "default": true,
+      "label": { "th": "ต้องยืนยันอีเมลก่อนเข้าสู่ระบบ", "en": "Confirm the email before signing in" },
+      "help": { "th": "ต้องตั้งค่าอีเมล (SMTP) ของเว็บก่อน", "en": "Needs the site's email (SMTP) settings" } },
+    { "key": "allowedDomains", "type": "text", "maxLength": 300, "placeholder": "company.co.th, example.com",
+      "label": { "th": "รับเฉพาะอีเมลโดเมน", "en": "Only these email domains" },
+      "help": { "th": "คั่นด้วยจุลภาค — เว้นว่าง = ทุกโดเมน", "en": "Comma separated — empty = any domain" } },
+    { "key": "sessionDays", "type": "number", "default": 30, "min": 1, "max": 365,
+      "label": { "th": "จำการเข้าสู่ระบบ (วัน)", "en": "Stay signed in (days)" } },
+    { "key": "afterLoginUrl", "type": "text", "maxLength": 200, "placeholder": "/members/account",
+      "label": { "th": "หลังเข้าสู่ระบบไปที่", "en": "After signing in go to" },
+      "help": { "th": "path ในเว็บ เช่น /members-area — เว้นว่าง = บัญชีของฉัน", "en": "A site path, e.g. /members-area — empty = My account" } },
+    { "key": "afterVerifyUrl", "type": "text", "maxLength": 200,
+      "label": { "th": "หลังยืนยันอีเมลไปที่", "en": "After confirming the email go to" },
+      "help": { "th": "เว้นว่าง = หน้ายืนยันพร้อมปุ่มเข้าสู่ระบบ", "en": "Empty = a confirmation page with a sign-in button" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "visitor", "mail", "admin-pages"],
+    "routes": ["/members"],
+    "exports": ["memberByEmail"],
+    "hooks": {
+      "filters": ["members.mail"],
+      "events": ["members.registered", "members.verified", "members.login"]
+    }
+  }
+}

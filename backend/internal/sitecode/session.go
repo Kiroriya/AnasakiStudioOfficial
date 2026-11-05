@@ -50,6 +50,7 @@ type Session struct {
 	vis     *visitorState     // the visitor (site.visitor), shared by the session's VMs
 	aliases map[string]string // enabled formatter aliases (loaded on first use)
 	locale  string            // ctx.locale of admin page calls ("th" | "en", phase 6)
+	lang    string            // ctx.lang: the full admin language (th | en | ja | zh | ko, 2.2.2)
 	admin   bool              // an admin page session (site.saveSettings, phase 7)
 	system  bool              // a system call (CallExport): VMs run with db.asSystem rights
 	// posts read ahead by core for the render-path hooks (PreloadPost): site.meta
@@ -422,6 +423,7 @@ func (s *Session) ctxObject(v *vm, extra map[string]any, params map[string]strin
 	ctx := v.ctxValue(s.request(), params).ToObject(v.rt)
 	if s.locale != "" {
 		_ = ctx.Set("locale", s.locale)
+		_ = ctx.Set("lang", orStr(s.lang, s.locale)) // 2.2.2: th | en | ja | zh | ko
 	}
 	for k, x := range extra {
 		_ = ctx.Set(k, v.toJS(x))

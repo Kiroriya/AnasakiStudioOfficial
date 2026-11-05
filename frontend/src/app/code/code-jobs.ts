@@ -179,7 +179,7 @@ export class CodeJobs implements OnInit, OnDestroy {
   when(iso?: string | null) {
     if (!iso) return '—';
     const d = new Date(iso);
-    return isNaN(+d) ? iso : d.toLocaleString(this.i18n.locale() === 'th' ? 'th-TH' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return isNaN(+d) ? iso : d.toLocaleString(this.i18n.intl(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   setStatus(v: string) { this.status.set(v); this.page.set(1); void this.loadJobs(); }

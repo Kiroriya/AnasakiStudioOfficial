@@ -108,7 +108,7 @@ export class CodeLogs implements OnInit, OnDestroy {
   val(e: Event) { return (e.target as HTMLInputElement).value; }
   when(iso: string) {
     const d = new Date(iso);
-    return isNaN(+d) ? iso : d.toLocaleString(this.i18n.locale() === 'th' ? 'th-TH' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return isNaN(+d) ? iso : d.toLocaleString(this.i18n.intl(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   setLevel(v: string) { this.level.set(v); this.page.set(1); void this.load(); }

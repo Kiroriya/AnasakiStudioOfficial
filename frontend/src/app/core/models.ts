@@ -13,7 +13,7 @@ export interface User {
   email: string;
   name: string;
   role: Role;
-  locale?: 'th' | 'en';
+  locale?: 'th' | 'en' | 'ja' | 'zh' | 'ko';
   /** Capabilities granted by the server (role + plugins). */
   caps?: string[];
   firstName?: string;

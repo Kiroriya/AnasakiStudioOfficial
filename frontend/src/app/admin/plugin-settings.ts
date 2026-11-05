@@ -133,7 +133,7 @@ export class PluginSettings implements OnInit {
       } else {
         await this.plugins.load();
         const p = this.plugins.list().find(x => x.id === this.id);
-        const en = this.i18n.locale() === 'en';
+        const en = this.i18n.locale() !== 'th'; // English for every non-Thai admin (2.2.2)
         this.name.set(p ? (en && p.nameEn) || p.name : this.id);
         this.desc.set(p ? (en && p.descriptionEn) || p.description : '');
         this.icon.set(p?.icon ?? '⚙️');

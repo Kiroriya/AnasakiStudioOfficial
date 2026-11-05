@@ -12,3 +12,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #6366f1;outline-offset
 .rea-form-msg{padding:12px 14px;border-radius:8px;background:#ecfdf5;color:#065f46}
 .rea-form-msg.is-error{background:#fef2f2;color:#991b1b}
 .rea-form-msg[hidden]{display:none}
+.rea-form-group{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.rea-form-group legend{font-size:.9em;font-weight:600;margin-bottom:4px;padding:0}
+.rea-form-group .rea-form-check{display:flex;align-items:center;gap:8px;font-weight:400}
+[data-show-if][hidden]{display:none}

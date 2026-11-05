@@ -1,0 +1,40 @@
+{
+  "id": "blog-extras",
+  "name": "Blog Extras",
+  "version": "1.0.0",
+  "description": "Blog essentials: comments with moderation and spam protection, table of contents, reading time, share buttons (Facebook, X, LINE), related posts and an author box. / ความคิดเห็นพร้อมอนุมัติ สารบัญ เวลาอ่าน ปุ่มแชร์ บทความที่เกี่ยวข้อง และกล่องผู้เขียน",
+  "author": "Anasaki Studio",
+  "icon": "💬",
+  "category": "content",
+  "tags": ["blog", "comments", "share", "toc", "related posts"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "moderate", "label": { "th": "อนุมัติความคิดเห็น", "en": "Moderate comments" },
+      "description": { "th": "อนุมัติ ซ่อน ทำเครื่องหมายสแปม และลบความคิดเห็น", "en": "Approve, hide, mark as spam and delete comments" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "comments", "type": "boolean", "default": true, "label": { "th": "เปิดความคิดเห็นในบทความ", "en": "Comments on posts" } },
+    { "key": "moderation", "type": "select", "default": "review",
+      "options": [{ "value": "review", "label": { "th": "รออนุมัติก่อนแสดง", "en": "Hold for approval" } },
+                  { "value": "auto", "label": { "th": "แสดงทันที", "en": "Show right away" } }],
+      "label": { "th": "ความคิดเห็นใหม่", "en": "New comments" } },
+    { "key": "notifyEmail", "type": "text", "maxLength": 200, "label": { "th": "อีเมลแจ้งความคิดเห็นใหม่", "en": "New comment email" },
+      "help": { "th": "เว้นว่าง = ไม่ส่ง", "en": "Empty = none" } },
+    { "key": "toc", "type": "boolean", "default": true, "label": { "th": "สารบัญอัตโนมัติ (มีหัวข้อ 3 ข้อขึ้นไป)", "en": "Table of contents (3+ headings)" } },
+    { "key": "readingTime", "type": "boolean", "default": true, "label": { "th": "แสดงเวลาอ่าน", "en": "Reading time" } },
+    { "key": "share", "type": "boolean", "default": true, "label": { "th": "ปุ่มแชร์", "en": "Share buttons" } },
+    { "key": "related", "type": "number", "default": 3, "min": 0, "max": 6, "label": { "th": "จำนวนบทความที่เกี่ยวข้อง", "en": "Related posts" },
+      "help": { "th": "จากหมวดเดียวกัน — 0 = ไม่แสดง", "en": "From the same category — 0 = none" } },
+    { "key": "authorBox", "type": "boolean", "default": false, "label": { "th": "กล่องผู้เขียนท้ายบทความ", "en": "Author box" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "content", "users", "jobs", "filters-core"],
+    "routes": ["/blog-extras"],
+    "hooks": { "events": ["blog-extras.comment.created", "blog-extras.comment.approved"] }
+  }
+}

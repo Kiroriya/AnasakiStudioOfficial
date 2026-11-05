@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/anasaki/studio/backend/internal/respimg"
 )
 
 // PostCtx is the data a post exposes to bindings like {{post.title}}.
@@ -494,7 +496,12 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 			w.WriteString(`<div class="` + cls + `" role="img" aria-label="` + attr(alt) + `"></div>`)
 			break
 		}
-		img := `<img class="` + cls + `" src="` + attr(safeHref(src)) + `" alt="` + attr(alt) + `" loading="lazy">`
+		src = safeHref(src)
+		img := `<img class="` + cls + `" src="` + attr(src) + `"`
+		if set := respimg.Srcset(src); set != "" { // 2.2.2: smaller copies for smaller screens
+			img += ` srcset="` + attr(set) + `" sizes="` + respimg.Sizes + `"`
+		}
+		img += ` alt="` + attr(alt) + `" loading="lazy">`
 		if href != "" {
 			// wrap without changing layout: the link becomes display:contents
 			img = `<a href="` + attr(href) + `"` + target + ` style="display:contents">` + img + `</a>`
@@ -570,7 +577,7 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 			if f, ok := r.data.(ContentFilter); ok && f != nil {
 				content = f.FilterContent(content, sc.post) // Site Code post.content filters
 			}
-			w.WriteString(content)
+			w.WriteString(respimg.AddToHTML(content))
 		}
 		w.WriteString(`</div>`)
 	case TypePostList:

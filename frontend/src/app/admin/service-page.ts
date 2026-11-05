@@ -61,7 +61,8 @@ export function isPluginPageId(id: string, page: string): boolean {
     <rea-media-picker [kind]="mediaPick.pending()?.accept ?? 'image'" [open]="mediaPick.pending() !== null" (openChange)="!$event && mediaPick.done(null)" (picked)="mediaPick.done($event)" />
   `,
   styles: `.svc-frame { width: 100%; height: calc(100vh - 190px); min-height: 480px; border: 1px solid var(--border); border-radius: var(--r); background: #fff; }
-    .svc-frame-plugin { height: calc(100vh - 110px); }
+    /* the kit page draws its own head and cards: no frame around it, and its 24px body padding lines up with the admin's */
+    .svc-frame-plugin { display: block; height: calc(100vh - 62px); width: calc(100% + 48px); margin: -24px -24px 0; border: 0; border-radius: 0; background: transparent; }
     .alert .btn { margin-left: 8px; }`,
 })
 export class ServicePage {
@@ -95,7 +96,7 @@ export class ServicePage {
     this.i18n.locale();
     if (this.isCode()) return localized(this.codePage()?.label) || this.page();
     const m = this.item();
-    return (m && (this.i18n.locale() === 'en' && m.labelEn ? m.labelEn : m.label)) || this.page();
+    return (m && (this.i18n.locale() !== 'th' && m.labelEn ? m.labelEn : m.label)) || this.page();
   });
 
   constructor() {

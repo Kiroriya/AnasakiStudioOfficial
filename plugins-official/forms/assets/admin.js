@@ -16,7 +16,9 @@
       created: 'สร้างเมื่อ', optional: '(ไม่ใส่ก็ได้)', cname: 'ชื่อ', cemail: 'อีเมล', blockId: 'หมายเลขสำหรับบล็อก',
       webhookHint: 'ส่ง POST JSON {event, form, submissionId, data, submittedAt} ไปยัง URL นี้ทุกครั้งที่ฟอร์มนี้มีข้อความใหม่',
       deleteForm: 'ลบฟอร์ม “{n}”?',
-      type: { text: 'ข้อความสั้น', email: 'อีเมล', tel: 'เบอร์โทร', textarea: 'ข้อความยาว', select: 'ตัวเลือก', checkbox: 'ช่องติ๊ก', number: 'ตัวเลข', date: 'วันที่' },
+      type: { text: 'ข้อความสั้น', email: 'อีเมล', tel: 'เบอร์โทร', textarea: 'ข้อความยาว', select: 'ตัวเลือก', checkbox: 'ช่องติ๊ก', number: 'ตัวเลข', date: 'วันที่', radio: 'เลือกหนึ่งข้อ', checkboxes: 'เลือกได้หลายข้อ' },
+      showIf: 'แสดงเมื่อ', always: 'แสดงเสมอ', anyValue: 'มีค่าใดก็ได้ (หรือพิมพ์ค่าที่ต้องการ)', autoReply: 'อีเมลตอบกลับอัตโนมัติ', arSubject: 'หัวเรื่อง (เว้นว่าง = ไม่ส่ง)', arMessage: 'ข้อความ',
+      arHint: 'ส่งถึงอีเมลในช่องอีเมลช่องแรกของฟอร์ม ทันทีหลังกดส่ง',
     },
     en: {
       title: 'Forms', desc: 'Build contact, sign-up or job forms — submissions are stored here.',
@@ -30,11 +32,15 @@
       created: 'Created', optional: '(optional)', cname: 'Name', cemail: 'Email', blockId: 'Number for the block',
       webhookHint: 'POSTs JSON {event, form, submissionId, data, submittedAt} to this URL on every submission of this form.',
       deleteForm: 'Delete the form “{n}”?',
-      type: { text: 'Short text', email: 'Email', tel: 'Phone', textarea: 'Long text', select: 'Dropdown', checkbox: 'Checkbox', number: 'Number', date: 'Date' },
+      type: { text: 'Short text', email: 'Email', tel: 'Phone', textarea: 'Long text', select: 'Dropdown', checkbox: 'Checkbox', number: 'Number', date: 'Date', radio: 'Single choice', checkboxes: 'Multiple choice' },
+      showIf: 'Show when', always: 'Always shown', anyValue: 'any value (or type the value)', autoReply: 'Auto-reply email', arSubject: 'Subject (empty = none)', arMessage: 'Message',
+      arHint: 'Sent to the address in the form\'s first email field right after a submission',
     },
   };
-  var TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date'];
-  var ICON = { text: '🔤', email: '✉️', tel: '📞', textarea: '📝', select: '▾', checkbox: '☑️', number: '#', date: '📅' };
+  var TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'number', 'date'];
+  var ICON = { text: '🔤', email: '✉️', tel: '📞', textarea: '📝', select: '▾', radio: '🔘', checkbox: '☑️', checkboxes: '✅', number: '#', date: '📅' };
+  var WITH_OPTIONS = ['select', 'radio', 'checkboxes'];
+  function hasOptions(ty) { return WITH_OPTIONS.indexOf(ty) >= 0; }
   var PER = 25;
 
   var boot = JSON.parse(document.getElementById('forms-data').textContent || '{}');
@@ -84,7 +90,7 @@
   function addField(type) {
     var fs = st.draft.fields, n = fs.length + 1;
     while (fs.some(function (f) { return f.key === 'field_' + n; })) n++;
-    fs.push({ key: 'field_' + n, label: L.type[type], type: type, required: false, options: type === 'select' ? ['A', 'B'] : [], placeholder: '' });
+    fs.push({ key: 'field_' + n, label: L.type[type], type: type, required: false, options: hasOptions(type) ? ['A', 'B'] : [], placeholder: '' });
     draw();
   }
 
@@ -159,7 +165,7 @@
     var lab = el('input', { class: 'forms-field-label', placeholder: t('label') });
     lab.value = f.label;
     lab.addEventListener('input', function () { f.label = lab.value; });
-    var sel = el('select', { onchange: function () { f.type = sel.value; if (f.type === 'select' && !f.options.length) f.options = ['A', 'B']; draw(); } });
+    var sel = el('select', { onchange: function () { f.type = sel.value; if (hasOptions(f.type) && !f.options.length) f.options = ['A', 'B']; draw(); } });
     TYPES.forEach(function (ty) { var o = el('option', { value: ty, text: L.type[ty] }); if (ty === f.type) o.selected = true; sel.append(o); });
     var req = el('input', { type: 'checkbox' });
     req.checked = !!f.required;
@@ -172,11 +178,34 @@
       el('button', { type: 'button', class: 'ak-btn ak-btn-sm', disabled: last, onclick: function () { move(1); }, text: '↓' }),
       el('button', { type: 'button', class: 'ak-btn ak-btn-sm ak-btn-danger', onclick: function () { d.fields.splice(i, 1); draw(); }, text: '✕' })
     );
-    if (f.type === 'select') {
+    if (hasOptions(f.type)) {
       var opts = el('input', { class: 'forms-options', placeholder: t('optionsPh') });
       opts.value = f.options.join(', ');
       opts.addEventListener('input', function () { f.options = opts.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean); });
       row.append(opts);
+    }
+    // 2.1: show this field only when an earlier one has a value
+    if (i > 0) {
+      var cond = el('select', { class: 'forms-cond', 'aria-label': t('showIf') });
+      cond.append(el('option', { value: '', text: t('always') }));
+      d.fields.slice(0, i).forEach(function (o) {
+        var opt = el('option', { value: o.key, text: t('showIf') + ': ' + (o.label || o.key) });
+        if (f.showIf && f.showIf.field === o.key) opt.selected = true;
+        cond.append(opt);
+      });
+      var val = el('input', { class: 'forms-cond-value', placeholder: t('anyValue'), list: 'forms-cond-' + i });
+      val.value = f.showIf ? f.showIf.value : '';
+      val.hidden = !f.showIf;
+      var src = f.showIf ? d.fields.filter(function (o) { return o.key === f.showIf.field; })[0] : null;
+      var dl = el('datalist', { id: 'forms-cond-' + i });
+      (src ? (src.type === 'checkbox' ? ['yes'] : src.options) : []).forEach(function (o) { dl.append(el('option', { value: o })); });
+      cond.addEventListener('change', function () {
+        f.showIf = cond.value ? { field: cond.value, value: (f.showIf && f.showIf.value) || '' } : undefined;
+        if (!f.showIf) delete f.showIf;
+        draw();
+      });
+      val.addEventListener('input', function () { if (f.showIf) f.showIf.value = val.value; });
+      row.append(el('div', { class: 'forms-cond-row' }, [cond, val, dl]));
     }
     return row;
   }
@@ -203,6 +232,15 @@
       el('div', {}, [input('Webhook ' + t('optional'), d.webhookUrl, function (v) { d.webhookUrl = v; }, { placeholder: 'https://hooks…' }),
         el('p', { class: 'ak-hint', text: t('webhookHint') })]),
     ]));
+    // 2.1: auto-reply to the visitor
+    d.autoReply = d.autoReply || { subject: '', message: '' };
+    box.append(el('h3', { text: t('autoReply') }));
+    box.append(input(t('arSubject'), d.autoReply.subject, function (v) { d.autoReply.subject = v; }, { id: 'forms-ar-subject' }));
+    var arMsg = el('textarea', { id: 'forms-ar-message', rows: '4' });
+    arMsg.value = d.autoReply.message || '';
+    arMsg.addEventListener('input', function () { d.autoReply.message = arMsg.value; });
+    box.append(el('label', { class: 'ak-field' }, [el('span', { text: t('arMessage') }), arMsg]));
+    box.append(el('p', { class: 'ak-hint', text: t('arHint') }));
     box.append(el('div', { class: 'ak-form-actions' }, [
       d.id ? el('button', { type: 'button', class: 'ak-btn ak-btn-danger', id: 'forms-delete', onclick: remove, text: '🗑 ' + t('del') }) : null,
       el('span', { class: 'ak-grow' }),
@@ -269,6 +307,7 @@
     '.forms-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:760px){.forms-2{grid-template-columns:1fr}}' +
     '.forms-fields{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}' +
     '.forms-field{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.forms-field-label{flex:1 1 180px}.forms-options{flex:1 1 100%}' +
+    '.forms-cond-row{flex:1 1 100%;display:flex;gap:6px}.forms-cond{max-width:260px}.forms-cond-value{flex:1}' +
     '.forms-type{width:24px;text-align:center}.forms-unread td{font-weight:600}.forms-pick{margin-bottom:8px}' +
     '#forms-subs td{vertical-align:top}#forms-subs td.forms-long{min-width:220px;white-space:pre-wrap}#forms-subs td.forms-nowrap{white-space:nowrap}';
   document.head.append(css);

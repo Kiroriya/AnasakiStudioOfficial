@@ -147,7 +147,7 @@ func (e *Engine) adminSession(r *http.Request, user *User) *Session {
 	if s != nil {
 		s.user, s.admin = user, true
 		if user != nil {
-			s.locale = AdminLocale(user.Locale)
+			s.locale, s.lang = AdminLocale(user.Locale), user.Locale
 		}
 	}
 	return s
@@ -155,10 +155,13 @@ func (e *Engine) adminSession(r *http.Request, user *User) *Session {
 
 // AdminLocale is ctx.locale for a user's admin language: "en" or "th".
 func AdminLocale(l string) string {
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(l)), "en") {
-		return "en"
+	// ctx.locale stays th | en for plugins written for two languages; the other admin languages (2.2.2) read
+	// English, and the full code is ctx.lang
+	l = strings.ToLower(strings.TrimSpace(l))
+	if l == "" || strings.HasPrefix(l, "th") {
+		return "th"
 	}
-	return "th"
+	return "en"
 }
 
 // adminPageInfo finds admin page id ("<plugin>:<page>" for a JS plugin).

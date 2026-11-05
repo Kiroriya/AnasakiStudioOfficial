@@ -392,7 +392,7 @@ export class SettingsPage implements OnInit {
   /** Renders a Go layout with today's date, e.g. "2 Jan 2006" → "13 Oct 2026". */
   sampleDate(f: string) {
     const d = new Date();
-    const loc = this.i18n.locale() === 'th' ? 'th-TH' : 'en-US';
+    const loc = this.i18n.intl();
     const pad = (n: number) => String(n).padStart(2, '0');
     const map: Record<string, string> = {
       '2006': String(d.getFullYear()), January: d.toLocaleString(loc, { month: 'long' }), Jan: d.toLocaleString(loc, { month: 'short' }),

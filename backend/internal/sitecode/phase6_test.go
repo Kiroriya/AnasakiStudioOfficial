@@ -94,7 +94,7 @@ func TestPhase6Aliases(t *testing.T) {
 	if m := AliasesFrom(map[string]string{OptFormatterAliases: `nope`}); len(m) != 0 {
 		t.Fatal(m)
 	}
-	if AdminLocale("en-US") != "en" || AdminLocale("") != "th" || AdminLocale("th") != "th" {
+	if AdminLocale("en-US") != "en" || AdminLocale("") != "th" || AdminLocale("th") != "th" || AdminLocale("ja") != "en" || AdminLocale("ko") != "en" {
 		t.Fatal("AdminLocale")
 	}
 }

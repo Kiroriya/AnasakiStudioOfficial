@@ -89,23 +89,26 @@ import { Pager } from '../shared/pager';
         <tbody>
           @for (p of items(); track p.id) {
             <tr class="content-row" [attr.data-id]="p.id">
-              <td>
+              <td class="cell-title">
                 @if (p.pinned) { <span class="pin-badge" [title]="'post.pinned' | t">📌</span> }
                 <a class="row-title" [routerLink]="editLink(p)">{{ p.title }}</a>
                 @if (roleOf(p); as r) { <span class="badge badge-info">{{ r | t }}</span> }
                 <div class="muted small">{{ 'common.by' | t: { name: p.authorName } }}</div>
               </td>
-              @if (type() !== 'template') { <td class="mono muted small">{{ path(p) }}</td> }
+              @if (type() !== 'template') { <td class="mono muted small cell-path">{{ path(p) }}</td> }
               @for (f of metaCols(); track f.key) { <td class="content-meta-cell small" [attr.data-field]="f.key">{{ cell(f, p) }}</td> }
               @if (hasCategories()) {
                 <td>@for (c of p.categories; track c.id) { <span class="chip">{{ c.name }}</span> } @empty { <span class="muted">—</span> }</td>
               }
               <td><span class="badge" [attr.data-status]="p.status" [class.badge-live]="p.status === 'publish'" [title]="p.status === 'scheduled' && p.publishedAt ? i18n.date(p.publishedAt, true) : ''">{{ p.status === 'scheduled' ? '⏰' : '●' }} {{ (p.status === 'publish' ? 'common.published' : p.status === 'scheduled' ? 'post.scheduledBadge' : 'common.draft') | t }}</span></td>
-              <td class="muted small">{{ i18n.date(p.updatedAt, true) }}</td>
+              <td class="muted small nowrap">{{ i18n.date(p.updatedAt, true) }}</td>
               <td class="row-actions">
                 @if (designed()) { <a class="btn btn-sm btn-primary" [routerLink]="['/design', p.id]">🎨 {{ 'content.design' | t }}</a> }
                 @else { <a class="btn btn-sm btn-primary content-edit" [routerLink]="editLink(p)">✏️ {{ 'common.edit' | t }}</a> }
-                @if (type() !== 'template' && p.status === 'publish') { <a class="btn btn-sm" [href]="viewUrl(p)" target="_blank">↗ {{ 'common.view' | t }}</a> }
+                @if (type() !== 'template') {
+                  @if (p.status === 'publish') { <a class="btn btn-sm" [href]="viewUrl(p)" target="_blank">↗ {{ 'common.view' | t }}</a> }
+                  @else { <span class="btn btn-sm slot-hidden" aria-hidden="true">↗ {{ 'common.view' | t }}</span> }
+                }
                 <button class="btn btn-sm" (click)="toggleMore(p.id)">⋯</button>
                 @if (more() === p.id) {
                   <div class="row-menu">
@@ -189,8 +192,8 @@ export class ContentList {
   /** Pages and templates open in the designer; posts and post types in the post editor. */
   readonly designed = computed(() => this.type() === 'page' || this.type() === 'template');
   readonly hasCategories = computed(() => this.type() === 'post' || (this.custom() && supportsOf(this.pt()).has('categories')));
-  /** A couple of short custom fields as extra columns (values from post.meta). */
-  readonly metaCols = computed(() => (this.designed() ? [] : listColumns(this.postTypes.schema(this.type()))));
+  /** A couple of short custom fields of the type itself as extra columns (plugin fields such as SEO stay in the editor). */
+  readonly metaCols = computed(() => (this.designed() ? [] : listColumns(this.postTypes.groups(this.type()).site)));
   readonly newLabel = computed(() => {
     if (!this.custom()) return this.i18n.t('content.' + this.type() + '.new');
     return this.i18n.t('content.custom.new', { name: localized(this.pt()?.singular) || this.typeLabel() });

@@ -233,9 +233,9 @@ export interface ConsentState {
 export interface ConsentCap { key: string; label: string; description: string; default: string[] }
 
 /** The capabilities of a manifest-like source in locale (key "<plugin>.<id>"). */
-export function consentCaps(pluginID: string | undefined, caps: PluginCapability[] | null | undefined, locale: 'th' | 'en'): ConsentCap[] {
+export function consentCaps(pluginID: string | undefined, caps: PluginCapability[] | null | undefined, locale: string): ConsentCap[] {
   const text = (l: PluginCapability['label'] | null | undefined) =>
-    !l ? '' : typeof l === 'string' ? l : (locale === 'en' ? l.en || l.th : l.th || l.en) ?? '';
+    !l ? '' : typeof l === 'string' ? l : (locale === 'th' ? l.th || l.en : l.en || l.th) ?? '';
   return (caps ?? []).map(c => ({
     key: c.key || (pluginID ? `${pluginID}.${c.id}` : c.id),
     label: text(c.label) || c.id,
@@ -245,7 +245,7 @@ export function consentCaps(pluginID: string | undefined, caps: PluginCapability
 }
 
 /** Consent content from a manifest-like source (store detail, installed package or reconsent). */
-export function consentFor(mode: ConsentMode, src: { id?: string; name: string; version?: string; runtime?: string; permissions?: string[]; code?: PackageCode | null; capabilities?: PluginCapability[] | null }, rc?: Reconsent | null, destructive: CodeDestructive[] = [], locale: 'th' | 'en' = 'th'): ConsentState {
+export function consentFor(mode: ConsentMode, src: { id?: string; name: string; version?: string; runtime?: string; permissions?: string[]; code?: PackageCode | null; capabilities?: PluginCapability[] | null }, rc?: Reconsent | null, destructive: CodeDestructive[] = [], locale: string = 'th'): ConsentState {
   if (rc) {
     return {
       mode, name: src.name, version: src.version, runtime: src.runtime, permissions: [...(rc.permissions ?? [])], api: [...(rc.api ?? [])],

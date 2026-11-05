@@ -1,0 +1,37 @@
+{
+  "id": "newsletter",
+  "name": "Newsletter",
+  "version": "1.0.0",
+  "description": "Email newsletter: a sign-up form block with double opt-in, one-click unsubscribe, subscriber import and CSV export, and campaigns sent in the background within the site's mail limit. / จดหมายข่าว ฟอร์มสมัครรับข่าว ยืนยันอีเมล ยกเลิกได้ในคลิกเดียว และส่งแคมเปญทางอีเมล",
+  "author": "Anasaki Studio",
+  "icon": "📮",
+  "category": "marketing",
+  "tags": ["newsletter", "email", "subscribe", "marketing"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "send", "label": { "th": "ส่งจดหมายข่าว", "en": "Send newsletters" },
+      "description": { "th": "ดูผู้รับ เขียน และส่งแคมเปญ", "en": "See subscribers, write and send campaigns" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "doubleOptIn", "type": "boolean", "default": true,
+      "label": { "th": "ยืนยันอีเมลก่อนรับข่าว (double opt-in)", "en": "Confirm the email first (double opt-in)" },
+      "help": { "th": "แนะนำ: กันคนใส่อีเมลของคนอื่น และอีเมลจากเว็บไม่ตกไปอยู่ในสแปม", "en": "Recommended: stops sign-ups with other people's addresses and keeps your mail out of spam" } },
+    { "key": "perHour", "type": "number", "default": 60, "min": 1, "max": 5000,
+      "label": { "th": "ส่งไม่เกินกี่ฉบับต่อชั่วโมง", "en": "Emails per hour at most" },
+      "help": { "th": "ต้องไม่เกินโควตาอีเมลของเว็บ (ค่าเริ่มต้น 100/ชม. ที่ โค้ดของเว็บไซต์ → ตั้งค่า)", "en": "Keep it under the site's mail quota (100/h by default, Site code → Settings)" } },
+    { "key": "footer", "type": "textarea", "maxLength": 500,
+      "label": { "th": "ท้ายอีเมล", "en": "Email footer" },
+      "help": { "th": "เช่น ชื่อและที่อยู่ของร้าน — ลิงก์ยกเลิกรับข่าวถูกใส่ให้เสมอ", "en": "E.g. your name and address — the unsubscribe link is always added" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "jobs"],
+    "routes": ["/newsletter"],
+    "exports": ["subscribe"],
+    "hooks": { "events": ["newsletter.subscribed", "newsletter.unsubscribed", "newsletter.sent"] }
+  }
+}

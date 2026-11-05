@@ -500,7 +500,7 @@ func (a *API) storeUser(w http.ResponseWriter, r *http.Request, u *model.User, p
 		u.Locale = model.LocaleTH
 	}
 	if !model.ValidLocale(u.Locale) {
-		writeErr(w, http.StatusBadRequest, "ภาษาต้องเป็น th หรือ en")
+		writeErr(w, http.StatusBadRequest, "ภาษาต้องเป็น th, en, ja, zh หรือ ko")
 		return false
 	}
 	if !safeURL(u.Website) || !safeURL(u.Avatar) {

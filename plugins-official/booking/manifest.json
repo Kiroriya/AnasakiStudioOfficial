@@ -1,0 +1,37 @@
+{
+  "id": "booking",
+  "name": "Booking",
+  "version": "1.0.0",
+  "description": "Appointments and reservations: services with duration and price, weekly opening hours and closed days, a booking page with free time slots, no double booking, confirmation and cancel links by email, and a bookings admin page. / ระบบจองคิว บริการ เวลาเปิด เลือกช่วงเวลาว่าง ยืนยันทางอีเมล",
+  "author": "Anasaki Studio",
+  "icon": "📅",
+  "category": "utilities",
+  "tags": ["booking", "appointments", "reservations", "calendar", "queue"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการการจอง", "en": "Manage bookings" },
+      "description": { "th": "ดู ยืนยัน และยกเลิกการจอง ตั้งค่าบริการและเวลาเปิด", "en": "See, confirm and cancel bookings; set services and hours" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "autoConfirm", "type": "boolean", "default": true,
+      "label": { "th": "ยืนยันการจองอัตโนมัติ", "en": "Confirm bookings automatically" },
+      "help": { "th": "ปิด = การจองใหม่รอร้านกดยืนยัน", "en": "Off = new bookings wait for you to confirm" } },
+    { "key": "daysAhead", "type": "number", "default": 30, "min": 1, "max": 180,
+      "label": { "th": "จองล่วงหน้าได้กี่วัน", "en": "Days ahead that can be booked" } },
+    { "key": "minNoticeHours", "type": "number", "default": 2, "min": 0, "max": 168,
+      "label": { "th": "ต้องจองก่อนอย่างน้อย (ชั่วโมง)", "en": "Minimum notice (hours)" } },
+    { "key": "notifyEmail", "type": "text", "maxLength": 200,
+      "label": { "th": "อีเมลแจ้งการจองใหม่", "en": "New booking email" },
+      "help": { "th": "เว้นว่าง = อีเมลผู้ดูแลเว็บ", "en": "Empty = the site's admin email" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "jobs"],
+    "routes": ["/booking"],
+    "hooks": { "events": ["booking.created", "booking.status"] }
+  }
+}

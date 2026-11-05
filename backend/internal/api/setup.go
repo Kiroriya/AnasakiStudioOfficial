@@ -68,8 +68,8 @@ func (in *setupInput) validate() string {
 		return "อีเมลไม่ถูกต้อง"
 	case len(in.AdminPassword) < 8:
 		return "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"
-	case !model.ValidLocale(in.Language) || !model.ValidLocale(in.Locale):
-		return "ภาษาต้องเป็น th หรือ en"
+	case !model.ValidSiteLanguage(in.Language) || !model.ValidLocale(in.Locale):
+		return "ภาษาของเว็บต้องเป็น th หรือ en และภาษาของหน้าจัดการต้องเป็น th, en, ja, zh หรือ ko"
 	}
 	return ""
 }

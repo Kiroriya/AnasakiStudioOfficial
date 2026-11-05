@@ -26,10 +26,23 @@ const (
 const (
 	LocaleTH = "th"
 	LocaleEN = "en"
+	// 2.2.2: Japanese, Chinese (simplified) and Korean admin
+	LocaleJA = "ja"
+	LocaleZH = "zh"
+	LocaleKO = "ko"
 )
 
 // ValidLocale reports whether l is a supported admin UI language.
-func ValidLocale(l string) bool { return l == LocaleTH || l == LocaleEN }
+func ValidLocale(l string) bool {
+	switch l {
+	case LocaleTH, LocaleEN, LocaleJA, LocaleZH, LocaleKO:
+		return true
+	}
+	return false
+}
+
+// ValidSiteLanguage: the site's own language (demo content, <html lang>) is Thai or English.
+func ValidSiteLanguage(l string) bool { return l == LocaleTH || l == LocaleEN }
 
 // Post types and statuses.
 const (

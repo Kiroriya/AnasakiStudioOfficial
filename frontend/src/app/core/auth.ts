@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { Api } from './api';
-import { I18n, Locale } from './i18n';
+import { I18n, Locale, isLocale } from './i18n';
 import { Role, User } from './models';
 
 const TOKEN_KEY = 'anasaki.token';
@@ -116,7 +116,7 @@ export class Auth {
   /** Applies the account (and its UI language). */
   setUser(u: User) {
     this.user.set(u);
-    if (u.locale === 'th' || u.locale === 'en') this.i18n.set(u.locale);
+    if (isLocale(u.locale)) this.i18n.set(u.locale);
   }
 
   /** Switches language and remembers it on the account. */

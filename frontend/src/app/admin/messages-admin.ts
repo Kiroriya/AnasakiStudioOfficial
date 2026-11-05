@@ -168,7 +168,7 @@ registerMessages({
   'settings.tagline': { th: 'คำโปรย', en: 'Tagline' },
   'settings.taglineHint': { th: 'ประโยคสั้น ๆ บอกว่าเว็บเกี่ยวกับอะไร', en: 'A short sentence about your site' },
   'settings.contentLang': { th: 'ภาษาของเนื้อหาบนเว็บ', en: 'Website content language' },
-  'settings.contentLangHint': { th: 'บอก Google ว่าเว็บเขียนด้วยภาษาอะไร (ไม่แปลข้อความ และไม่ใช่ภาษาของหน้าจัดการ — เปลี่ยนภาษาหน้าจัดการได้ที่ “บัญชีของฉัน” หรือปุ่ม TH/EN ด้านบน)', en: 'Tells search engines which language your site is written in. It does not translate content and is not the admin language — change that in “My account” or with the TH/EN switch at the top.' },
+  'settings.contentLangHint': { th: 'บอก Google ว่าเว็บเขียนด้วยภาษาอะไร (ไม่แปลข้อความ และไม่ใช่ภาษาของหน้าจัดการ — เปลี่ยนภาษาหน้าจัดการได้ที่ “บัญชีของฉัน” หรือปุ่มเลือกภาษาด้านบน)', en: 'Tells search engines which language your site is written in. It does not translate content and is not the admin language — change that in “My account” or with the language switch at the top.' },
   'settings.home': { th: 'หน้าแรก', en: 'Home page' },
   'settings.homeHint': { th: 'หน้าที่คนเห็นเมื่อเข้าเว็บ', en: 'The page visitors see first' },
   'settings.single': { th: 'หน้าตาหน้าอ่านบทความ', en: 'Post page template' },

@@ -3,10 +3,18 @@
 export interface Field {
   key: string;
   label: string;
-  type: string; // text|email|tel|textarea|select|checkbox|number|date
+  type: string; // text|email|tel|textarea|select|checkbox|number|date, 2.1: radio|checkboxes
   required: boolean;
   options: string[];
   placeholder: string;
+  /** 2.1: shown (and checked) only when an earlier field has this value. */
+  showIf?: { field: string; value: string };
+}
+
+/** 2.1: a mail to the address in the form's first email field after a submission (empty subject = off). */
+export interface AutoReply {
+  subject: string;
+  message: string;
 }
 
 export interface Form {
@@ -17,6 +25,7 @@ export interface Form {
   successMessage: string;
   redirectUrl: string;
   webhookUrl: string;
+  autoReply: AutoReply;
   createdAt: string;
   submissionCount: number;
   unreadCount: number;
@@ -33,7 +42,9 @@ export interface Submission {
 export const DEFAULT_SUCCESS = 'ขอบคุณ! เราได้รับข้อความของคุณแล้ว';
 export const DEFAULT_SUBMIT = 'ส่งข้อความ';
 
-const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date'];
+const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date', 'radio', 'checkboxes'];
+/** Types with a list of options. */
+export const WITH_OPTIONS = ['select', 'radio', 'checkboxes'];
 const keyRe = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
 
 /** UTF-8 byte length (the Go plugin's limits count bytes). */
@@ -74,6 +85,7 @@ export function validateForm(input: any): { form: Form; error: string } {
     successMessage: str(input?.successMessage),
     redirectUrl: str(input?.redirectUrl).trim(),
     webhookUrl: str(input?.webhookUrl).trim(),
+    autoReply: { subject: str(input?.autoReply?.subject).trim(), message: str(input?.autoReply?.message).trim() },
     createdAt: '',
     submissionCount: 0,
     unreadCount: 0,
@@ -92,16 +104,23 @@ export function validateForm(input: any): { form: Form; error: string } {
       options: Array.isArray(r?.options) ? r.options.map(str) : [],
       placeholder: str(r?.placeholder),
     };
+    if (r?.showIf && typeof r.showIf === 'object' && str(r.showIf.field) !== '') {
+      fd.showIf = { field: str(r.showIf.field).trim(), value: str(r.showIf.value).trim() };
+      if (!seen[fd.showIf.field]) return bad(`เงื่อนไขของช่อง ${q(fd.key)} ต้องอ้างถึงช่องที่อยู่ก่อนหน้า`);
+      if (byteLen(fd.showIf.value) > 200) return bad(`เงื่อนไขของช่อง ${q(fd.key)} ยาวเกินไป`);
+    }
     if (!keyRe.test(fd.key) || fd.key === '_hp' || seen[fd.key]) return bad(`คีย์ของช่อง ${q(fd.key)} ไม่ถูกต้องหรือซ้ำ (ใช้ a-z, 0-9, _)`);
     seen[fd.key] = true;
     if (FIELD_TYPES.indexOf(fd.type) < 0) return bad(`ชนิดของช่อง ${q(fd.key)} ไม่ถูกต้อง`);
     if (fd.label === '') fd.label = fd.key;
     if (byteLen(fd.label) > 300 || byteLen(fd.placeholder) > 300) return bad(`ข้อความของช่อง ${q(fd.key)} ยาวเกินไป`);
-    if (fd.type === 'select' && fd.options.length === 0) return bad(`ช่อง ${q(fd.key)} ต้องมีตัวเลือกอย่างน้อย 1 รายการ`);
+    if (WITH_OPTIONS.indexOf(fd.type) >= 0 && fd.options.length === 0) return bad(`ช่อง ${q(fd.key)} ต้องมีตัวเลือกอย่างน้อย 1 รายการ`);
     if (fd.options.length > 100) return bad(`ช่อง ${q(fd.key)} มีตัวเลือกมากเกินไป`);
     fm.fields.push(fd);
   }
   if (byteLen(fm.submitLabel) > 100 || byteLen(fm.successMessage) > 1000) return bad('ข้อความปุ่มหรือข้อความสำเร็จยาวเกินไป');
+  if (byteLen(fm.autoReply.subject) > 200 || byteLen(fm.autoReply.message) > 5000) return bad('อีเมลตอบกลับอัตโนมัติยาวเกินไป');
+  if (fm.autoReply.subject !== '' && !fm.fields.some((f) => f.type === 'email')) return bad('อีเมลตอบกลับอัตโนมัติต้องมีช่องอีเมลในฟอร์ม');
   if (fm.redirectUrl !== '' && (!localPath(fm.redirectUrl) || byteLen(fm.redirectUrl) > 512)) {
     return bad('ลิงก์หลังส่งฟอร์มต้องเป็นหน้าในเว็บนี้ที่ขึ้นต้นด้วย / เช่น /thank-you');
   }
@@ -142,7 +161,13 @@ export function isoDate(v: string): boolean {
 export function clean(fm: Form, input: Record<string, string>): { data: Record<string, string> | null; problem: string } {
   const data: Record<string, string> = {};
   for (const fd of fm.fields) {
+    // 2.1: a field whose condition is not met is neither required nor kept
+    if (fd.showIf && !conditionMet(fd.showIf, data)) {
+      data[fd.key] = '';
+      continue;
+    }
     let v = str(input[fd.key]).trim();
+    if (fd.type === 'checkboxes') v = multiValues(v).join(', ');
     if (byteLen(v) > 5000) return { data: null, problem: 'ข้อความในช่อง "' + fd.label + '" ยาวเกินไป' };
     if (fd.type === 'checkbox') v = v !== '' && v !== 'false' && v !== '0' ? 'yes' : '';
     if (v === '') {
@@ -161,12 +186,38 @@ export function clean(fm: Form, input: Record<string, string>): { data: Record<s
         if (!isoDate(v)) return { data: null, problem: 'วันที่ในช่อง "' + fd.label + '" ไม่ถูกต้อง' };
         break;
       case 'select':
+      case 'radio':
         if (fd.options.indexOf(v) < 0) return { data: null, problem: 'ตัวเลือกในช่อง "' + fd.label + '" ไม่ถูกต้อง' };
+        break;
+      case 'checkboxes':
+        if (multiValues(str(input[fd.key])).some((x) => fd.options.indexOf(x) < 0)) return { data: null, problem: 'ตัวเลือกในช่อง "' + fd.label + '" ไม่ถูกต้อง' };
         break;
     }
     data[fd.key] = v;
   }
   return { data, problem: '' };
+}
+
+/** The values of a checkboxes field: one per line (form posts), a JSON array (JSON posts) or "a, b" (stored). */
+export function multiValues(v: string): string[] {
+  const s = str(v).trim();
+  if (s === '') return [];
+  if (s.startsWith('[')) {
+    try {
+      const a = JSON.parse(s);
+      if (Array.isArray(a)) return a.map((x) => str(x).trim()).filter(Boolean);
+    } catch {
+      /* not JSON */
+    }
+  }
+  return s.split(s.includes('\n') ? /\r?\n/ : /\s*,\s*/).map((x) => x.trim()).filter(Boolean);
+}
+
+/** Whether a field's condition holds for the values cleaned so far (checkbox: "yes"; checkboxes: one of them). */
+export function conditionMet(c: { field: string; value: string }, data: Record<string, string>): boolean {
+  const v = data[c.field] ?? '';
+  if (c.value === '') return v !== '';
+  return v === c.value || v.split(', ').indexOf(c.value) >= 0;
 }
 
 // ---------------------------------------------------------------- storage
@@ -192,6 +243,7 @@ function fieldsOf(v: unknown): Field[] {
   return (Array.isArray(list) ? list : []).map((r: any) => ({
     key: str(r?.key), label: str(r?.label), type: str(r?.type) || 'text', required: r?.required === true,
     options: Array.isArray(r?.options) ? r.options.map(str) : [], placeholder: str(r?.placeholder),
+    ...(r?.showIf && str(r.showIf.field) ? { showIf: { field: str(r.showIf.field), value: str(r.showIf.value) } } : {}),
   }));
 }
 
@@ -199,7 +251,8 @@ function toForm(r: any, counts = true): Form {
   const id = Number(r.id);
   return {
     id, name: str(r.name), fields: fieldsOf(r.fields), submitLabel: str(r.submit_label), successMessage: str(r.success_message),
-    redirectUrl: str(r.redirect_url), webhookUrl: str(r.webhook_url), createdAt: rfc3339(r.created_at),
+    redirectUrl: str(r.redirect_url), webhookUrl: str(r.webhook_url),
+    autoReply: { subject: str(r.auto_reply_subject), message: str(r.auto_reply_message) }, createdAt: rfc3339(r.created_at),
     submissionCount: counts ? db.table('submissions').where('form_id', id).count() : 0,
     unreadCount: counts ? db.table('submissions').where('form_id', id).where('is_read', false).count() : 0,
   };
@@ -219,6 +272,7 @@ export function listForms(): Form[] {
 const row = (fm: Form) => ({
   name: fm.name, fields: JSON.stringify(fm.fields), submit_label: fm.submitLabel, success_message: fm.successMessage,
   redirect_url: fm.redirectUrl, webhook_url: fm.webhookUrl,
+  auto_reply_subject: fm.autoReply?.subject ?? '', auto_reply_message: fm.autoReply?.message ?? '',
 });
 
 export function createForm(fm: Form): Form {

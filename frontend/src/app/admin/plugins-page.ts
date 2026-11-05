@@ -97,7 +97,7 @@ import { Pager } from '../shared/pager';
         <p class="hint section-hint">{{ 'plugins.builtinHint' | t }}</p>
         <div class="plugin-grid">
           @for (p of plugins.builtins(); track p.id) {
-            <article class="card plugin-card" [class.active]="p.active">
+            <article class="card plugin-card" [class.active]="p.active" [attr.data-id]="p.id">
               <div class="plugin-top">
                 <span class="plugin-icon">{{ p.icon }}</span>
                 <div>
@@ -110,7 +110,7 @@ import { Pager } from '../shared/pager';
               @if (p.active && p.menu.length) {
                 <div class="plugin-links">
                   @for (m of p.menu; track m.path) {
-                    @if (!m.cap || auth.can(m.cap)) { <a class="chip-link" [routerLink]="m.path">{{ m.icon }} {{ i18n.locale() === 'en' ? m.labelEn || m.label : m.label }}</a> }
+                    @if (!m.cap || auth.can(m.cap)) { <a class="chip-link" [routerLink]="m.path">{{ m.icon }} {{ i18n.locale() !== 'th' ? m.labelEn || m.label : m.label }}</a> }
                   }
                 </div>
               }
@@ -134,7 +134,7 @@ import { Pager } from '../shared/pager';
         <p class="hint section-hint">{{ 'plugins.installedHint' | t }}</p>
         <div class="plugin-grid">
           @for (p of packages(); track p.id) {
-            <article class="card plugin-card" [class.active]="p.active">
+            <article class="card plugin-card" [class.active]="p.active" [attr.data-id]="p.id">
               <div class="plugin-top">
                 <span class="plugin-icon">@if (p.iconUrl) { <img [src]="p.iconUrl" alt="" /> } @else { {{ p.icon || '📦' }} }</span>
                 <div>
@@ -232,7 +232,7 @@ import { Pager } from '../shared/pager';
               <button class="store-cat" [class.on]="!category()" (click)="setCategory('')"><span>✨</span><span class="grow">{{ 'common.all' | t }}</span></button>
               @for (c of categories(); track c.slug) {
                 <button class="store-cat" [class.on]="category() === c.slug" (click)="setCategory(c.slug)">
-                  <span>{{ c.icon }}</span><span class="grow">{{ i18n.locale() === 'en' ? c.nameEn || c.name : c.name }}</span><span class="muted small">{{ c.count }}</span>
+                  <span>{{ c.icon }}</span><span class="grow">{{ i18n.locale() !== 'th' ? c.nameEn || c.name : c.name }}</span><span class="muted small">{{ c.count }}</span>
                 </button>
               }
             </nav>
@@ -267,7 +267,7 @@ import { Pager } from '../shared/pager';
 
               <div class="plugin-grid">
                 @for (p of results(); track p.id) {
-                  <article class="card plugin-card store-card" (click)="open(p.id)">
+                  <article class="card plugin-card store-card" [attr.data-id]="p.id" (click)="open(p.id)">
                     <div class="plugin-top">
                       <span class="plugin-icon">@if (p.iconUrl) { <img [src]="p.iconUrl" alt="" /> } @else { {{ p.icon || '📦' }} }</span>
                       <div>
@@ -536,13 +536,13 @@ export class PluginsPage implements OnInit {
   }
 
   val(e: Event) { return (e.target as HTMLInputElement).value; }
-  n(v: number) { return (v ?? 0).toLocaleString(this.i18n.locale() === 'th' ? 'th-TH' : 'en-US'); }
+  n(v: number) { return (v ?? 0).toLocaleString(this.i18n.intl()); }
   stars(r: number) { const f = Math.round(r || 0); return '★'.repeat(f) + '☆'.repeat(5 - f); }
   pname(p: PluginInfo) { return this.english(p)[0] ?? p.name; }
   pdesc(p: PluginInfo) { return this.english(p)[1] ?? p.description; }
   /** English name/description in EN mode (from the server, or our own translation of built-ins). */
   private english(p: PluginInfo): [string?, string?] {
-    if (this.i18n.locale() !== 'en') return [];
+    if (this.i18n.locale() === 'th') return [];
     if (p.nameEn) return [p.nameEn, p.descriptionEn];
     const key = `plugin.${p.id}.en`;
     const t = this.i18n.t(key);
@@ -581,7 +581,7 @@ export class PluginsPage implements OnInit {
 
   catName(slug: string) {
     const c = this.categories().find(x => x.slug === slug);
-    return c ? (this.i18n.locale() === 'en' ? c.nameEn || c.name : c.name) : slug;
+    return c ? (this.i18n.locale() !== 'th' ? c.nameEn || c.name : c.name) : slug;
   }
 
   setTab(t: Tab, nav = true) {
@@ -789,13 +789,17 @@ export class PluginsPage implements OnInit {
   setCategory(c: string) { this.category.set(c); this.page.set(1); this.search(); }
   go(p: number) { this.page.set(p); this.search(false); }
 
+  private searchSeq = 0;
   async search(reset = true) {
     if (reset) this.page.set(1);
+    // only the latest request may fill the list (the first load must not overwrite a search typed meanwhile)
+    const seq = ++this.searchSeq;
     try {
       const r = await this.api.storePlugins({ category: this.category(), search: this.query(), sort: this.sort(), page: this.page(), perPage: this.perPage });
+      if (seq !== this.searchSeq) return;
       this.results.set(r.items);
       this.total.set(r.total);
-    } catch (e) { this.storeError.set(errorMessage(e)); }
+    } catch (e) { if (seq === this.searchSeq) this.storeError.set(errorMessage(e)); }
   }
 
   /** Update badges for installed packages: ask the store about each one. */
