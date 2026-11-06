@@ -1,8 +1,8 @@
 /* Anasaki admin UI kit → window.AK (API: kit-demo.html). th/en from <html lang>. */
 (() => {
 const d = document, M = {
- th: {ok: 'ตกลง', cancel: 'ยกเลิก', empty: 'ไม่มีข้อมูล', required: 'กรุณากรอกช่องนี้', invalid: 'รูปแบบไม่ถูกต้อง', table: 'ดูเป็นตาราง', chart: 'ดูเป็นกราฟ', date: 'วันที่'},
- en: {ok: 'OK', cancel: 'Cancel', empty: 'No data', required: 'This field is required', invalid: 'Invalid value', table: 'View as table', chart: 'View as chart', date: 'Date'},
+ th: {pick: 'เลือกไฟล์', nofile: 'ยังไม่ได้เลือกไฟล์', nfiles: 'ไฟล์', ok: 'ตกลง', cancel: 'ยกเลิก', empty: 'ไม่มีข้อมูล', required: 'กรุณากรอกช่องนี้', invalid: 'รูปแบบไม่ถูกต้อง', table: 'ดูเป็นตาราง', chart: 'ดูเป็นกราฟ', date: 'วันที่'},
+ en: {pick: 'Choose file', nofile: 'No file chosen', nfiles: 'files', ok: 'OK', cancel: 'Cancel', empty: 'No data', required: 'This field is required', invalid: 'Invalid value', table: 'View as table', chart: 'View as chart', date: 'Date'},
 };
 const lang = () => (/^en/.test(d.documentElement.lang) ? 'en' : 'th');
 const t = k => M[lang()][k] || k;
@@ -249,8 +249,22 @@ window.addEventListener('message', e => {
  picks[m.reqId](x && {url: x.url, id: +x.id || 0, alt: String(x.alt || ''), width: +x.width || 0, height: +x.height || 0});
 });
 
+// 2.3.0: <input type=file> gets a button and file name in the admin's language (the browser's own label
+// follows the browser, e.g. "Choose File / No file chosen" on a Thai admin); the input stays focusable
+function file(i) {
+ if (i.dataset.akFile || i.closest('.ak-file')) return;
+ i.dataset.akFile = '1';
+ const w = el('span', 'ak-file'), b = el('button', 'ak-btn ak-btn-sm', '📄 ' + t('pick'), {type: 'button'}), n = el('span', 'ak-file-name', t('nofile'));
+ i.parentNode.insertBefore(w, i);
+ w.append(b, n, i);
+ i.classList.add('ak-file-input');
+ b.addEventListener('click', () => i.click());
+ i.addEventListener('change', () => {const f = i.files || []; n.textContent = f.length > 1 ? f.length + ' ' + t('nfiles') : f[0] ? f[0].name : t('nofile');});
+}
 function init() {
  d.body.classList.add('ak');
+ each('input[type=file]', file);
+ if (window.MutationObserver) new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(x => {if (x.nodeType == 1) {if (x.matches('input[type=file]')) file(x); else each('input[type=file]', file, x);}}))).observe(d.body, {childList: true, subtree: true});
  each('[data-ak-tabs]', tabs);
  each('table[data-ak-sortable]', sortable);
  each('form[data-ak-validate]', f => {f.noValidate = true; f.addEventListener('submit', e => {if (!validate(f)) {e.preventDefault(); e.stopImmediatePropagation();}}, true);});

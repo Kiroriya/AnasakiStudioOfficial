@@ -200,8 +200,9 @@ td.row-actions { display: table-cell; position: relative; > * { margin-left: 6px
 .form-label { display: flex; flex-direction: column; gap: 2px; small { color: var(--muted); font-size: 12.5px; font-weight: 400; } }
 .form-foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 18px 0; }
 .form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
-.lang-cards { display: flex; gap: 12px; }
-.lang-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 140px; padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: var(--r); background: #fff; cursor: pointer; text-align: left;
+/* 2.3.0: five languages fit the card on any width (a fixed 140px each overflowed the profile form) */
+.lang-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; min-width: 0; }
+.lang-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: var(--r); background: #fff; cursor: pointer; text-align: left;
   b { font-size: 16px; } span { color: var(--muted); font-size: 12.5px; }
   &.on { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, .14); b { color: var(--primary); } } }
 .tabs-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -607,8 +608,6 @@ label.btn.disabled { opacity: .5; pointer-events: none; }
   .settings-tab, .role-item, .store-cat { flex-shrink: 0; }
   .form-card { padding: 4px 16px; }
   .form-row { gap: 8px; padding: 14px 0; }
-  .lang-cards { flex-wrap: wrap; }
-  .lang-card { width: auto; flex: 1; }
   /* wide tables scroll inside their card instead of widening the page */
   .table-card { overflow-x: auto; }
   .table-card .table { min-width: 640px; }

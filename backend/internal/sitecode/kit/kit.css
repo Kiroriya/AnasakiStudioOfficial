@@ -70,7 +70,10 @@ body.ak{margin:0;padding:24px;font:14px/1.5 Inter,'Noto Sans Thai',system-ui,san
 .ak-field>span,.ak-label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
 .ak-input,.ak select,.ak textarea,.ak input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]){width:100%;height:38px;padding:0 12px;border:1px solid var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface);color:var(--ak-text);font:inherit;outline:0;transition:border-color .15s,box-shadow .15s}
 .ak input[type=file]{height:auto;min-height:38px;padding:5px;cursor:pointer;color:var(--ak-muted)}
-.ak input[type=file]::file-selector-button{height:28px;margin-right:10px;padding:0 12px;border:1px solid var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface-2);color:var(--ak-text);font:600 12.5px/1 inherit;cursor:pointer}
+.ak input[type=file]::file-selector-button{height:28px;margin-right:10px;padding:0 12px;border:1px solid var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface-2);color:var(--ak-text);font-weight:600;font-size:12.5px;font-family:inherit;cursor:pointer}
+.ak .ak-file,.ak-field>.ak-file{position:relative;display:flex;align-items:center;gap:10px;margin:0;font-weight:400;min-height:38px;padding:5px;border:1px dashed var(--ak-border-strong);border-radius:var(--ak-r-sm);background:var(--ak-surface)}
+.ak .ak-file-name{color:var(--ak-muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ak .ak-file-input{position:absolute;width:1px;height:1px;min-height:0;padding:0;opacity:0;pointer-events:none}
 .ak input[type=file]::file-selector-button:hover{background:var(--ak-primary-soft);border-color:var(--ak-primary);color:var(--ak-primary)}
 .ak textarea{height:auto;min-height:80px;padding:9px 12px;resize:vertical}
 .ak input:focus,.ak select:focus,.ak textarea:focus{border-color:var(--ak-primary);box-shadow:var(--ak-focus)}
