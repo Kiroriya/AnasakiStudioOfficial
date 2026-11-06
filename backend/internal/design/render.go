@@ -2,6 +2,7 @@ package design
 
 import (
 	"html"
+	"math"
 	"net/url"
 	"regexp"
 	"sort"
@@ -129,6 +130,7 @@ type renderer struct {
 	depth    int
 	inComp   map[int64]bool // components being rendered (cycle guard)
 	placed   int            // instances rendered so far (fan-out guard)
+	images   int            // image layers rendered so far (the first eagerImages load at once)
 	anim     bool           // a node uses a scroll-in animation
 	interact bool           // popups, collapsed layers, sliders or actions are used
 	actions  []Action
@@ -498,10 +500,24 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 		}
 		src = safeHref(src)
 		img := `<img class="` + cls + `" src="` + attr(src) + `"`
+		// 2.3.0 (Qraft feedback 39): the first images of a page (logo, hero) load at once; a layer with a
+		// fixed width says so in sizes, so a 30 px logo takes the 96 px copy instead of a full-width one
+		r.images++
+		eager := r.images <= eagerImages
 		if set := respimg.Srcset(src); set != "" { // 2.2.2: smaller copies for smaller screens
-			img += ` srcset="` + attr(set) + `" sizes="` + respimg.Sizes + `"`
+			sizes := respimg.Sizes
+			if px := fixedWidth(n); px > 0 {
+				sizes = strconv.Itoa(px) + "px"
+			} else if eager {
+				sizes = "100vw" // "auto" works on lazy images only
+			}
+			img += ` srcset="` + attr(set) + `" sizes="` + sizes + `"`
 		}
-		img += ` alt="` + attr(alt) + `" loading="lazy">`
+		img += ` alt="` + attr(alt) + `"`
+		if !eager {
+			img += ` loading="lazy"`
+		}
+		img += `>`
 		if href != "" {
 			// wrap without changing layout: the link becomes display:contents
 			img = `<a href="` + attr(href) + `"` + target + ` style="display:contents">` + img + `</a>`
@@ -1007,4 +1023,28 @@ func truncRunes(s string, n int) string {
 		return string(r[:n])
 	}
 	return s
+}
+
+// eagerImages is how many image layers at the top of a page load without loading="lazy".
+const eagerImages = 2
+
+// fixedWidth is the widest fixed width (px) image n has on any screen, or 0
+// when one breakpoint lets it stretch (hug / fill).
+func fixedWidth(n *Node) int {
+	if n.Width.Mode != "fixed" || n.Width.Value <= 0 {
+		return 0
+	}
+	w := n.Width.Value
+	for _, o := range n.Responsive {
+		s, ok := o["width"].(map[string]any)
+		if !ok {
+			continue
+		}
+		v, _ := s["value"].(float64)
+		if m, _ := s["mode"].(string); m != "fixed" || v <= 0 {
+			return 0
+		}
+		w = max(w, v)
+	}
+	return int(math.Ceil(w))
 }

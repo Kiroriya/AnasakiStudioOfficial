@@ -102,6 +102,18 @@ func (a *API) listPosts(w http.ResponseWriter, r *http.Request) {
 	if f.Limit < 1 || f.Limit > 200 { // same bounds as the store (a negative offset is a SQL error)
 		f.Limit = 20
 	}
+	// status: one of draft / publish / scheduled; "any" (or "all", "") = every status (2.3.0:
+	// before, an unknown value silently matched nothing — Qraft feedback 28)
+	switch f.Status {
+	case "any", "all":
+		f.Status = ""
+	case "":
+	default:
+		if !model.ValidStatus(f.Status) {
+			writeErr(w, http.StatusBadRequest, "status ต้องเป็น draft, publish, scheduled หรือ any")
+			return
+		}
+	}
 	if f.Type == "" {
 		f.Type = model.TypePost
 	}
@@ -170,6 +182,11 @@ type postInput struct {
 	BaseUpdatedAt *time.Time `json:"baseUpdatedAt"` // designer: the version it loaded (409 when stale)
 	// Meta sets custom fields (site.postType / site.fields); "" or null removes one.
 	Meta map[string]any `json:"meta"`
+	// AsDraft (2.3.0, the designer's Save): on a published page, title / slug /
+	// design are kept as its draft and visitors keep seeing the published
+	// version until a save without it (Publish). DiscardDraft drops the draft.
+	AsDraft      bool `json:"asDraft"`
+	DiscardDraft bool `json:"discardDraft"`
 }
 
 // apply copies the provided fields onto p and validates them.
@@ -210,7 +227,7 @@ func (in *postInput) apply(p *model.Post, me *auth.Principal, canPublish bool) s
 			return "คุณไม่มีสิทธิ์แก้ไขหน้าตาเว็บ"
 		}
 		if _, err := design.ParseForSave(in.Design); err != nil {
-			return "ข้อมูลดีไซน์ไม่ถูกต้อง: " + err.Error()
+			return "ข้อมูลดีไซน์ไม่ถูกต้อง: " + jsonErrText(err)
 		}
 		p.Design = in.Design
 		if !me.Can(auth.CapUnfilteredHTML) {
@@ -301,6 +318,18 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 	if a.saveConflict(w, "post", p.ID, in.BaseUpdatedAt, p.UpdatedAt) {
 		return
 	}
+	if in.DiscardDraft {
+		if _, err := a.st.SetPostDraft(p.ID, nil); err != nil {
+			serverErr(w, err)
+			return
+		}
+		a.respondPost(w, p.ID, http.StatusOK)
+		return
+	}
+	if in.AsDraft && p.Status == model.StatusPublish && in.Design != nil {
+		a.saveDraft(w, r, me, p, &in)
+		return
+	}
 	storedDesign := p.Design
 	if msg := in.apply(p, me, a.canPublish(me, p.Type)); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
@@ -329,6 +358,32 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.db(r).SavePost(p, false, store.PostSave{Terms: terms, Meta: meta, EditorID: me.ID}); err != nil {
+		serverErr(w, err)
+		return
+	}
+	if in.Design != nil { // the designer published: its draft is now live
+		if _, err := a.st.SetPostDraft(p.ID, nil); err != nil {
+			serverErr(w, err)
+			return
+		}
+	}
+	a.noteSaved("post", p.ID, me, time.Now())
+	a.respondPost(w, p.ID, http.StatusOK)
+}
+
+// saveDraft keeps a published page's designer changes as its draft
+// (postInput.AsDraft), checked like a real save but not applied.
+func (a *API) saveDraft(w http.ResponseWriter, r *http.Request, me *auth.Principal, p *model.Post, in *postInput) {
+	next := *p
+	in.Status = nil
+	if msg := in.apply(&next, me, a.canPublish(me, p.Type)); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	if a.denyCodeBlocks(w, r, next.Design, p.Design) {
+		return
+	}
+	if _, err := a.st.SetPostDraft(p.ID, &model.PostDraft{Title: next.Title, Slug: next.Slug, Design: next.Design}); err != nil {
 		serverErr(w, err)
 		return
 	}

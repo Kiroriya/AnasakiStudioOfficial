@@ -199,13 +199,14 @@ export class Dashboard implements OnInit {
     if (this.creating) return;
     // ask for the name first; one page per click even while it loads (2.1.1)
     this.creating = true;
-    const title = (await Dialog.prompt({
-      title: this.i18n.t('content.page.new'), label: this.i18n.t('content.newName'), value: this.i18n.t('content.page.newTitle'), required: true,
-    }))?.trim();
-    if (!title) { this.creating = false; return; }
+    const got = await Dialog.nameAndSlug({
+      title: this.i18n.t('content.page.new'), nameLabel: this.i18n.t('content.newName2'), value: this.i18n.t('content.page.newTitle'),
+      slugLabel: this.i18n.t('content.newSlug'), slugHint: this.i18n.t('content.newSlugHint'), slugWarn: this.i18n.t('content.newSlugWarn'), prefix: '/',
+    });
+    if (!got) { this.creating = false; return; }
     try {
       const design = starterPage(await this.api.components());
-      const p = await this.api.createPost({ type: 'page', title, design });
+      const p = await this.api.createPost({ type: 'page', title: got.title, ...(got.slug ? { slug: got.slug } : {}), design });
       this.router.navigate(['/design', p.id]);
     } catch (e) {
       this.error.set(errorMessage(e));

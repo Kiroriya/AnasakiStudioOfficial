@@ -76,6 +76,8 @@ export class BindingInput {
   readonly focused = signal(false);
   readonly open = signal(false);
   readonly active = signal(0);
+  /** The arrow keys moved through the list since the last keystroke (2.3.0). */
+  private navigated = false;
 
   constructor() {
     // follow outside changes (undo, other panels) while the field is not being typed in
@@ -107,6 +109,7 @@ export class BindingInput {
     this.caret.set(el.selectionStart ?? el.value.length);
     this.open.set(true);
     this.active.set(0);
+    this.navigated = false;
   }
 
   caretMoved(e: KeyboardEvent) {
@@ -120,9 +123,13 @@ export class BindingInput {
     e.stopPropagation(); // editor shortcuts stay out of the field
     const r = this.open() ? this.suggestions() : null;
     if (r?.items.length) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); this.active.set((this.active() + 1) % r.items.length); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); this.active.set((this.active() - 1 + r.items.length) % r.items.length); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); this.pick(r.items[Math.min(this.active(), r.items.length - 1)]); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); this.navigated = true; this.active.set((this.active() + 1) % r.items.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); this.navigated = true; this.active.set((this.active() - 1 + r.items.length) % r.items.length); return; }
+      // in an empty field Tab / Enter leave it empty unless a suggestion was chosen with the arrows
+      // (Qraft feedback 31: clearing "show when" and pressing Tab used to set it to "page")
+      const chosen = this.navigated || this.draft().trim() !== '';
+      if ((e.key === 'Enter' || e.key === 'Tab') && chosen) { e.preventDefault(); this.pick(r.items[Math.min(this.active(), r.items.length - 1)]); return; }
+      if (e.key === 'Tab') { this.open.set(false); return; }
       if (e.key === 'Escape') { e.preventDefault(); this.open.set(false); return; }
     }
     if (e.key === 'Enter' && !this.multiline()) { e.preventDefault(); this.commit(); }

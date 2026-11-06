@@ -136,11 +136,11 @@ export class InlineEdit implements OnInit {
         @if (unknownFormatters(); as uf) { <sup class="rea-fmt-marker" [title]="'sc.canvas.serverFormatter' | t: { names: uf }">ƒ</sup> }
       }
       @case ('button') {
-        @if (buttonIcon() && view().props?.iconPosition !== 'end') { <span class="rea-btn-ic" [innerHTML]="buttonIcon()"></span> }
+        @if (buttonIcon() && view().props?.iconPosition !== 'end') { <span class="rea-btn-ic" [style.width.px]="view().props?.iconSize" [style.height.px]="view().props?.iconSize" [innerHTML]="buttonIcon()"></span> }
         @if (editing()) {
           <span reaInlineEdit [text]="node().props?.text ?? ''" (commit)="commitText($event)"></span>
         } @else {<span>{{ text() }}</span>}
-        @if (buttonIcon() && view().props?.iconPosition === 'end') { <span class="rea-btn-ic" [innerHTML]="buttonIcon()"></span> }
+        @if (buttonIcon() && view().props?.iconPosition === 'end') { <span class="rea-btn-ic" [style.width.px]="view().props?.iconSize" [style.height.px]="view().props?.iconSize" [innerHTML]="buttonIcon()"></span> }
         @if (unknownFormatters(); as uf) { <sup class="rea-fmt-marker" [title]="'sc.canvas.serverFormatter' | t: { names: uf }">ƒ</sup> }
       }
       @case ('image') {

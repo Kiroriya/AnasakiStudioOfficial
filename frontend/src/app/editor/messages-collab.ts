@@ -37,6 +37,7 @@ registerMessages({
   'pr.reloadDirty': { th: 'โหลดเวอร์ชันล่าสุด? การแก้ไขที่ยังไม่บันทึกของคุณจะหายไป', en: 'Reload the latest version? Your unsaved changes will be lost.' },
 
   'cf.title': { th: 'มีผู้อื่นบันทึกหน้านี้ไปแล้ว', en: 'Someone else saved this' },
+  'cf.titleSelf': { th: 'หน้านี้ถูกบันทึกจากที่อื่น (แท็บหรือเครื่องอื่นของคุณ)', en: 'This page was saved elsewhere (another tab or device of yours)' },
   'cf.text': { th: '{name} บันทึกหน้านี้เมื่อ {time} หลังจากที่คุณเปิดมา', en: '{name} saved this at {time}, after you opened it.' },
   'cf.reload': { th: 'โหลดเวอร์ชันของเขา', en: 'Reload their version' },
   'cf.reloadHint': { th: 'การแก้ไขของคุณที่ยังไม่บันทึกจะหายไป', en: 'Your unsaved changes are discarded' },

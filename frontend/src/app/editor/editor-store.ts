@@ -83,6 +83,8 @@ export class EditorStore {
   readonly altDown = signal(false);
   readonly dirty = signal(false);
   readonly saving = signal(false);
+  /** A published page has saved changes visitors don't see yet (CMS 2.3.0: Save keeps a draft, Publish applies it). */
+  readonly hasDraft = signal(false);
   readonly dropIndicator = signal<Rect | null>(null);
   readonly dropTarget = signal<string | null>(null);
   readonly contextMenu = signal<{ x: number; y: number } | null>(null);
@@ -260,10 +262,13 @@ export class EditorStore {
     if (kind === 'post') {
       const p = await this.api.getPost(id);
       this.post.set(p);
-      this.title.set(p.title);
-      this.slug.set(p.slug);
+      // a published page opens on its draft when it has one
+      const d = p.status === 'publish' ? p.draft : null;
+      this.hasDraft.set(!!d);
+      this.title.set(d?.title ?? p.title);
+      this.slug.set(d?.slug ?? p.slug);
       this.status.set(p.status);
-      this.doc.set(p.design ?? emptyRoot());
+      this.doc.set(d?.design ?? p.design ?? emptyRoot());
     } else {
       const c = components.find(x => x.id === id);
       if (!c) throw new Error('component not found');
@@ -291,6 +296,7 @@ export class EditorStore {
   async save(status?: PostStatus, opts?: { force?: boolean }) {
     this.saving.set(true);
     let moved: [Post, Post] | null = null;
+    let draftSaved = false;
     // optimistic concurrency: the server answers 409 when the stored version is newer than the one loaded
     const base = (at?: string) => (opts?.force || !at ? {} : { baseUpdatedAt: at });
     // Text styles (and other theme edits) live in the theme draft until saved; layers using a
@@ -302,11 +308,16 @@ export class EditorStore {
     try {
       if (this.kind() === 'post') {
         const p = this.post()!;
-        const saved = await this.api.updatePost(p.id, { title: this.title(), slug: this.slug() || undefined, design: this.doc(), status: status ?? this.status(), ...base(p.updatedAt) });
+        // Save on a published page keeps a draft; Publish (status) makes it live
+        const asDraft = !status && this.status() === 'publish';
+        const saved = await this.api.updatePost(p.id, { title: this.title(), slug: this.slug() || undefined, design: this.doc(), status: status ?? this.status(),
+          ...(asDraft ? { asDraft: true } : {}), ...base(p.updatedAt) });
         this.post.set(saved);
-        this.slug.set(saved.slug);
+        this.hasDraft.set(!!saved.draft);
+        this.slug.set(saved.draft?.slug ?? saved.slug);
         this.status.set(saved.status);
         if (saved.slug !== p.slug && p.type !== 'template') moved = [p, saved];
+        if (saved.draft) draftSaved = true;
       } else {
         const c = this.component()!;
         const saved = await this.api.saveComponent({ id: c.id, name: this.title(), node: this.componentTree(), ...base(c.updatedAt) });
@@ -315,7 +326,7 @@ export class EditorStore {
         this.components.update(list => list.some(x => x.id === saved.id) ? list.map(x => (x.id === saved.id ? saved : x)) : [...list, saved]);
       }
       this.dirty.set(false);
-      this.notify(tr(status === 'publish' ? 'ed.toast.published' : 'ed.toast.saved') + (themeSaved ? ' ' + tr('ed.theme.savedWithPage') : ''));
+      this.notify(tr(status === 'publish' ? 'ed.toast.published' : draftSaved ? 'ed.toast.draftSaved' : 'ed.toast.saved') + (themeSaved ? ' ' + tr('ed.theme.savedWithPage') : ''));
       if (moved) await this.relink(moved[0], moved[1]); // its own message follows the "saved" one
       if (this.kind() === 'component' && this.variantRenames.length) await this.pushVariantRenames(this.component()!.id);
     } catch (e) {
@@ -327,6 +338,28 @@ export class EditorStore {
       throw e;
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  /** Throws away the published page's draft and shows the published version again. */
+  async discardDraft() {
+    const p = this.post();
+    if (!p || !this.hasDraft()) return;
+    if (!(await Dialog.confirm({ title: tr('ed.draft.discardAsk'), text: tr('ed.draft.discardText'), danger: true, confirm: tr('ed.draft.discard') }))) return;
+    try {
+      const saved = await this.api.updatePost(p.id, { discardDraft: true, ...(p.updatedAt ? { baseUpdatedAt: p.updatedAt } : {}) });
+      this.post.set(saved);
+      this.hasDraft.set(false);
+      this.title.set(saved.title);
+      this.slug.set(saved.slug);
+      this.doc.set(saved.design ?? emptyRoot());
+      this.past = [];
+      this.future = [];
+      this.historyVersion.update(v => v + 1);
+      this.dirty.set(false);
+      this.notify(tr('ed.draft.discarded'));
+    } catch (e) {
+      this.notify(tr('ed.toast.saveFail') + errorMessage(e), true);
     }
   }
 
@@ -634,6 +667,22 @@ export class EditorStore {
     this.edit(ids, (n, o) => {
       if (o) o.layout = assign(o.layout, patch);
       else n.layout = assign(n.layout, patch);
+    });
+  }
+
+  /**
+   * A horizontal row stacks top-to-bottom on phones (2.3.0, Qraft feedback 1): one switch on the desktop design
+   * instead of editing each row in the mobile view. Children that fill the row fill the width when stacked.
+   */
+  setStackOnMobile(id: string, on: boolean) {
+    this.mutate(r => {
+      const n = findNode(r, id)?.node;
+      if (!n) return;
+      n.responsive ??= {};
+      const o = (n.responsive.mobile ??= {});
+      if (on) o.layout = { ...o.layout, mode: 'vertical' };
+      else if (o.layout) delete o.layout.mode;
+      cleanupResponsive(n);
     });
   }
 

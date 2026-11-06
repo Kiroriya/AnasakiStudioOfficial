@@ -80,10 +80,20 @@ function bypassKey(create: boolean): string {
   return k;
 }
 
-/** Paths that are never blocked (core does not run site.middleware for most of them anyway). */
+/**
+ * Paths that are never blocked (core does not run site.middleware for most of them anyway). 2.1.0 (Qraft
+ * feedback 37): the site's own scripts and files (/site-assets/), robots.txt and sitemap.xml stay up, and
+ * the "openPaths" setting keeps more working, e.g. /s/ so printed short links still open.
+ */
 function exempt(path: string): boolean {
-  for (const p of ['/api/', '/uploads/', '/plugin-assets/', '/admin/', '/ext-ui/']) if (path.startsWith(p)) return true;
-  return path === '/admin';
+  for (const p of ['/api/', '/uploads/', '/plugin-assets/', '/admin/', '/ext-ui/', '/site-assets/']) if (path.startsWith(p)) return true;
+  if (path === '/admin' || path === '/robots.txt' || path === '/sitemap.xml') return true;
+  return openPaths().some((p) => (p.endsWith('/') ? path.startsWith(p) || path === p.slice(0, -1) : path === p || path.startsWith(p + '/')));
+}
+
+/** The "openPaths" setting: one path prefix per line (or comma separated), each starting with "/". */
+function openPaths(): string[] {
+  return String(site.settings('openPaths') ?? '').split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.startsWith('/') && s.length > 1);
 }
 
 /** The query string without "bypass" (keys sorted and re-encoded like Go's url.Values.Encode). */
@@ -121,7 +131,8 @@ function page(siteTitle: string, title: string, message: string, lang: string): 
 site.middleware((ctx) => {
   if (!enabled()) return;
   const req = ctx.request;
-  // a signed-in CMS user (admin bearer token, e.g. previews) and system paths are never blocked
+  // a signed-in CMS user (previews, and since CMS 2.3.0 an admin browsing the site in the same browser)
+  // and system paths are never blocked
   if (ctx.isAdminUser || exempt(req.path)) return;
   const key = bypassKey(true);
   if (key) {

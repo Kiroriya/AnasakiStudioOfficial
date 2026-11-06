@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { TPipe } from '../core/i18n';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { TPipe, tr } from '../core/i18n';
+import { Api } from '../core/api';
+import { RoleInfo } from '../core/models';
 import { ConsentState, DepStatus, consentCanConfirm, destructiveText, isSensitiveScope, scopeLabel } from './plugin-deps';
 import './messages-plugins4b';
 
@@ -67,7 +69,7 @@ const STYLES = `
                 <li class="plugin-consent-cap" [attr.data-cap]="k.key">
                   <span><b>{{ k.label }}</b> <span class="pjs-scope-id mono">{{ k.key }}</span>
                     @if (k.description) { <br /><span class="muted small">{{ k.description }}</span> }
-                    @if (k.default.length) { <br /><span class="muted small">{{ 'pjs.consent.capDefault' | t: { roles: k.default.join(', ') } }}</span> }</span>
+                    @if (k.default.length) { <br /><span class="muted small plugin-consent-cap-default">{{ defaultRoles(k.default) }}</span> }</span>
                 </li>
               }
             </ul></div>
@@ -99,6 +101,20 @@ export class PluginConsentDialog {
   sensitive(s: string) { return isSensitiveScope(s); }
   label(s: string) { return scopeLabel(s); }
   text = destructiveText;
+
+  /** This site's roles (2.3.0, Qraft feedback 41): defaults name only roles that exist here, by their names. */
+  private readonly roles = signal<RoleInfo[] | null>(null);
+  constructor() {
+    inject(Api).roles().then(r => this.roles.set(r.roles ?? []), () => this.roles.set(null));
+  }
+  defaultRoles(slugs: string[]): string {
+    const roles = this.roles();
+    if (!roles) return tr('pjs.consent.capDefault', { roles: slugs.join(', ') });
+    const here = slugs.map(s => roles.find(r => r.slug === s)).filter((r): r is RoleInfo => !!r).map(r => r.name || r.slug);
+    const missing = slugs.filter(s => !roles.some(r => r.slug === s));
+    if (!here.length) return tr('pjs.consent.capDefaultNone');
+    return tr('pjs.consent.capDefault', { roles: here.join(', ') }) + (missing.length ? ' ' + tr('pjs.consent.capDefaultMissing', { roles: missing.join(', ') }) : '');
+  }
 }
 
 /** Missing dependencies of a plugin about to be installed → "Install all". */

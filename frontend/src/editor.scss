@@ -37,6 +37,13 @@ body.fg-resizing { cursor: col-resize; user-select: none; iframe, .viewport { po
   small { display: block; color: var(--fg-muted); padding-left: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dirty { color: #e5a000; font-weight: 600; }
 }
+// 2.3.0: a published page with a saved draft (Save keeps it, Publish applies it)
+.fg-pending {
+  display: flex; align-items: center; gap: 6px; padding: 2px 0 0 7px; font-size: 11px; white-space: nowrap;
+  b { color: #2f7de1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  button { border: 0; background: none; padding: 0; color: var(--fg-muted); text-decoration: underline; cursor: pointer; font-size: 11px; }
+  button:hover { color: var(--fg-text); }
+}
 .editor-root.fg .fg-title { background: transparent; font-weight: 600; font-size: 12.5px; width: 100%; }
 .fg-tabs, .pp-tabs {
   display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--fg-border);

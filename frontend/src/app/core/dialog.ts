@@ -100,6 +100,53 @@ export const Dialog = {
     return r.isConfirmed ? String(r.value).trim() : null;
   },
 
+  /**
+   * Name + address of a new page (2.3.0, Qraft feedback 29). The address follows the name until it is edited;
+   * a Thai name gives a Thai address, so the dialog suggests a short English one. Resolves null when cancelled;
+   * an empty slug lets the server make it from the name.
+   */
+  async nameAndSlug(opts: { title: string; nameLabel: string; value?: string; slugLabel: string; slugHint: string; slugWarn: string; prefix?: string }): Promise<{ title: string; slug: string } | null> {
+    const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const auto = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/[^\p{L}\p{M}\p{N}-]+/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    const r = await fire({
+      title: opts.title,
+      html: `<label class="swal-input-label" for="dlg-name">${esc(opts.nameLabel)}</label>
+        <input id="dlg-name" class="swal-input swal2-input" value="${esc(opts.value ?? '')}" autocomplete="off">
+        <label class="swal-input-label" for="dlg-slug">${esc(opts.slugLabel)}</label>
+        <div class="dlg-slug-row">${opts.prefix ? `<span class="dlg-slug-prefix">${esc(opts.prefix)}</span>` : ''}<input id="dlg-slug" class="swal-input swal2-input mono" autocomplete="off" spellcheck="false" placeholder="about-us"></div>
+        <p class="dlg-slug-hint" id="dlg-slug-hint">${esc(opts.slugHint)}</p>`,
+      showCancelButton: true,
+      confirmButtonText: tr('common.ok'),
+      cancelButtonText: tr('common.cancel'),
+      focusConfirm: false,
+      didOpen: (el) => {
+        const name = el.querySelector<HTMLInputElement>('#dlg-name')!;
+        const slug = el.querySelector<HTMLInputElement>('#dlg-slug')!;
+        const hint = el.querySelector<HTMLElement>('#dlg-slug-hint')!;
+        let touched = false;
+        const check = () => {
+          // only ASCII letters, digits and "-" make a short link when shared
+          const bad = /[^a-z0-9-]/i.test(slug.value || (touched ? '' : auto(name.value)));
+          hint.textContent = bad ? opts.slugWarn : opts.slugHint;
+          hint.classList.toggle('warn', bad);
+        };
+        const follow = () => { if (!touched) slug.value = /^[ -~]*$/.test(name.value) ? auto(name.value) : ''; check(); };
+        name.addEventListener('input', follow);
+        slug.addEventListener('input', () => { touched = slug.value !== ''; check(); });
+        follow();
+        name.focus();
+        name.select();
+      },
+      preConfirm: () => {
+        const title = (document.getElementById('dlg-name') as HTMLInputElement).value.trim();
+        const slug = auto((document.getElementById('dlg-slug') as HTMLInputElement).value);
+        if (!title) { Swal.showValidationMessage(tr('dialog.required')); return false; }
+        return { title, slug };
+      },
+    });
+    return r.isConfirmed ? (r.value as { title: string; slug: string }) : null;
+  },
+
   /** Choice from a list (options keep their order). Resolves the chosen value, or null when cancelled. */
   async select(opts: { title: string; text?: string; options: [value: string, label: string][]; value?: string; confirm?: string; danger?: boolean }): Promise<string | null> {
     const r = await fire({

@@ -231,9 +231,12 @@ import { Pager } from '../shared/pager';
             <nav class="card store-cats">
               <button class="store-cat" [class.on]="!category()" (click)="setCategory('')"><span>✨</span><span class="grow">{{ 'common.all' | t }}</span></button>
               @for (c of categories(); track c.slug) {
+                <!-- 2.3.0 (Qraft feedback 44): empty categories are left out -->
+                @if (c.count > 0 || category() === c.slug) {
                 <button class="store-cat" [class.on]="category() === c.slug" (click)="setCategory(c.slug)">
                   <span>{{ c.icon }}</span><span class="grow">{{ i18n.locale() !== 'th' ? c.nameEn || c.name : c.name }}</span><span class="muted small">{{ c.count }}</span>
                 </button>
+                }
               }
             </nav>
             <div class="store-main">
@@ -255,7 +258,7 @@ import { Pager } from '../shared/pager';
                           <button class="store-mini card" (click)="open(p.id)">
                             <span class="rank" [class.top]="i < 3">{{ i + 1 }}</span>
                             <span class="plugin-icon sm">@if (p.iconUrl) { <img [src]="p.iconUrl" alt="" /> } @else { {{ p.icon || '📦' }} }</span>
-                            <span class="store-mini-text"><b>{{ p.name }}</b><small>{{ stars(p.rating) }} · ⬇ {{ n(p.downloads) }}</small></span>
+                            <span class="store-mini-text"><b>{{ p.name }}</b><small>{{ p.ratingCount ? stars(p.rating) : ('store.noReviewsShort' | t) }} · ⬇ {{ n(p.downloads) }}</small></span>
                           </button>
                         }
                       </div>
@@ -277,7 +280,8 @@ import { Pager } from '../shared/pager';
                     </div>
                     <p class="plugin-desc">{{ p.description }}</p>
                     <div class="store-stats">
-                      <span class="stars" [title]="p.rating.toFixed(1)">{{ stars(p.rating) }}</span><span class="muted small">({{ p.ratingCount }})</span>
+                      @if (p.ratingCount) { <span class="stars" [title]="p.rating.toFixed(1)">{{ stars(p.rating) }}</span><span class="muted small">({{ p.ratingCount }})</span> }
+                      @else { <span class="muted small store-no-reviews">{{ 'store.noReviewsShort' | t }}</span> }
                       <span class="grow"></span>
                       <span class="muted small" [title]="'store.downloads' | t">⬇ {{ n(p.downloads) }}</span>
                       <span class="muted small" [title]="'store.views' | t">👁 {{ n(p.views) }}</span>
@@ -871,7 +875,12 @@ export class PluginsPage implements OnInit {
           this.busy.set(null);
           if (p.reconsent) await this.afterReconsentInstall(p);
           else if (p.activationError) Dialog.error(p.activationError, this.i18n.t('pjs.activationError'));
-          else Dialog.toast(this.i18n.t(update ? 'store.updated' : 'store.installedMsg', { name: p.name }));
+          else if (!update && !p.active && depth === 0) {
+            // 2.3.0 (Qraft feedback 38): say that a new plugin starts switched off, with a button to switch it on now
+            // (a toast, so the page stays usable; dependencies installed on the way are switched on with their plugin)
+            void Dialog.undoToast(this.i18n.t('store.activateNowAsk', { name: p.name }), this.i18n.t('store.activateNow'), 10000)
+              .then(yes => { if (yes) void this.activatePkg(p); });
+          } else Dialog.toast(this.i18n.t(update ? 'store.updated' : 'store.installedMsg', { name: p.name }));
           return true;
         } catch (e) {
           const miss = missingFromError(e);

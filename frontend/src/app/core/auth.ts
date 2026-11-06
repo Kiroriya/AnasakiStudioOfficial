@@ -6,7 +6,15 @@ import { Api } from './api';
 import { I18n, Locale, isLocale } from './i18n';
 import { Role, User } from './models';
 
+/**
+ * Since 2.3.0 the session lives in an HttpOnly cookie that page script can't read (security assessment 45);
+ * every API call sends SESSION_HEADER so the server accepts that cookie. TOKEN_KEY is only read: a token put
+ * there (older sessions, tests) is still sent as a bearer. SIGNED_IN_KEY holds no secret — it tells other tabs
+ * and the next visit that a session cookie should exist.
+ */
 const TOKEN_KEY = 'anasaki.token';
+const SIGNED_IN_KEY = 'anasaki.signedIn';
+export const SESSION_HEADER = 'X-Anasaki-Session';
 /** Sessions last 12 hours on the server; the open admin renews its token this often. */
 const REFRESH_EVERY_MS = 30 * 60 * 1000;
 
@@ -42,8 +50,8 @@ export class Auth {
   constructor() {
     // Keep every open tab in step: signing in/out in one tab applies to all.
     window.addEventListener('storage', e => {
-      if (e.key !== TOKEN_KEY && e.key !== null) return;
-      void this.syncFromOtherTab(e.newValue);
+      if (e.key !== TOKEN_KEY && e.key !== SIGNED_IN_KEY && e.key !== null) return;
+      void this.syncFromOtherTab(this.token ?? signedInMark());
     });
   }
 
@@ -60,8 +68,14 @@ export class Auth {
     else if (prev !== undefined && prev !== this.user()?.id) location.reload(); // a different account signed in
   }
 
+  /** A bearer token from storage (older sessions, tests); null with the cookie session. */
   get token(): string | null {
     try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+  }
+
+  /** Whether a session may exist (cookie mark or stored token), so restore() asks the server. */
+  private get maybeSignedIn(): boolean {
+    return !!(this.token || signedInMark());
   }
 
   can(cap: Cap): boolean {
@@ -76,7 +90,12 @@ export class Auth {
 
   /** Stores a session returned by login or the setup wizard. */
   accept(res: { token: string; user: User }) {
-    try { localStorage.setItem(TOKEN_KEY, res.token); } catch { /* private mode */ }
+    try {
+      // the server set the HttpOnly cookie and answered no token; an API-style answer still works
+      if (res.token) localStorage.setItem(TOKEN_KEY, res.token);
+      else localStorage.removeItem(TOKEN_KEY);
+      localStorage.setItem(SIGNED_IN_KEY, String(res.user.id) + ':' + Date.now());
+    } catch { /* private mode */ }
     this.setUser(res.user);
     this.startRefresh();
   }
@@ -92,9 +111,9 @@ export class Auth {
     this.refreshTimer = null;
   }
 
-  /** Swaps the stored token for a fresh one (silently keeps the old one on failure). */
+  /** Renews the session (cookie or stored token); silently keeps the old one on failure. */
   async renew() {
-    if (!this.token) return;
+    if (!this.user()) return;
     try {
       const res = await this.api.refreshSession();
       if (res?.token) { try { localStorage.setItem(TOKEN_KEY, res.token); } catch { /* private mode */ } }
@@ -133,7 +152,7 @@ export class Auth {
   /** Restores the session from the stored token. */
   async restore(): Promise<boolean> {
     if (this.user()) return true;
-    if (!this.token) return false;
+    if (!this.maybeSignedIn) return false;
     try {
       this.setUser(await this.api.me());
       this.startRefresh();
@@ -147,13 +166,13 @@ export class Auth {
 
   /** Signs out: the server revokes the token (all = every session of the account). */
   logout(all = false, server = true) {
-    if (server && this.token && this.user()) this.api.logout(all).catch(() => undefined);
+    if (server && this.user()) this.api.logout(all).catch(() => undefined);
     this.clear();
     this.router.navigateByUrl('/login');
   }
 
   clear() {
-    try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(SIGNED_IN_KEY); } catch { /* ignore */ }
     this.stopRefresh();
     this.user.set(null);
   }
@@ -162,15 +181,22 @@ export class Auth {
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(Auth);
   const token = auth.token;
-  const r = token && req.url.startsWith('/api/') ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
+  let r = req;
+  if (req.url.startsWith('/api/')) {
+    r = req.clone({ setHeaders: token ? { Authorization: `Bearer ${token}`, [SESSION_HEADER]: 'cookie' } : { [SESSION_HEADER]: 'cookie' } });
+  }
   return next(r).pipe(
     catchError((e: HttpErrorResponse) => {
-      // 401 = session expired; 403 on /auth/me = account suspended
-      if ((e.status === 401 || (e.status === 403 && req.url.endsWith('/auth/me'))) && !req.url.endsWith('/auth/login')) auth.logout(false, false);
+      // 401 = session expired; 403 on /auth/me = account suspended (signed-out callers, e.g. restore(), handle it)
+      if ((e.status === 401 || (e.status === 403 && req.url.endsWith('/auth/me'))) && !req.url.endsWith('/auth/login') && auth.loggedIn()) auth.logout(false, false);
       return throwError(() => e);
     }),
   );
 };
+
+function signedInMark(): string | null {
+  try { return localStorage.getItem(SIGNED_IN_KEY); } catch { return null; }
+}
 
 // inject() only works synchronously, so resolve services before any await.
 export const authGuard: CanActivateFn = async () => {

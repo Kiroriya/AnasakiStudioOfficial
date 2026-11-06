@@ -257,7 +257,7 @@ func (a *API) saveComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := design.ParseForSave(c.Node); err != nil {
-		writeErr(w, http.StatusBadRequest, "ข้อมูลดีไซน์ไม่ถูกต้อง: "+err.Error())
+		writeErr(w, http.StatusBadRequest, "ข้อมูลดีไซน์ไม่ถูกต้อง: "+jsonErrText(err))
 		return
 	}
 	var stored json.RawMessage

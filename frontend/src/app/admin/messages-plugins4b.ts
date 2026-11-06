@@ -63,6 +63,8 @@ registerMessages({
   'pjs.consent.caps': { th: 'สิทธิ์ที่ปลั๊กอินเพิ่มให้ตำแหน่งผู้ใช้', en: 'Permissions this plugin adds for roles' },
   'pjs.consent.capsHint': { th: 'ปรับได้ภายหลังที่ ผู้ใช้ → ตำแหน่งและสิทธิ์ — ผู้ดูแลระบบได้ทุกข้อเสมอ', en: 'Change them later in Users → Roles — administrators always have all of them' },
   'pjs.consent.capDefault': { th: 'ค่าเริ่มต้น: {roles}', en: 'Default: {roles}' },
+  'pjs.consent.capDefaultMissing': { th: '(เว็บนี้ไม่มีตำแหน่ง {roles})', en: '(this site has no {roles} role)' },
+  'pjs.consent.capDefaultNone': { th: 'ค่าเริ่มต้น: ยังไม่มีตำแหน่งใดในเว็บนี้ได้สิทธิ์ ผู้ดูแลระบบตั้งได้ที่ ผู้ใช้ → ตำแหน่งและสิทธิ์', en: 'Default: no role of this site gets it; set it in Users → Roles' },
   'pjs.consent.migrations': { th: 'การติดตั้งนี้จะแก้ตารางข้อมูลแบบที่อาจทำให้ข้อมูลหาย:', en: 'This will change tables in a way that may lose data:' },
   'pjs.consent.destructiveConfirm': { th: 'เข้าใจแล้วว่าข้อมูลอาจหาย — ระบบจะสำรองตารางก่อน', en: 'I understand data may be lost — a backup copy will be made' },
   'pjs.consent.approve': { th: 'อนุมัติและติดตั้ง', en: 'Approve & install' },

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Auth } from '../core/auth';
+import { Auth, SESSION_HEADER } from '../core/auth';
 import { errorMessage } from '../core/api';
 import { tr } from '../core/i18n';
 import { EditorStore } from './editor-store';
@@ -197,7 +197,7 @@ export class CollabStore {
     const token = this.auth.token;
     try {
       fetch(`${BASE}/presence?kind=${kind}&id=${id}&session=${encodeURIComponent(this.session)}`, {
-        method: 'DELETE', keepalive: true, headers: token ? { Authorization: `Bearer ${token}` } : {},
+        method: 'DELETE', keepalive: true, headers: token ? { Authorization: `Bearer ${token}`, [SESSION_HEADER]: 'cookie' } : { [SESSION_HEADER]: 'cookie' },
       }).catch(() => undefined);
     } catch { /* best effort: the entry expires anyway */ }
   }

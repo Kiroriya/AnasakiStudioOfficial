@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, Directive, computed, inject, input 
 import { TPipe, localized, tr } from '../core/i18n';
 import { Dialog } from '../core/dialog';
 import { Plugins } from '../core/plugins';
+import { Api } from '../core/api';
+import { PostTypes } from '../core/post-types';
 import { CodeLabel } from '../core/code-models';
 import { BindingInput } from './binding-input';
 import { CodeData } from './code-data';
@@ -403,6 +405,8 @@ export class PaginationPanel extends CodePanelBase {
       @if (n.props?.name && !nameOk()) { <p class="hint warn">{{ 'sc.in.nameInvalid' | t }}</p> }
       @if (kind !== 'hidden' && kind !== 'checkbox') {
         <label>{{ 'sc.in.placeholder' | t }} <input id="sc-in-placeholder" [value]="n.props?.placeholder ?? ''" (change)="props({ placeholder: val($event) || undefined })" /></label>
+        <!-- 2.3.0: the field's name for screen readers (aria-label); empty = the placeholder -->
+        <label [title]="'sc.in.a11yTip' | t">{{ 'sc.in.a11y' | t }} <input id="sc-in-a11y" [value]="n.props?.label ?? ''" [placeholder]="n.props?.placeholder ?? ''" (change)="props({ label: val($event) || undefined })" /></label>
       }
       @if (kind === 'checkbox') {
         <label>{{ 'sc.in.label' | t }} <input id="sc-in-label" [value]="n.props?.label ?? ''" (change)="props({ label: val($event) || undefined })" /></label>
@@ -524,8 +528,21 @@ export class InputPanel extends CodePanelBase {
     : Object.keys(sourceParams(this.filterTarget()?.props?.source, this.code.bindings())));
   /** A category select of a post list: its options can come from the site's categories. */
   readonly categorySelect = computed(() => this.filterTarget()?.type === 'postList' && this.node().props?.filter?.param === 'cat' && this.node().props?.kind === 'select');
-  useCategories() {
-    const cats = this.store.terms().filter(t => (t.taxonomy ?? 'category') === 'category');
+  private readonly api = inject(Api);
+  private readonly types = inject(PostTypes);
+  /**
+   * The categories of the list's own type (2.3.0, Qraft feedback 32): a custom type with its own taxonomy
+   * (e.g. "tool_cat") gets those terms, other lists the site's categories. Values are slugs.
+   */
+  async useCategories() {
+    const type = String(this.filterTarget()?.props?.query?.postType ?? 'post');
+    await this.types.ensureLoaded().catch(() => undefined);
+    const own = type !== 'post' && type !== 'current' ? this.types.taxonomiesOf(type) : [];
+    let cats = this.store.terms().filter(t => (t.taxonomy ?? 'category') === 'category');
+    if (own.length) {
+      const lists = await Promise.all(own.map(t => this.api.terms(t.id).catch(() => [])));
+      cats = lists.flat();
+    }
     this.props({ optionsFrom: undefined, options: [{ value: '', label: tr('sc.in.allCategories') }, ...cats.map(c => ({ value: c.slug, label: c.name }))] });
   }
   readonly queryName = computed(() => {

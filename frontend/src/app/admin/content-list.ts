@@ -280,13 +280,15 @@ export class ContentList {
     // 2.1.1: ask for the name first (it also becomes the address) — a click used to create
     // "หน้าใหม่" at once, and a second click while it loaded made another one
     this.creating.set(true);
-    const title = (await Dialog.prompt({
-      title: this.newLabel(), label: this.i18n.t('content.newName'), value: this.i18n.t(`content.${this.type()}.newTitle`), required: true,
-    }))?.trim();
-    if (!title) { this.creating.set(false); return; }
+    const got = await Dialog.nameAndSlug({
+      title: this.newLabel(), nameLabel: this.i18n.t('content.newName2'), value: this.i18n.t(`content.${this.type()}.newTitle`),
+      slugLabel: this.i18n.t('content.newSlug'), slugHint: this.i18n.t('content.newSlugHint'), slugWarn: this.i18n.t('content.newSlugWarn'),
+      prefix: this.type() === 'page' ? '/' : undefined,
+    });
+    if (!got) { this.creating.set(false); return; }
     try {
       const design = starterPage(await this.api.components(), this.type() === 'template' ? 'template' : 'page');
-      const p = await this.api.createPost({ type: this.type(), title, design });
+      const p = await this.api.createPost({ type: this.type(), title: got.title, ...(got.slug ? { slug: got.slug } : {}), design });
       this.router.navigate(['/design', p.id]);
     } catch (e) {
       this.error.set(errorMessage(e));

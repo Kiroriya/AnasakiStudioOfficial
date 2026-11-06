@@ -124,6 +124,14 @@ type Role struct {
 	UserCount int      `json:"userCount"`
 }
 
+// PostDraft is the saved, not yet published designer version of a published page.
+type PostDraft struct {
+	Title   string          `json:"title"`
+	Slug    string          `json:"slug"`
+	Design  json.RawMessage `json:"design"`
+	SavedAt time.Time       `json:"savedAt"`
+}
+
 type Post struct {
 	ID              int64           `json:"id"`
 	Type            string          `json:"type"`
@@ -146,6 +154,10 @@ type Post struct {
 	CreatedAt   time.Time         `json:"createdAt"`
 	UpdatedAt   time.Time         `json:"updatedAt"`
 	PublishedAt *time.Time        `json:"publishedAt"`
+	// Draft holds unpublished designer changes of a published page (2.3.0):
+	// visitors see Title/Slug/Design until the editor publishes. Only
+	// GetPost loads it; nil = none.
+	Draft *PostDraft `json:"draft,omitempty"`
 	// Meta holds the custom fields (post_meta: site.postType / site.fields of
 	// Site Code); {} when there are none.
 	Meta map[string]any `json:"meta"`
@@ -221,8 +233,11 @@ type PostFilter struct {
 	Status   string
 	Search   string
 	Category string // term slug
-	AuthorID int64
-	IDs      []int64 // only these posts (2.1.0: db.posts.list({ids}))
+	// AnyTaxonomy matches Category against the terms of every taxonomy, not
+	// only "category" (2.3.0: a custom type's list filtered by its own taxonomy)
+	AnyTaxonomy bool
+	AuthorID    int64
+	IDs         []int64 // only these posts (2.1.0: db.posts.list({ids}))
 	// 2.1.0: posts of any of these types (with Type ""), posts having any of these terms
 	Types   []string
 	TermIDs []int64

@@ -1,4 +1,4 @@
-# Maintenance mode (`maintenance`) — official plugin 2.0.0
+# Maintenance mode (`maintenance`) — official plugin 2.1.0
 
 ## ภาษาไทย
 
@@ -8,13 +8,16 @@
   พร้อมหัวข้อ ข้อความที่ตั้งไว้ ชื่อเว็บ และภาษาของเว็บ (`<html lang>`)
 - ระหว่างที่เปิด หลังบ้านแสดงแถบแจ้งเตือน "โหมดปิดปรับปรุงเปิดอยู่" ให้ผู้ดูแลระบบ พร้อมปุ่ม "ดูเว็บจริง (ลิงก์ bypass)"
 - หลังบ้าน, `/api/`, `/uploads/`, `/plugin-assets/` ใช้งานได้ตามปกติ
+- **2.1.0:** `/site-assets/` (ไฟล์ใน public/ ของ Site Code), `robots.txt` และ `sitemap.xml` เปิดอยู่เสมอ และตั้ง
+  **ส่วนที่ยังเปิดให้ใช้** (`openPaths`) ได้เอง เช่น `/s/` ให้ลิงก์ย่อที่พิมพ์แจกไปแล้วสแกนได้ระหว่างปิดปรับปรุง
+- **2.1.0 + CMS 2.3.0:** ผู้ดูแลที่ล็อกอินหลังบ้านไว้ในเบราว์เซอร์เดียวกันเห็นเว็บจริง ไม่ต้องใช้ลิงก์ bypass
 - **ลิงก์ bypass** `/?bypass=รหัส` — ตั้ง cookie (HttpOnly, 7 วัน) ให้ดูเว็บจริงได้ แล้วพากลับไปที่ลิงก์เดิมโดยตัด
   `bypass` ออก cookie ผูกกับรหัส: เปลี่ยนรหัสแล้ว cookie เดิมใช้ไม่ได้ทันที หน้าจริงที่ผู้ถือ cookie เห็นจะไม่ถูก cache
   (`Cache-Control: no-store`)
 - ถ้าไม่ได้ตั้งรหัส ระบบจะสร้างรหัสสุ่มให้เมื่อเปิดโหมดปิดปรับปรุง ดู/คัดลอก/สร้างใหม่ได้ที่หน้า **โหมดปิดปรับปรุง** ในหลังบ้าน
 - หน้า **โหมดปิดปรับปรุง** มีฟอร์มตั้งค่า (เปิด/ปิด หัวข้อ ข้อความ รหัส bypass) — ค่าเดียวกับหน้า ปลั๊กอิน → ตั้งค่า
 
-**การตั้งค่า** (ปลั๊กอิน → โหมดปิดปรับปรุง → ตั้งค่า): `enabled`, `title`, `message`, `bypassKey` — ชื่อเดียวกับปลั๊กอินเดิม
+**การตั้งค่า** (ปลั๊กอิน → โหมดปิดปรับปรุง → ตั้งค่า): `enabled`, `title`, `message`, `bypassKey` — ชื่อเดียวกับปลั๊กอินเดิม — และ `openPaths` (2.1.0)
 
 **สิทธิ์ (scopes):** `db` (ตาราง `p_maintenance_state` เก็บรหัสที่สร้างให้), `middleware`, `admin-pages`
 
@@ -31,6 +34,9 @@ The official maintenance-mode plugin — replaces the former built-in plugin wit
 
 - While enabled, visitors get a standalone "back soon" page (HTTP 503, `Retry-After: 3600`, `no-store`, `noindex`) with
   the configured title and message. The admin, `/api/`, `/uploads/` and `/plugin-assets/` keep working.
+  2.1.0: `/site-assets/`, `robots.txt` and `sitemap.xml` always stay up, the `openPaths` setting keeps more paths
+  working (e.g. `/s/` for printed short links), and with CMS 2.3.0 an administrator signed in to the admin in the
+  same browser sees the real site.
 - **Bypass link** `/?bypass=KEY` sets an HttpOnly cookie (7 days) and redirects to the same URL without `bypass`.
   The cookie is bound to the key: changing the key ends old cookies.
 - With no key set, a random key is generated when maintenance mode is on; see, copy or regenerate it on the

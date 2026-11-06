@@ -883,8 +883,15 @@ export class EditorCanvas implements OnDestroy {
     const sx = e.clientX, sy = e.clientY;
     const ratio = r0.w / Math.max(1, r0.h);
     const snapT = this.extraSnap(info.parent, this.screenRect(info.parent.id));
+    // 2.3.0 (Qraft feedback 27): a click on a handle, or a twitch of a few pixels, changes nothing — before,
+    // any pointer move turned a "hug" height into a fixed one at the size it had then
+    let started = false;
     store.beginGesture();
     this.track(ev => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < RESIZE_DEAD_PX) return;
+        started = true;
+      }
       let dx = (ev.clientX - sx) / z, dy = (ev.clientY - sy) / z;
       if (!(ev.ctrlKey || ev.metaKey)) { // the dragged edge snaps to guides / grid columns (Ctrl disables)
         if (/[ew]/.test(h)) dx += snapOffset(snapT.x, (h.includes('e') ? r0.x + r0.w : r0.x) - pr.x + dx, SNAP_PX / z);
@@ -916,6 +923,9 @@ export class EditorCanvas implements OnDestroy {
 }
 
 // ------------------------------------------------------------------ helpers
+
+/** Screen pixels a resize handle must be dragged before the layer's size changes. */
+const RESIZE_DEAD_PX = 4;
 
 /** Every layer inside `n` that has no children (texts, images, shapes, instances…). */
 function deepLayers(n: DNode): DNode[] {

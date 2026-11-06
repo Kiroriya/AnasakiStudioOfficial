@@ -59,4 +59,6 @@ export function hookUnits(hooks: CodeHook[]): string[] {
 }
 
 /** "lib/price.ts:12" */
-export const subscriberWhere = (s: CodeHookSubscriber) => (s.file ? s.file + (s.line ? ':' + s.line : '') : '');
+/** "lib/a.ts:1" for the site's own code; a plugin's file carries its id, "seo › code/main.ts:47" (2.3.0). */
+export const subscriberWhere = (s: CodeHookSubscriber) =>
+  (s.file ? (s.unit && s.unit !== 'site' && s.unit !== 'core' ? s.unit + ' › ' : '') + s.file + (s.line ? ':' + s.line : '') : '');

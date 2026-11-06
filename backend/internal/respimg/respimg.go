@@ -24,8 +24,8 @@ import (
 )
 
 // Widths are the only sizes made (px), so a visitor cannot fill the disk with
-// arbitrary ones.
-var Widths = []int{480, 768, 1200, 1600}
+// arbitrary ones. 2.3.0 added the small ones for logos and icons.
+var Widths = []int{96, 160, 320, 480, 768, 1200, 1600}
 
 // CacheDir is the folder under the upload dir that keeps the made sizes.
 const CacheDir = ".sizes"

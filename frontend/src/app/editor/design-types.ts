@@ -181,6 +181,8 @@ export interface Props {
   icon?: string;
   /** Button icon side (2.2.0): before the text (default) or 'end'. */
   iconPosition?: 'start' | 'end';
+  /** Button icon size in px (2.3.0); unset = 1.3em, a little larger than the text. */
+  iconSize?: number;
   strokeWidth?: number;
   shape?: string;
   flipX?: boolean;

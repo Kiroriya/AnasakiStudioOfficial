@@ -836,6 +836,17 @@ func (r *renderer) renderInput(n *Node, cls string, sc scope) {
 	}
 	common += filterAttrs
 	placeholder := r.bind(getStr(n.Props, "placeholder"), sc)
+	// the field's accessible name (2.3.0, Qraft feedback 35): the label set in the
+	// panel, else the placeholder, which disappears once the visitor types
+	if kind != "checkbox" && kind != "hidden" {
+		label := r.bind(getStr(n.Props, "label"), sc)
+		if label == "" {
+			label = placeholder
+		}
+		if label != "" {
+			common += ` aria-label="` + attr(label) + `"`
+		}
+	}
 	errSlot := ""
 	if name != "" && kind != "hidden" {
 		errSlot = `<span class="rea-error" data-rea-error-for="` + attr(name) + `"></span>`

@@ -6,7 +6,7 @@
 //    response so a visitor never waits for the database
 //  - admin page "Redirects": add / edit / delete rules (loop check), the 404 list with "Fix", clear
 //  - export legacyImport: the built-in's redirects_rules and redirects_404 rows
-import { Rule, normalize, target, findLoop, validate, isSystemPath, CODES, EN, clipRunes, esc, one, toDate } from './lib';
+import { Rule, normalize, target, findLoop, validate, isSystemPath, isScanPath, CODES, EN, clipRunes, esc, one, toDate } from './lib';
 
 /**
  * Who manages the rules. CMS 2.0.6+: the plugin's own capability redirects.manage (manifest "capabilities",
@@ -76,7 +76,8 @@ site.middleware((ctx) => {
 site.afterResponse((info) => {
   if (info.status === 404 && info.method === 'GET') {
     // 2.0.2: 404s of API calls, uploads and plugin files are not broken links of the site
-    if (!isSystemPath(info.path)) count404(info.path);
+    // 2.1.0: nor are the paths bots probe for secrets (/.env, /.git/config, /phpinfo.php…)
+    if (!isSystemPath(info.path) && !isScanPath(info.path)) count404(info.path);
     return;
   }
   if ((info.method === 'GET' || info.method === 'HEAD') && CODES.includes(info.status)) {
@@ -233,6 +234,8 @@ site.adminPage('redirects', {
       `<label class="ak-field"><span>${t.type}</span><select name="code">${opts}</select></label>` +
       `<div class="ak-field"><button class="ak-btn ak-btn-primary" type="submit">${editing ? '💾 ' + t.save : '+ ' + t.add}</button>` +
       (editing ? ` <a class="ak-btn" href="?rp=${rp}&mp=${mp}">${t.cancel}</a>` : '') + `</div></form>` +
+      // 2.1.0: this form's error, cleared on the next try (Qraft feedback 36: an old error stayed on the page)
+      `<p class="ak-error" id="rd-err" role="alert" hidden style="color:#b91c1c;margin:8px 0 0"></p>` +
       `<p class="ak-hint">${t.hint}</p></section>`;
 
     const per = 20, rpages = Math.max(1, Math.ceil(rules.length / per)), rpage = Math.min(rp, rpages);
@@ -253,9 +256,10 @@ site.adminPage('redirects', {
     const cfg = { confirmDel: t.confirmDel, confirmClear: t.confirmClear, saved: t.saved, back: `?rp=${rpage}&mp=${mpage}` };
     const script = `<script>var RD=${JSON.stringify(cfg).replace(/</g, '\\u003c')};
 function rdMsg(m,k){window.AK?AK.toast(m,k):alert(m)}
-function rdDone(r){if(r.errors&&Object.keys(r.errors).length){rdMsg(r.message||Object.values(r.errors).join(', '),'error');return false}return true}
-function rdSave(form){var f=form.elements;var id=f.namedItem('id').value;anasaki.call('redirects:save',{id:id?Number(id):null,from:f.namedItem('from').value,to:f.namedItem('to').value,code:Number(f.namedItem('code').value)})
-.then(function(r){if(rdDone(r)){rdMsg(RD.saved,'success');setTimeout(function(){location.href=RD.back},300)}},function(e){rdMsg(e.message,'error')});return false}
+function rdDone(r){if(r.errors&&Object.keys(r.errors).length){rdErr(r.message||Object.values(r.errors).join(', '));return false}return true}
+function rdErr(m){var e=document.getElementById('rd-err');if(e){e.textContent=m||'';e.hidden=!m}if(m)rdMsg(m,'error')}
+function rdSave(form){rdErr('');var f=form.elements;var id=f.namedItem('id').value;anasaki.call('redirects:save',{id:id?Number(id):null,from:f.namedItem('from').value,to:f.namedItem('to').value,code:Number(f.namedItem('code').value)})
+.then(function(r){if(rdDone(r)){rdMsg(RD.saved,'success');setTimeout(function(){location.href=RD.back},300)}},function(e){rdErr(e.message)});return false}
 function ask(text){return window.AK?AK.confirm(text,{danger:true}):Promise.resolve(confirm(text))}
 function rdDelete(id,from){ask(RD.confirmDel+' '+from).then(function(ok){if(!ok)return;anasaki.call('redirects:delete',{id:id}).then(function(r){if(rdDone(r))location.reload()},function(e){rdMsg(e.message,'error')})})}
 function rdClear(){ask(RD.confirmClear).then(function(ok){if(!ok)return;anasaki.call('redirects:clear404',{}).then(function(r){if(rdDone(r))location.href=RD.back.replace(/mp=\\d+/,'mp=1')},function(e){rdMsg(e.message,'error')})})}

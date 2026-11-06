@@ -21,6 +21,12 @@ import './messages-fx';
           <button [class.on]="!!n.props?.icon && n.props.iconPosition !== 'end'" [disabled]="!n.props?.icon" (click)="set({ iconPosition: undefined })">⟵ {{ 'ic.before' | t }}</button>
           <button [class.on]="n.props?.iconPosition === 'end'" [disabled]="!n.props?.icon" (click)="set({ iconPosition: 'end' })">{{ 'ic.after' | t }} ⟶</button>
         </div>
+        @if (n.props?.icon) {
+          <!-- 2.3.0: icon size in px (empty = a little larger than the text) -->
+          <label class="fg-field ip-size" [title]="'ic.sizeTip' | t"><span>{{ 'ic.size' | t }}</span>
+            <input type="number" id="pp-icon-size" min="8" max="200" [value]="n.props.iconSize ?? ''" [placeholder]="'ic.sizeAuto' | t" [attr.aria-label]="'ic.size' | t"
+                   (change)="set({ iconSize: +val($event) > 0 ? +val($event) : undefined })" /><em>px</em></label>
+        }
         <input class="ip-search" type="search" [value]="q()" (input)="q.set(val($event))" [placeholder]="'ic.search' | t" [attr.aria-label]="'ic.search' | t" />
         <div class="ip-grid">
           @for (name of iconNames(); track name) {

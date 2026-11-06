@@ -134,7 +134,9 @@ import { Pager } from '../shared/pager';
           </div>
 
           <h4>{{ 'users.account' | t }}</h4>
-          <label>{{ 'common.email' | t }} <input type="email" [ngModel]="d.email" (ngModelChange)="patch({ email: $event })" required /></label>
+          <label [class.field-invalid]="fieldErr()['email']">{{ 'common.email' | t }} <b class="req" aria-hidden="true">*</b>
+            <input type="email" id="user-email" [ngModel]="d.email" (ngModelChange)="patch({ email: $event })" required [attr.aria-invalid]="!!fieldErr()['email']" />
+            @if (fieldErr()['email']; as m) { <span class="field-error" id="user-email-error">{{ m }}</span> }</label>
           @if (!d.id) {
             <label class="check welcome-check"><input type="checkbox" [checked]="!!d.sendWelcome" [disabled]="!mailReady()" (change)="patch({ sendWelcome: $any($event.target).checked })" /> {{ 'users.sendWelcome' | t }}</label>
             <p class="hint">{{ (mailReady() ? 'users.sendWelcomeHint' : 'users.mailOff') | t }}</p>
@@ -169,8 +171,10 @@ import { Pager } from '../shared/pager';
             <label>{{ 'users.firstName' | t }} <input [ngModel]="d.firstName" (ngModelChange)="patch({ firstName: $event })" /></label>
             <label>{{ 'users.lastName' | t }} <input [ngModel]="d.lastName" (ngModelChange)="patch({ lastName: $event })" /></label>
           </div>
-          <label>{{ 'users.displayName' | t }} <span class="muted small">{{ 'users.displayNameHint' | t }}</span>
-            <input [ngModel]="d.name" (ngModelChange)="patch({ name: $event })" />
+          <label [class.field-invalid]="fieldErr()['name']">{{ 'users.displayName' | t }} <b class="req" aria-hidden="true">*</b> <span class="muted small">{{ 'users.displayNameHint' | t }}</span>
+            <input id="user-name" [ngModel]="d.name" (ngModelChange)="patch({ name: $event })" required [attr.aria-invalid]="!!fieldErr()['name']"
+                   [placeholder]="((d.firstName ?? '') + ' ' + (d.lastName ?? '')).trim()" />
+            @if (fieldErr()['name']; as m) { <span class="field-error" id="user-name-error">{{ m }}</span> }
           </label>
           <label>{{ 'users.website' | t }} <input type="url" placeholder="https://" [ngModel]="d.website" (ngModelChange)="patch({ website: $event })" /></label>
           <label>{{ 'users.bio' | t }} <textarea rows="3" [ngModel]="d.bio" (ngModelChange)="patch({ bio: $event })"></textarea></label>
@@ -275,7 +279,19 @@ export class Users implements OnInit {
 
   openNew() {
     this.showPw.set(false);
-    this.draft.set({ email: '', name: '', role: 'author', status: 'active', locale: this.i18n.locale(), password: '', sendWelcome: this.mailReady() });
+    this.fieldErr.set({});
+    this.draft.set({ email: '', name: '', role: this.defaultRole(), status: 'active', locale: this.i18n.locale(), password: '', sendWelcome: this.mailReady() });
+  }
+
+  /** Errors of the add / edit drawer by field (2.3.0, Qraft feedback 40: the message used to name no field). */
+  readonly fieldErr = signal<Record<string, string>>({});
+
+  /** A new account's role: "author" when the site has it, else the role with the fewest rights (never administrator). */
+  private defaultRole(): string {
+    const list = this.roles();
+    if (list.some(r => r.slug === 'author')) return 'author';
+    const pick = [...list].filter(r => r.slug !== 'administrator').sort((a, b) => (a.caps?.length ?? 0) - (b.caps?.length ?? 0))[0];
+    return pick?.slug ?? 'subscriber';
   }
 
   openEdit(u: User) {
@@ -295,10 +311,21 @@ export class Users implements OnInit {
   async save() {
     const d = this.draft();
     if (!d) return;
+    // check the fields here first, so the drawer can point at the one to fix
+    const name = (d.name ?? '').trim() || [d.firstName, d.lastName].map(x => (x ?? '').trim()).filter(Boolean).join(' ');
+    const errs: Record<string, string> = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((d.email ?? '').trim())) errs['email'] = this.i18n.t('users.err.email');
+    if (!name) errs['name'] = this.i18n.t('users.err.name');
+    this.fieldErr.set(errs);
+    if (Object.keys(errs).length) {
+      document.getElementById(errs['email'] ? 'user-email' : 'user-name')?.focus();
+      return;
+    }
+    if (name !== d.name) this.patch({ name });
     this.busy.set(true);
     try {
       const body: Draft = {
-        email: d.email, name: d.name, firstName: d.firstName, lastName: d.lastName, bio: d.bio, website: d.website,
+        email: d.email, name, firstName: d.firstName, lastName: d.lastName, bio: d.bio, website: d.website,
         avatar: d.avatar, role: d.role, status: d.status, locale: d.locale,
       };
       if (d.password) body.password = d.password;

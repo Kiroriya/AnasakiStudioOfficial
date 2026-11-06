@@ -138,7 +138,7 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	a.issueToken(w, admin, http.StatusCreated)
+	a.issueToken(w, r, admin, http.StatusCreated)
 }
 
 // rollbackSetup undoes a failed setup: its rows and uploaded files.

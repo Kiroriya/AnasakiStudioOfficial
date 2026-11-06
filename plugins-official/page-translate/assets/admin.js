@@ -30,6 +30,8 @@
         mode: general.elements.mode.value,
         siteLang: general.elements.siteLang.value,
         buttonColor: general.elements.buttonColor.value,
+        position: general.elements.position ? general.elements.position.value : '',
+        buttonStyle: general.elements.buttonStyle ? general.elements.buttonStyle.value : '',
       }).then(function () { toast(t.saved, 'success'); })
         .catch(function (err) { toast(err.message, 'danger'); })
         .then(function () { busy(general, false); });

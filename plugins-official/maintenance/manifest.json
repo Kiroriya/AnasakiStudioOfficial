@@ -1,7 +1,7 @@
 {
   "id": "maintenance",
   "name": "Maintenance mode / โหมดปิดปรับปรุง",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Shows a \"back soon\" page (HTTP 503 + Retry-After) to visitors while the site is being worked on; the admin keeps working and a bypass link lets testers see the real site. / แสดงหน้า \"ปิดปรับปรุงชั่วคราว\" (HTTP 503) ให้ผู้เยี่ยมชม ผู้ดูแลยังใช้หลังบ้านได้ และดูเว็บจริงได้ด้วยลิงก์ bypass",
   "author": "Anasaki Studio",
   "icon": "🚧",
@@ -25,6 +25,9 @@
     { "key": "message", "type": "textarea", "maxLength": 2000,
       "default": "เว็บไซต์กำลังปรับปรุงเพื่อให้บริการได้ดียิ่งขึ้น กรุณากลับมาใหม่อีกครั้งในไม่ช้า",
       "label": { "th": "ข้อความ", "en": "Message" } },
+    { "key": "openPaths", "type": "textarea", "maxLength": 2000,
+      "label": { "th": "ส่วนที่ยังเปิดให้ใช้", "en": "Paths that stay open" },
+      "help": { "th": "path ละบรรทัด ขึ้นต้นด้วย / เช่น /s/ ให้ลิงก์ย่อที่พิมพ์แจกไปแล้วยังใช้ได้ระหว่างปิดปรับปรุง (/site-assets/, robots.txt และ sitemap.xml เปิดอยู่เสมอ)", "en": "One path per line, starting with /, e.g. /s/ so printed short links keep working during maintenance (/site-assets/, robots.txt and sitemap.xml are always open)." } },
     { "key": "bypassKey", "type": "text", "maxLength": 100,
       "label": { "th": "รหัส bypass", "en": "Bypass key" },
       "help": { "th": "ใครเปิด /?bypass=รหัสนี้ จะดูเว็บจริงได้ 7 วัน (ส่งให้ลูกค้าหรือทีมทดสอบ) — เว้นว่างได้ ระบบจะสร้างให้เอง (ดูได้ที่หน้า โหมดปิดปรับปรุง)", "en": "Anyone opening /?bypass=KEY sees the real site for 7 days (share it with testers). Leave empty to get one generated (shown on the Maintenance page)." } }

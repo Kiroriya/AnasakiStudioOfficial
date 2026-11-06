@@ -83,16 +83,29 @@ export const CODES = [301, 302, 307, 308];
 export const SYSTEM_PATHS = ['/api/', '/uploads/', '/plugin-assets/', '/ext-ui/'];
 export const isSystemPath = (path: string) => SYSTEM_PATHS.some((p) => (String(path ?? '') + '/').startsWith(p));
 
+/**
+ * Paths that bots probe for secrets or other software (/.env, /.git/config, /wp-login.php, /phpinfo.php…):
+ * not broken links of this site, so they stay out of the 404 list (2.1.0, Qraft feedback 36).
+ */
+export function isScanPath(path: string): boolean {
+  const p = String(path ?? '').toLowerCase();
+  if (/(^|\/)\.[^/]/.test(p)) return true; // dot files and folders
+  if (/\.(php\d?|asp|aspx|jsp|cgi|env|sql|bak|old|ini|log|conf|yml|yaml|swp|ds_store)$/.test(p)) return true;
+  return /^\/(wp-|wordpress|xmlrpc|phpmyadmin|pma|cgi-bin|vendor\/|actuator|boaform|owa\/|solr\/|telescope|debug\/|server-status)/.test(p);
+}
+
 /** Normalises a rule in place; a Thai error message when it is invalid (same messages as the built-in). */
 export function validate(r: Rule): string | null {
   r.from = String(r.from ?? '').trim();
   r.to = String(r.to ?? '').trim();
   const q = r.from.indexOf('?');
   if (q >= 0) r.from = r.from.slice(0, q);
-  if (!r.from.startsWith('/') || r.from.startsWith('//') || byteLen(r.from) > 191 || r.from === '/') {
+  // 2.1.0 (Qraft feedback 36): "/" and the system paths get their own message, not "must start with /"
+  if (r.from === '/') return 'เปลี่ยนเส้นทางของหน้าแรก (/) ไม่ได้';
+  if (!r.from.startsWith('/') || r.from.startsWith('//') || byteLen(r.from) > 191) {
     return 'เส้นทางต้นทางต้องขึ้นต้นด้วย / เช่น /old-page';
   }
-  if (isSystemPath(r.from)) return 'ไม่สามารถ redirect เส้นทางของระบบได้';
+  if (isSystemPath(r.from)) return 'เปลี่ยนเส้นทางของระบบ (/api/, /uploads/, /plugin-assets/, /ext-ui/) ไม่ได้';
   if (r.to === '' || byteLen(r.to) > 1000 || !safeURL(r.to)) return 'ปลายทางต้องเป็นลิงก์ http(s):// หรือเส้นทางที่ขึ้นต้นด้วย /';
   if (normalize(r.to) === normalize(r.from)) return 'ปลายทางต้องไม่ซ้ำกับต้นทาง';
   if (!r.code) r.code = 301;
@@ -104,7 +117,8 @@ export function validate(r: Rule): string | null {
 /** English versions of the validation messages (admin pages in English). */
 export const EN: Record<string, string> = {
   'เส้นทางต้นทางต้องขึ้นต้นด้วย / เช่น /old-page': 'The old path must start with /, e.g. /old-page',
-  'ไม่สามารถ redirect เส้นทางของระบบได้': 'System paths cannot be redirected',
+  'เปลี่ยนเส้นทางของหน้าแรก (/) ไม่ได้': 'The home page (/) cannot be redirected',
+  'เปลี่ยนเส้นทางของระบบ (/api/, /uploads/, /plugin-assets/, /ext-ui/) ไม่ได้': 'System paths (/api/, /uploads/, /plugin-assets/, /ext-ui/) cannot be redirected',
   'ปลายทางต้องเป็นลิงก์ http(s):// หรือเส้นทางที่ขึ้นต้นด้วย /': 'The target must be an http(s):// link or a path starting with /',
   'ปลายทางต้องไม่ซ้ำกับต้นทาง': 'The target must differ from the old path',
   'รหัส redirect ต้องเป็น 301, 302, 307 หรือ 308': 'The redirect type must be 301, 302, 307 or 308',

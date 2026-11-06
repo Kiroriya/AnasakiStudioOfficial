@@ -78,3 +78,18 @@
 body { top: 0 !important; }
 .skiptranslate, #google_translate_element, .goog-te-banner-frame { display: none !important; }
 .goog-text-highlight { background: transparent !important; box-shadow: none !important; }
+
+/* 1.5.0 (Qraft feedback 38): position and style of the floating button, so it can stay clear of the page's buttons */
+.ptw-root[data-pos="bottom-left"], .ptw-root[data-pos="top-left"] { right: auto; left: 18px; }
+.ptw-root[data-pos="top-right"], .ptw-root[data-pos="top-left"] { bottom: auto; top: 18px; }
+.ptw-root[data-pos$="-left"] .ptw-menu, .ptw-root[data-pos$="-left"] .ptw-status { right: auto; left: 0; }
+.ptw-root[data-pos^="top-"] .ptw-menu, .ptw-root[data-pos^="top-"] .ptw-status { bottom: auto; top: calc(100% + 10px); }
+.ptw-root[data-style="icon"] .ptw-btn-text { display: none; }
+.ptw-root[data-style="icon"] .ptw-btn { padding: 10px; }
+@media (max-width: 640px) {
+  .ptw-root:not([data-style="text"]) .ptw-btn-text { display: none; }
+  .ptw-root:not([data-style="text"]) .ptw-btn { padding: 10px; }
+  .ptw-root { right: 12px; bottom: 12px; }
+  .ptw-root[data-pos$="-left"] { left: 12px; right: auto; }
+  .ptw-root[data-pos^="top-"] { top: 12px; bottom: auto; }
+}

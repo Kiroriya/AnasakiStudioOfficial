@@ -201,7 +201,7 @@ func TestCodeDesignerPublicPage(t *testing.T) {
 		// table source: active rows only, newest first, 3 per page, load more
 		`<div class="n-tbl" data-rea-collection="tbl" data-rea-key="tbl" data-rea-source="table:products">`, `T:Durian &lt;b&gt;`, `T:Carrot`, `T:Banana`,
 		`<a class="rea-pg-item rea-pg-more" href="/shop?shop_page=2&amp;tbl_page=2&amp;x=1" rel="next" data-rea-more>`,
-		`<div class="n-search rea-field"><input class="rea-field-el" type="search" name="shop_q" data-rea-filter="list" data-rea-reset="shop_page" placeholder="ค้นหา">`,
+		`<div class="n-search rea-field"><input class="rea-field-el" type="search" name="shop_q" data-rea-filter="list" data-rea-reset="shop_page" aria-label="ค้นหา" placeholder="ค้นหา">`,
 		`<form class="n-form" data-rea-form onsubmit="return false">`, `name="email" required`, `data-rea-error-for="email"`,
 		`<p class="n-cartBadge">Cart: 0</p>`,
 		`window.__reaP=`+fmt.Sprint(pid)+`</script><script>`, "X-CSRF-Token")

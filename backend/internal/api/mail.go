@@ -237,7 +237,7 @@ func (a *API) resetPassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "บัญชีนี้ถูกระงับ")
 		return
 	}
-	a.issueToken(w, u, http.StatusOK)
+	a.issueToken(w, r, u, http.StatusOK)
 }
 
 // sendWelcome emails a new user their login address and a link to choose

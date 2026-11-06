@@ -113,6 +113,7 @@ type bases struct {
 	dateFormat     string         // Go layout from the date_format option
 	thai           bool           // site language th: Thai month names, Buddhist year
 	loc            *time.Location // timezone option
+	home           int64          // home_page_id (0 = the page with slug "home")
 }
 
 var current atomic.Pointer[bases]
@@ -131,6 +132,7 @@ func SetBases(opts map[string]string) {
 		b.category = v
 	}
 	b.dateFormat = opts["date_format"]
+	b.home, _ = strconv.ParseInt(opts["home_page_id"], 10, 64)
 	b.thai = opts["language"] == "" || opts["language"] == "th"
 	if l, err := time.LoadLocation(opts["timezone"]); err == nil && opts["timezone"] != "" {
 		b.loc = l
@@ -151,10 +153,16 @@ func BlogBase() string { return getBases().blog }
 // CategoryBase is the URL prefix of category archives ("category").
 func CategoryBase() string { return getBases().category }
 
-// PostURL returns a post's public path.
+// PostURL returns a post's public path; the home page's is "/" (2.3.0, Qraft
+// feedback 34: plugins such as SEO showed it as /home).
 func PostURL(p *model.Post) string {
 	if u, ok := customURL(p); ok {
 		return u
+	}
+	if p.Type == model.TypePage {
+		if h := getBases().home; (h > 0 && h == p.ID) || (h == 0 && p.Slug == "home") {
+			return "/"
+		}
 	}
 	if p.Type == model.TypePost {
 		return "/" + BlogBase() + "/" + url.PathEscape(p.Slug)
@@ -264,7 +272,9 @@ func (s *Source) Media(id int64) *design.MediaInfo {
 
 func (s *Source) QueryPosts(q design.Query) []design.PostCtx {
 	f := model.PostFilter{Type: q.PostType, Status: model.StatusPublish,
-		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true, Search: q.Search}
+		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true, Search: q.Search,
+		// a custom type's list filters by its own taxonomies too (Qraft feedback 32)
+		AnyTaxonomy: q.PostType != "" && q.PostType != model.TypePost}
 	if q.TermIDs != nil { // a taxonomy term's archive (2.1.0)
 		f.Type, f.Types, f.TermIDs = "", q.PostTypes, q.TermIDs
 	}

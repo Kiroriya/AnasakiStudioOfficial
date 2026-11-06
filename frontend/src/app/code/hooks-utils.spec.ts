@@ -41,6 +41,7 @@ describe('hooks list', () => {
     const subs = orderedSubscribers(sample[1].subscribers);
     expect(subs.map(s => `${s.unit}@${s.priority}${s.file ? ':' + s.file : ''}`)).toEqual(['site@5:lib/a.ts', 'shop@10:code/main.ts', 'site@10']);
     expect(subscriberWhere(subs[0])).toBe('lib/a.ts:1');
+    expect(subscriberWhere(subs[1]).startsWith('shop › code/main.ts')).toBe(true); // a plugin's file is not the site's
     expect(subscriberWhere(subs[2])).toBe('');
   });
 

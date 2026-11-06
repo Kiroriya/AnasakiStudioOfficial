@@ -1166,6 +1166,7 @@ interface MiddlewareContext {
   response: SiteResponse;
   /** A signed-in CMS user (admin bearer token, e.g. previews); null otherwise. */
   user: SiteUser | null;
+  /** A signed-in CMS user is looking: ctx.user, or (CMS 2.3.0) an admin browsing the site in the same browser (GET). */
   isAdminUser: boolean;
   readonly visitor: SiteVisitor | null;
 }
@@ -1184,6 +1185,7 @@ interface ResponseInfo {
   durationMs: number;
   /** Title of the page the site rendered ('' otherwise). */
   title: string;
+  /** A signed-in CMS user made the request (CMS 2.3.0: also an admin browsing the site in the same browser). */
   isAdminUser: boolean;
   /** RFC 3339 UTC. */
   at: string;

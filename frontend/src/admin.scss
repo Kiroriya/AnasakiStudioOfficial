@@ -351,6 +351,9 @@ kbd { font-family: inherit; }
 /* prompt input */
 .swal-input-label { justify-content: flex-start !important; margin: 16px 0 0 !important; font-weight: 600; font-size: 13px; color: var(--text); }
 .swal-input { height: 44px !important; margin: 14px 0 0 !important; width: 100% !important; border-radius: 12px !important; border: 1px solid var(--border-strong) !important; box-shadow: none !important; font-size: 14.5px !important; padding: 0 14px !important; }
+.dlg-slug-row { display: flex; align-items: center; gap: 6px; margin-top: 14px; .swal-input { margin: 0 !important; } }
+.dlg-slug-prefix { color: var(--muted); font-family: ui-monospace, monospace; }
+.dlg-slug-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); text-align: left; &.warn { color: #b45309; } }
 .swal-input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(79, 70, 229, .14) !important; }
 .swal2-validation.swal-validation { background: #fef2f2 !important; color: var(--danger) !important; border-radius: 10px; margin: 12px 0 0 !important; font-size: 13px !important; }
 .swal2-validation.swal-validation::before { background: var(--danger) !important; }
@@ -861,3 +864,8 @@ label.btn.disabled { opacity: .5; pointer-events: none; }
   input { margin-top: 3px; } .setup-rec-text { display: grid; gap: 2px; } small { color: var(--muted); }
   .setup-rec-perms { font-size: 11px; color: var(--muted); } &.off { opacity: .6; cursor: default; } }
 .tools-pkg { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+// 2.3.0: required marks and per-field errors in forms (users drawer)
+b.req { color: #dc2626; font-weight: 700; }
+.field-error { display: block; margin-top: 4px; color: #dc2626; font-size: 12.5px; font-weight: 500; }
+.field-invalid input, .field-invalid select, .field-invalid textarea { border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }

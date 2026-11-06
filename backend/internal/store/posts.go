@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,9 +99,15 @@ func (s *Store) ListPosts(f model.PostFilter) ([]*model.Post, int, error) {
 		args = append(args, like, like)
 	}
 	if f.Category != "" {
+		// the term's slug, or (2.3.0) its id or name, as a select of the page may send any of them
+		tax := ` AND t.taxonomy = 'category'`
+		if f.AnyTaxonomy {
+			tax = ""
+		}
+		id, _ := strconv.ParseInt(f.Category, 10, 64)
 		where = append(where, `p.id IN (SELECT pt.post_id FROM post_terms pt JOIN terms t ON t.id = pt.term_id
-			WHERE t.taxonomy = 'category' AND t.slug = ?)`)
-		args = append(args, f.Category)
+			WHERE (t.slug = ? OR t.name = ? OR t.id = ?)`+tax+`)`)
+		args = append(args, f.Category, f.Category, id)
 	}
 	if len(f.Meta) > 0 {
 		mw, margs, err := metaWhere(f.Meta)
@@ -183,10 +190,39 @@ func (s *Store) GetPost(id int64) (*model.Post, error) {
 	if err != nil {
 		return nil, notFound(err)
 	}
+	var draft sql.NullString
+	if err := s.DB.QueryRow(`SELECT draft FROM posts WHERE id = ?`, id).Scan(&draft); err != nil {
+		return nil, err
+	}
+	if draft.Valid && draft.String != "" {
+		var d model.PostDraft
+		if json.Unmarshal([]byte(draft.String), &d) == nil {
+			p.Draft = &d
+		}
+	}
 	if err := s.attachMeta([]*model.Post{p}); err != nil {
 		return nil, err
 	}
 	return p, s.attachTerms([]*model.Post{p})
+}
+
+// SetPostDraft stores (or, with d nil, removes) the unpublished designer
+// version of post id. Storing one moves updated_at (at least a second, like
+// bumpedAt), so another tab's stale save still answers 409; removing one
+// leaves it.
+func (s *Store) SetPostDraft(id int64, d *model.PostDraft) (time.Time, error) {
+	if d == nil {
+		_, err := s.DB.Exec(`UPDATE posts SET draft = NULL WHERE id = ?`, id)
+		return time.Time{}, err
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	d.SavedAt = now
+	b, err := json.Marshal(d)
+	if err != nil {
+		return now, err
+	}
+	_, err = s.DB.Exec(`UPDATE posts SET draft = ?, updated_at = `+bumpedAt+` WHERE id = ?`, string(b), now, id)
+	return now, err
 }
 
 // PostBySlug finds a post of a type; publishedOnly hides drafts (public site).

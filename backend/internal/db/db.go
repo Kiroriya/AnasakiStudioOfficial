@@ -67,6 +67,8 @@ func Migrate(db *sql.DB) error {
 		{"terms", "description", "VARCHAR(500) NOT NULL DEFAULT ''"},
 		// Site Code phase 4b: logs of JS plugins carry their unit id
 		{"script_logs", "unit", "VARCHAR(64) NOT NULL DEFAULT 'site'"},
+		// 2.3.0: unpublished designer changes of a published page (model.PostDraft)
+		{"posts", "draft", "LONGTEXT NULL"},
 	}
 	for _, c := range cols {
 		if err := EnsureColumn(db, c[0], c[1], c[2]); err != nil {

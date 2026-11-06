@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -261,6 +263,14 @@ func (m *Manager) DownloadFromStoreMeta(id, version string) ([]byte, string, err
 			return nil, "", pkgErr("package is larger than %d MB", MaxPackageSize>>20)
 		}
 		return nil, "", err
+	}
+	// the store's sha256 of the zip (store 1.4.0, security assessment S2): a package
+	// changed or cut on the way is refused (an older store sends none)
+	if want := strings.ToLower(strings.TrimSpace(hdr.Get("X-Anasaki-SHA256"))); want != "" {
+		sum := sha256.Sum256(b)
+		if hex.EncodeToString(sum[:]) != want {
+			return nil, "", pkgErr("the downloaded package does not match the store's checksum (sha256) — try again")
+		}
 	}
 	return b, strings.TrimSpace(hdr.Get("X-Anasaki-Publisher")), nil
 }

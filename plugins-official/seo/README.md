@@ -1,4 +1,4 @@
-# SEO (`seo`) — official plugin 2.0.3
+# SEO (`seo`) — official plugin 2.0.4
 
 ## ภาษาไทย
 

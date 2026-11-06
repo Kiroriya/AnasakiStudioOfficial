@@ -1,7 +1,7 @@
 {
   "id": "page-translate",
   "name": "Page Translate",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Translate page content — free mode via the Google Translate widget (no API key, no billing) or Google Cloud Translation API mode. / แปลภาษาหน้าเว็บ โหมดฟรีผ่าน Google Translate widget หรือโหมด Google Cloud Translation API",
   "author": "Anasaki Studio",
   "icon": "🌐",
@@ -53,6 +53,29 @@
       "type": "color",
       "label": { "th": "สีปุ่มลอย", "en": "Floating button color" },
       "default": "#4f46e5"
+    },
+    {
+      "key": "position",
+      "type": "select",
+      "label": { "th": "ตำแหน่งปุ่มลอย", "en": "Floating button position" },
+      "options": [
+        { "value": "bottom-right", "label": "↘ ล่างขวา / bottom right" },
+        { "value": "bottom-left", "label": "↙ ล่างซ้าย / bottom left" },
+        { "value": "top-right", "label": "↗ บนขวา / top right" },
+        { "value": "top-left", "label": "↖ บนซ้าย / top left" }
+      ],
+      "default": "bottom-right"
+    },
+    {
+      "key": "buttonStyle",
+      "type": "select",
+      "label": { "th": "แบบปุ่ม", "en": "Button style" },
+      "options": [
+        { "value": "auto", "label": "ไอคอน + ข้อความ (จอเล็กเหลือไอคอน) / icon + text (icon only on phones)" },
+        { "value": "text", "label": "ไอคอน + ข้อความทุกจอ / icon + text everywhere" },
+        { "value": "icon", "label": "ไอคอนอย่างเดียว / icon only" }
+      ],
+      "default": "auto"
     }
   ],
   "head": ["assets/translate.css", "assets/translate.js"],

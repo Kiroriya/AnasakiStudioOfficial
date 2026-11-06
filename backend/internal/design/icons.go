@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -205,7 +206,13 @@ func ButtonIcon(n *Node) string {
 	if ic.Fill {
 		paint = `fill="currentColor" stroke="none"`
 	}
-	return `<svg class="rea-btn-ic" viewBox="0 0 24 24" width="1.15em" height="1.15em" ` + paint + ` aria-hidden="true" focusable="false">` + ic.Body + `</svg>`
+	// 2.3.0 (Qraft feedback 30): 1.3em by default — the line icons have room around them, so 1.15em
+	// looked smaller than the text; props.iconSize sets it in px
+	size := "1.3em"
+	if px, ok := getNum(n.Props, "iconSize"); ok && px > 0 && px <= 200 {
+		size = strconv.FormatFloat(px, 'f', -1, 64) + "px"
+	}
+	return `<svg class="rea-btn-ic" viewBox="0 0 24 24" width="` + size + `" height="` + size + `" ` + paint + ` aria-hidden="true" focusable="false">` + ic.Body + `</svg>`
 }
 
 // ShapeSVG is the <svg> of a shape node.

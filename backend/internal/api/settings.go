@@ -351,8 +351,8 @@ func (a *API) publicSite(w http.ResponseWriter, r *http.Request) {
 
 // signedIn reports whether r carries a valid, current session token.
 func (a *API) signedIn(r *http.Request) bool {
-	tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok {
+	tok := auth.RequestToken(r)
+	if tok == "" {
 		return false
 	}
 	p, err := a.auth.Parse(tok)

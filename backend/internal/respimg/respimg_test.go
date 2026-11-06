@@ -16,7 +16,7 @@ import (
 )
 
 func TestSrcset(t *testing.T) {
-	want := "/uploads/2026/11/a.jpg?w=480 480w, /uploads/2026/11/a.jpg?w=768 768w, /uploads/2026/11/a.jpg?w=1200 1200w, /uploads/2026/11/a.jpg?w=1600 1600w"
+	want := "/uploads/2026/11/a.jpg?w=96 96w, /uploads/2026/11/a.jpg?w=160 160w, /uploads/2026/11/a.jpg?w=320 320w, /uploads/2026/11/a.jpg?w=480 480w, /uploads/2026/11/a.jpg?w=768 768w, /uploads/2026/11/a.jpg?w=1200 1200w, /uploads/2026/11/a.jpg?w=1600 1600w"
 	if got := Srcset("/uploads/2026/11/a.jpg"); got != want {
 		t.Fatalf("Srcset = %q", got)
 	}
@@ -33,7 +33,7 @@ func TestSrcset(t *testing.T) {
 func TestAddToHTML(t *testing.T) {
 	in := `<p>x</p><img src="/uploads/a.jpg" alt="a"><img src="/uploads/b.png" srcset="/b2.png 2x"><img loading="eager" src="/uploads/c.jpg"><img src="https://cdn.test/d.jpg">`
 	out := AddToHTML(in)
-	if !strings.Contains(out, `<img srcset="/uploads/a.jpg?w=480 480w`) || !strings.Contains(out, `sizes="auto, 100vw" loading="lazy" src="/uploads/a.jpg" alt="a">`) {
+	if !strings.Contains(out, `<img srcset="/uploads/a.jpg?w=96 96w`) || !strings.Contains(out, `sizes="auto, 100vw" loading="lazy" src="/uploads/a.jpg" alt="a">`) {
 		t.Errorf("a: %s", out)
 	}
 	if !strings.Contains(out, `<img src="/uploads/b.png" srcset="/b2.png 2x">`) {

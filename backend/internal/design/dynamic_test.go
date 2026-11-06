@@ -128,7 +128,7 @@ func TestCodeCollectionPaginationAndBindings(t *testing.T) {
 	must(t, h, `<a data-rea-action="addToCart" data-rea-input="{&#34;id&#34;:3,&#34;note&#34;:&#34;&lt;x&gt; \&#34;q\&#34;&#34;,&#34;qty&#34;:2}" data-rea-confirm="Sure P&lt;3&gt;?" data-rea-update="cartBox" data-rea-success="Added" data-rea-redirect="/cart" class="n-buy rea-btn" href="#">Buy</a>`)
 	// filter input: name <key>_<param>, GET form fallback keeping other params, error slot
 	must(t, h, `<form class="rea-filter-form" method="get" action="/shop" style="display:contents" data-rea-filter-form><input type="hidden" name="x" value="1">`,
-		`<div class="n-q rea-field"><input class="rea-field-el" type="search" name="shop_q" data-rea-filter="list" data-rea-reset="shop_page" placeholder="ค้นหา"><span class="rea-error" data-rea-error-for="shop_q"></span></div></form>`)
+		`<div class="n-q rea-field"><input class="rea-field-el" type="search" name="shop_q" data-rea-filter="list" data-rea-reset="shop_page" aria-label="ค้นหา" placeholder="ค้นหา"><span class="rea-error" data-rea-error-for="shop_q"></span></div></form>`)
 	// page data
 	must(t, h, `<p class="n-cartBox">Total 1,234.5</p>`)
 	if !out.Runtime {
@@ -183,7 +183,7 @@ func TestTableSourceFormsAndDenied(t *testing.T) {
 	h := out.HTML
 	must(t, h, `<form class="n-f" data-rea-form onsubmit="return false">`,
 		`<div class="n-em rea-field"><input class="rea-field-el" type="email" name="email" required value="a@b.co"><span class="rea-error" data-rea-error-for="email"></span></div>`,
-		`<div class="n-sel rea-field"><select class="rea-field-el" name="size"><option value="">Size</option><option value="s">Small</option><option value="m" selected>M</option></select>`,
+		`<div class="n-sel rea-field"><select class="rea-field-el" name="size" aria-label="Size"><option value="">Size</option><option value="s">Small</option><option value="m" selected>M</option></select>`,
 		`<label class="n-ck rea-field rea-check"><input class="rea-field-el" type="checkbox" value="1" name="agree"><span>I agree &lt;b&gt;</span><span class="rea-error" data-rea-error-for="agree"></span></label>`,
 		`<div class="n-ta rea-field"><textarea class="rea-field-el" name="msg">&lt;hi&gt;</textarea>`,
 		`<div class="n-hd rea-field" hidden><input class="rea-field-el" type="hidden" name="ref" value="9"></div>`,
@@ -250,7 +250,7 @@ func TestLegacyBindingsUnchanged(t *testing.T) {
 	]}`
 	out := renderDoc(t, doc, Context{Site: map[string]string{"title": "S<"}, Post: PostCtx{"title": "A & B", "url": "/x", "image": "/i.png"}}, nil)
 	must(t, out.HTML, `<p class="n-a"><a href="/x" style="color:inherit;text-decoration:inherit">A &amp; B | S&lt; |  |  | </a></p>`,
-		`<b>A &amp; B</b> yes`, `<img class="n-i" src="/i.png" alt="A &amp; B" loading="lazy">`)
+		`<b>A &amp; B</b> yes`, `<img class="n-i" src="/i.png" alt="A &amp; B">`)
 	if out.Runtime {
 		t.Error("plain pages do not need the runtime")
 	}
@@ -281,4 +281,19 @@ func (c *compDyn) Component(id int64) *Node {
 		return c.comp
 	}
 	return nil
+}
+
+// 2.3.0 (Qraft feedback 35): every visible field has an accessible name — the label set in the panel, else
+// its placeholder; checkboxes keep their <label>, hidden fields get none.
+func TestInputAccessibleName(t *testing.T) {
+	doc := `{"id":"root","type":"frame","children":[
+	 {"id":"a","type":"input","props":{"name":"pp_id","label":"PromptPay number","placeholder":"08x-xxx-xxxx"}},
+	 {"id":"b","type":"input","props":{"name":"link_url","placeholder":"https://…"}},
+	 {"id":"c","type":"input","props":{"name":"ref","kind":"hidden","placeholder":"x"}},
+	 {"id":"d","type":"input","props":{"name":"note","kind":"textarea","label":"Note"}}]}`
+	h := renderDoc(t, doc, Context{}, nil).HTML
+	must(t, h, `name="pp_id" aria-label="PromptPay number" placeholder="08x-xxx-xxxx"`,
+		`name="link_url" aria-label="https://…" placeholder="https://…"`,
+		`<textarea class="rea-field-el" name="note" aria-label="Note">`)
+	mustNot(t, h, `name="ref" aria-label`)
 }

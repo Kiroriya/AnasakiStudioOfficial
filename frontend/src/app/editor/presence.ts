@@ -68,7 +68,8 @@ export class CommentTool {
     @if (collab.store.conflict(); as c) {
       <div class="modal-backdrop" (click)="cancel()">
         <div class="modal cf-modal" role="alertdialog" (click)="$event.stopPropagation()">
-          <header class="modal-head"><h3>⚠ {{ 'cf.title' | t }}</h3><button class="btn btn-ghost btn-sm" (click)="cancel()">✕</button></header>
+          <!-- 2.3.0: the same person in another tab is not "someone else" -->
+          <header class="modal-head"><h3>⚠ {{ (c.byId && c.byId === collab.me()?.id ? 'cf.titleSelf' : 'cf.title') | t }}</h3><button class="btn btn-ghost btn-sm" (click)="cancel()">✕</button></header>
           <p>{{ 'cf.text' | t: { name: c.by || ('pr.someone' | t), time: time(c.at) } }}</p>
           <div class="cf-choices">
             <button class="btn cf-reload" (click)="reload()"><b>↺ {{ 'cf.reload' | t }}</b><small>{{ 'cf.reloadHint' | t }}</small></button>

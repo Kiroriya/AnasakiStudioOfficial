@@ -289,6 +289,9 @@ type headerPolicy struct {
 // script-src gap is documented in docs/API.md ("Security headers").
 const adminCSP = "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
 
+// publicCSP is the base Content-Security-Policy of the public site.
+const publicCSP = "object-src 'none'; base-uri 'self'"
+
 // secureHeaders adds the security headers (audit M-4 / L-6): the admin app,
 // the API and plugin admin screens get anti-framing, nosniff, a referrer
 // policy, a permissions policy and the admin CSP; the public site gets
@@ -314,8 +317,15 @@ func secureHeaders(adminPath func() string, pol headerPolicy, next http.Handler)
 				h.Set("Content-Security-Policy", "frame-ancestors 'self'")
 			}
 			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
-		case fa != "" && fa != "*":
-			h.Set("Content-Security-Policy", "frame-ancestors "+fa)
+		default:
+			// public pages (2.3.0, security assessment 48): no plugins/<object>
+			// and no <base> that re-points relative script URLs; script-src
+			// stays open for the site's own code blocks and plugins
+			csp := publicCSP
+			if fa != "" && fa != "*" {
+				csp += "; frame-ancestors " + fa
+			}
+			h.Set("Content-Security-Policy", csp)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -325,7 +335,7 @@ func cors(origin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin != "" && r.Header.Get("Origin") == origin {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Anasaki-Session")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

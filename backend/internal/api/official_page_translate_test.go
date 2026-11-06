@@ -67,6 +67,8 @@ func TestOfficialPageTranslate(t *testing.T) {
 		{"mode": "paid", "siteLang": "th", "buttonColor": "#000000"},
 		{"mode": "free", "siteLang": "fr", "buttonColor": "#000000"},
 		{"mode": "free", "siteLang": "th", "buttonColor": "red;x:1"},
+		{"mode": "free", "siteLang": "th", "buttonColor": "#000000", "position": "middle"},
+		{"mode": "free", "siteLang": "th", "buttonColor": "#000000", "buttonStyle": "huge"},
 	} {
 		if _, out := call("page-translate:save", in); offAErr(out) == "" {
 			t.Fatalf("save %v accepted: %v", in, out)
@@ -75,14 +77,15 @@ func TestOfficialPageTranslate(t *testing.T) {
 	if _, out := call("page-translate:saveApiKey", map[string]any{"apiKey": `bad"key<`}); offAErr(out) == "" {
 		t.Fatalf("bad key accepted: %v", out)
 	}
-	if code, out := call("page-translate:save", map[string]any{"mode": "api", "siteLang": "ja", "buttonColor": "#abcdef"}); code != 200 || offAErr(out) != "" {
+	// 1.5.0 (Qraft feedback 38): the button's corner and style
+	if code, out := call("page-translate:save", map[string]any{"mode": "api", "siteLang": "ja", "buttonColor": "#abcdef", "position": "bottom-left", "buttonStyle": "icon"}); code != 200 || offAErr(out) != "" {
 		t.Fatalf("save: %v", out)
 	}
 	if code, out := call("page-translate:saveApiKey", map[string]any{"apiKey": ""}); code != 200 || offAErr(out) != "" {
 		t.Fatalf("clear key: %v", out)
 	}
 	html = page()
-	offBContains(t, "saved", html, `data-mode="api"`, `data-site-lang="ja"`, `--ptw-color: #abcdef`)
+	offBContains(t, "saved", html, `data-mode="api"`, `data-site-lang="ja"`, `--ptw-color: #abcdef`, `data-pos="bottom-left"`, `data-style="icon"`)
 	if strings.Contains(html, "ptw-api-key") {
 		t.Fatal("key cleared, but the meta tag is still there")
 	}

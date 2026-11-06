@@ -43,6 +43,13 @@ func TestOfficialRedirects(t *testing.T) {
 	if _, out := save(map[string]any{"from": "/a", "to": "/b", "code": 303}); offAErr(out) != "The redirect type must be 301, 302, 307 or 308" {
 		t.Fatalf("message: %v", out)
 	}
+	// 2.1.0 (Qraft feedback 36): "/" and system paths say what is wrong
+	if _, out := save(map[string]any{"from": "/", "to": "/b"}); offAErr(out) != "The home page (/) cannot be redirected" {
+		t.Fatalf("home message: %v", out)
+	}
+	if _, out := save(map[string]any{"from": "/api/x", "to": "/b"}); !strings.Contains(offAErr(out), "System paths (/api/") {
+		t.Fatalf("system path message: %v", out)
+	}
 	// a valid rule is normalised (spaces, trailing slash, query of the source dropped), default 301
 	code, out := save(map[string]any{"from": " /old/?x=1 ", "to": "/new"})
 	if code != 200 || offAErr(out) != "" || out["data"].(map[string]any)["from"] != "/old" || out["data"].(map[string]any)["code"] != float64(301) {
@@ -114,6 +121,10 @@ func TestOfficialRedirects(t *testing.T) {
 	c.send("GET", "/missing", nil, nil)
 	// 2.0.2: 404s of the system's own paths are not broken links of the site
 	for _, p := range []string{"/api/v1/no-such-endpoint", "/uploads/2026/01/deleted.png", "/plugin-assets/x/y.js"} {
+		c.send("GET", p, nil, nil)
+	}
+	// 2.1.0: nor are the paths bots probe for secrets
+	for _, p := range []string{"/.env", "/.git/config", "/phpinfo.php", "/wp-login.php", "/backup.sql", "/cgi-bin/x"} {
 		c.send("GET", p, nil, nil)
 	}
 

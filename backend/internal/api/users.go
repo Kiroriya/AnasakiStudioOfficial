@@ -39,6 +39,11 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ok {
 		loginFails.fail(keys...)
+		// each further wrong password on the same account from the same
+		// address answers a little later (2.3.0), up to loginMaxDelay
+		if n := loginFails.count(keys[0]); n > 3 {
+			time.Sleep(min(time.Duration(n-3)*loginDelayStep, loginMaxDelay))
+		}
 		writeErr(w, http.StatusUnauthorized, "อีเมลหรือรหัสผ่านไม่ถูกต้อง")
 		return
 	}
@@ -48,7 +53,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "บัญชีนี้ถูกระงับ")
 		return
 	}
-	a.issueToken(w, u, http.StatusOK)
+	a.issueToken(w, r, u, http.StatusOK)
 }
 
 // logout answers POST /api/v1/auth/logout {all?}: the session token stops
@@ -66,6 +71,7 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
+	auth.SetSessionCookie(w, "", secureRequest(r))
 	if in.All {
 		if a.visitor(r) { // the shared demo account: don't sign the other visitors out
 			demoDenied(w)
@@ -87,7 +93,7 @@ func (a *API) refreshSession(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"token": tok, "user": u})
+	writeJSON(w, http.StatusOK, map[string]any{"token": a.handOut(w, r, tok), "user": u})
 }
 
 // limiterIP is the address a login limit applies to: IPv6 clients get a
@@ -109,6 +115,10 @@ type failLimiter struct {
 	window time.Duration
 	hits   map[string][]time.Time
 }
+
+// The answer to a wrong password slows down after three in a row (per
+// address + account): 1 s more each time, at most 5 s.
+var loginDelayStep, loginMaxDelay = time.Second, 5 * time.Second
 
 var loginFails = &failLimiter{max: 10, window: 15 * time.Minute, hits: map[string][]time.Time{},
 	limits: map[string]int{"ip": 50, "email": 100}}
@@ -163,14 +173,38 @@ func (l *failLimiter) fail(keys ...string) {
 	}
 }
 
+// count is the number of recent failures of k.
+func (l *failLimiter) count(k string) int {
+	l.Lock()
+	defer l.Unlock()
+	return len(l.recent(k, time.Now()))
+}
+
 func (l *failLimiter) clear(k string) {
 	l.Lock()
 	delete(l.hits, k)
 	l.Unlock()
 }
 
+// handOut delivers a new session token: the admin app (auth.WantsCookie)
+// gets it as the HttpOnly session cookie and "" in the answer, so no page
+// script ever sees it; API clients get the token itself.
+func (a *API) handOut(w http.ResponseWriter, r *http.Request, tok string) string {
+	if !auth.WantsCookie(r) {
+		return tok
+	}
+	auth.SetSessionCookie(w, tok, secureRequest(r))
+	return ""
+}
+
+// secureRequest reports whether r came over https (directly, through a
+// trusted proxy, or as the browser's Origin says), so cookies get Secure.
+func secureRequest(r *http.Request) bool {
+	return plugin.RequestScheme(r) == "https" || strings.HasPrefix(r.Header.Get("Origin"), "https://")
+}
+
 // issueToken records the login and answers {token, user}.
-func (a *API) issueToken(w http.ResponseWriter, u *model.User, status int) {
+func (a *API) issueToken(w http.ResponseWriter, r *http.Request, u *model.User, status int) {
 	if err := a.st.TouchLogin(u.ID); err != nil {
 		serverErr(w, err)
 		return
@@ -180,7 +214,7 @@ func (a *API) issueToken(w http.ResponseWriter, u *model.User, status int) {
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, status, map[string]any{"token": tok, "user": u})
+	writeJSON(w, status, map[string]any{"token": a.handOut(w, r, tok), "user": u})
 }
 
 // session reloads user id and signs a session for its current password.
@@ -299,7 +333,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, struct {
 		*model.User
 		Token string `json:"token"`
-	}{fresh, tok})
+	}{fresh, a.handOut(w, r, tok)})
 }
 
 // canManageRole reports whether p may give role to someone, or manage an

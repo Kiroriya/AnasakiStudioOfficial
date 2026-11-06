@@ -274,6 +274,10 @@ func jsonErrText(err error) string {
 	case errors.Is(err, io.ErrUnexpectedEOF):
 		return "JSON ไม่ครบ"
 	}
+	// other decoder errors name Go types ("json: … into Go value of type …"): never shown as they are
+	if strings.HasPrefix(err.Error(), "json: ") {
+		return "JSON ไม่ถูกต้อง"
+	}
 	return err.Error()
 }
 

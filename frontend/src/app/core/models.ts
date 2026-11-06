@@ -105,6 +105,8 @@ export interface Post {
   publishedAt: string | null;
   /** Custom field values (phase 4a; present when the type has fields). */
   meta?: Record<string, unknown>;
+  /** Saved, not yet published designer changes of a published page (CMS 2.3.0; single-post reads only). */
+  draft?: { title: string; slug: string; design: DNode; savedAt: string } | null;
 }
 
 export interface PostInput {
@@ -125,6 +127,10 @@ export interface PostInput {
   terms?: Record<string, number[]>;
   /** Custom field values (site.postType fields / site.fields), phase 4a. */
   meta?: Record<string, unknown>;
+  /** On a published page: keep title / slug / design as its draft instead of publishing them (CMS 2.3.0). */
+  asDraft?: boolean;
+  /** Drop the page's draft (CMS 2.3.0). */
+  discardDraft?: boolean;
 }
 
 export interface Page<T> {

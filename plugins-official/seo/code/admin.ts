@@ -73,7 +73,7 @@ const langOf = (ctx: any): Lang => (ctx?.locale === 'en' ? 'en' : 'th');
 
 const STYLE = `<style>
 .serp{display:flex;flex-direction:column;gap:2px;max-width:600px}
-.serp-url{color:#188038;font-size:13px}.serp-title{color:#1a0dab;font-size:18px;line-height:1.3}
+.seo-saved{margin:8px 0 0;color:#15803d;font-weight:600}.serp-url{color:#188038;font-size:13px}.serp-title{color:#1a0dab;font-size:18px;line-height:1.3}
 .serp-desc{color:var(--ak-muted,#4d5156);font-size:13px}.serp-big{padding:12px;border:1px solid var(--ak-border,#e5e7eb);border-radius:10px;margin-bottom:16px}
 .over{color:#b91c1c}.seo-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
 @media (max-width:900px){.seo-grid{grid-template-columns:1fr}.seo-defaults{order:-1}}
@@ -144,14 +144,16 @@ function defaultsForm(t: any): string {
     field('defaultDescription', `<textarea name="defaultDescription" data-seo-setting="defaultDescription" rows="3" maxlength="500">${v('defaultDescription')}</textarea>`) +
     imageField('defaultImage', 'seo-default-image', t.defaultImage, String(site.settings('defaultImage') ?? ''), t, ' data-seo-setting="defaultImage"') +
     field('twitterHandle', `<input name="twitterHandle" data-seo-setting="twitterHandle" maxlength="40" value="${v('twitterHandle')}" placeholder="@yourbrand">`) +
-    `<button class="ak-btn ak-btn-primary seo-block" id="seo-defaults-save" type="submit" disabled>💾 ${t.save}</button></form>` +
+    `<button class="ak-btn ak-btn-primary seo-block" id="seo-defaults-save" type="submit" disabled>💾 ${t.save}</button>` +
+    // 2.0.4 (Qraft feedback): a "saved" line that stays, the toast alone vanished with the reload
+    `<p class="seo-saved" id="seo-defaults-ok" role="status" hidden>✓ ${esc(t.saved)}</p></form>` +
     `<p class="ak-hint">${t.settingsHint}</p>` + IMG_SCRIPT +
     `<script>(function(){var f=document.getElementById('seo-defaults'),b=document.getElementById('seo-defaults-save'),k=${json(SETTING_KEYS)};` +
     `function cur(){return JSON.stringify(k.map(function(n){return f.elements.namedItem(n).value}))}var start=cur();` +
     `function upd(){b.disabled=cur()===start}f.addEventListener('input',upd);f.addEventListener('change',upd)})();` +
     `function seoDefaults(form){if(document.getElementById('seo-defaults-save').disabled)return false;var f=form.elements,v={};${json(SETTING_KEYS)}.forEach(function(k){v[k]=f.namedItem(k).value});` +
     `anasaki.call('seo:saveDefaults',v).then(function(r){if(r.errors&&Object.keys(r.errors).length){var m=r.message||Object.values(r.errors).join(', ');window.AK?AK.toast(m,'error'):alert(m);return}` +
-    `window.AK&&AK.toast(${json(t.saved)},'success');setTimeout(function(){location.reload()},400)},function(e){window.AK?AK.toast(e.message,'error'):alert(e.message)});return false}</script>`;
+    `window.AK&&AK.toast(${json(t.saved)},'success');document.getElementById('seo-defaults-ok').hidden=false;setTimeout(function(){location.reload()},1500)},function(e){window.AK?AK.toast(e.message,'error'):alert(e.message)});return false}</script>`;
 }
 
 function listView(ctx: any, t: any): string {
@@ -212,7 +214,7 @@ var d=document.querySelector('[data-count="description"]');d.textContent=Array.f
 document.getElementById('seo-form').addEventListener('input',seoUpd);
 function seoSave(form){var f=form.elements;anasaki.call('seo:saveMeta',{postId:SEO.id,title:f.namedItem('title').value,description:f.namedItem('description').value,image:f.namedItem('image').value,noindex:f.namedItem('noindex').checked}).then(function(r){
 if(r.errors&&Object.keys(r.errors).length){var m=r.message||Object.values(r.errors).join(', ');window.AK?AK.toast(m,'error'):alert(m);return}
-window.AK&&AK.toast(SEO.saved,'success');setTimeout(function(){location.href=SEO.back},400)},function(e){window.AK?AK.toast(e.message,'error'):alert(e.message)});return false}
+window.AK&&AK.toast(SEO.saved,'success');setTimeout(function(){location.href=SEO.back},1200)},function(e){window.AK?AK.toast(e.message,'error'):alert(e.message)});return false}
 </script>`;
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/dop251/goja"
 	"golang.org/x/net/html"
 
+	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/kses"
 	"github.com/anasaki/studio/backend/internal/plugin"
 )
@@ -162,6 +163,7 @@ func (e *Engine) Middleware(w http.ResponseWriter, r *http.Request, opts map[str
 	}
 	defer release()
 	user := e.userFrom(r)
+	viewer := user != nil || e.viewerIsAdmin(r) // 2.3.0: an admin browsing the site (cookie on a GET)
 	s := &Session{e: e, r: r, user: user, held: true, set: set, setOK: true, vis: &visitorState{}}
 	if site != nil {
 		s.prog, s.lp, s.version = site.prog, site, site.id
@@ -183,7 +185,7 @@ func (e *Engine) Middleware(w http.ResponseWriter, r *http.Request, opts map[str
 		v.rt.ClearInterrupt()
 		v.user, v.logs, v.cookies, v.source = user, nil, nil, key
 		v.req, v.bodyReq, v.body, v.rawBody = r, r, nil, false // the body stays for the route
-		ctx := v.middlewareCtx(r, user)
+		ctx := v.middlewareCtx(r, user, viewer)
 		val, err := v.call(v.mws[m.idx].fn, limit, ctx)
 		var res *Response
 		if err == nil && val != nil && !goja.IsUndefined(val) && !goja.IsNull(val) && continueHeaders(w, v, val) {
@@ -226,7 +228,7 @@ func (e *Engine) Middleware(w http.ResponseWriter, r *http.Request, opts map[str
 
 // middlewareCtx is the ctx of a middleware: request (without the body),
 // visitor, user / isAdminUser and response (setCookie).
-func (v *vm) middlewareCtx(r *http.Request, user *User) goja.Value {
+func (v *vm) middlewareCtx(r *http.Request, user *User, viewer bool) goja.Value {
 	ctx := v.rt.NewObject()
 	req := v.requestValueP(r, map[string]string{}).ToObject(v.rt)
 	_ = req.Set("ip", plugin.ClientIP(r))
@@ -237,7 +239,7 @@ func (v *vm) middlewareCtx(r *http.Request, user *User) goja.Value {
 	_ = ctx.Set("request", req)
 	_ = ctx.Set("response", v.responseValue(r))
 	_ = ctx.Set("user", v.userValue())
-	_ = ctx.Set("isAdminUser", user != nil)
+	_ = ctx.Set("isAdminUser", viewer)
 	v.defineVisitor(ctx)
 	return ctx
 }
@@ -341,7 +343,7 @@ func (e *Engine) AfterResponse(r *http.Request, status int, ctype string, dur ti
 	}
 	info := ResponseInfo{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, Status: status, ContentType: ctype,
 		Referrer: r.Referer(), UserAgent: r.UserAgent(), IP: plugin.ClientIP(r), DurationMs: dur.Milliseconds(), Title: title,
-		IsAdminUser: strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") && e.userFrom(r) != nil,
+		IsAdminUser: auth.ViewToken(r) != "" && e.viewerIsAdmin(r),
 		At:          e.Now().UTC().Format(time.RFC3339), Host: plugin.RequestHost(r), Headers: map[string]string{}}
 	for _, h := range afterHeaders {
 		if x := r.Header.Get(h); x != "" {

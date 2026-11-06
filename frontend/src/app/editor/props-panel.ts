@@ -219,6 +219,10 @@ const OVR_LABEL: Record<string, string> = {
                     <button [class.on]="e.layout?.mode === 'horizontal' && !e.layout.wrap" [title]="'ed.pp2.horizontal' | t" [attr.aria-label]="'ed.pp2.horizontal' | t" (click)="layout({ mode: 'horizontal', wrap: undefined })">→</button>
                     <button [class.on]="e.layout?.mode === 'horizontal' && !!e.layout.wrap" [title]="'ed.pp2.wrap' | t" [attr.aria-label]="'ed.pp2.wrap' | t" (click)="layout({ mode: 'horizontal', wrap: true })">↵</button>
                   </div>
+                  @if (e.layout?.mode === 'horizontal' && store.bp() === 'desktop') {
+                    <label class="fg-check" id="pp-stack-mobile" [title]="'ed.pp2.stackMobileTip' | t">
+                      <input type="checkbox" [checked]="n.responsive?.mobile?.layout?.mode === 'vertical'" (change)="store.setStackOnMobile(n.id, checked($event))" /> 📱 {{ 'ed.pp2.stackMobile' | t }}</label>
+                  }
                   <div class="fg-row2 tight">
                     <label class="fg-field" [class.ovr]="store.isOverridden(n, 'layout', 'gap')" [title]="'ed.pp.gap' | t">
                       <span [reaScrub]="e.layout?.gap ?? 0" [minValue]="0" (scrub)="layout({ gap: $event })">⇕</span>
@@ -397,6 +401,8 @@ const OVR_LABEL: Record<string, string> = {
             @if (n.type === 'text' || n.type === 'button') { <rea-text-style [node]="n" /> }
             <select class="fg-font" [value]="e.style?.fontFamily ?? ''" (change)="style({ fontFamily: val($event) })" [class.ovr]="store.isOverridden(n, 'style', 'fontFamily')">
               <option value="">{{ 'ed.pp2.fontDefault' | t }}</option>
+              <!-- 2.3.0 (Qraft feedback 7): the visitor's own UI font, nothing to download -->
+              <option value="system-ui">{{ 'ed.pp2.fontSystem' | t }}</option>
               @for (f of fonts; track f) { <option [value]="f">{{ f }}</option> }
             </select>
             <div class="fg-row2">

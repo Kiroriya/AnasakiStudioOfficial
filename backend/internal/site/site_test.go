@@ -32,6 +32,15 @@ func TestPermalinkBases(t *testing.T) {
 	if PostURL(post) != "/news/hello" || CategoryURL("go") != "/topics/go" {
 		t.Errorf("custom: %s %s", PostURL(post), CategoryURL("go"))
 	}
+	// 2.3.0: the home page's address is "/" (home_page_id, else the page with slug "home")
+	if PostURL(&model.Post{Type: model.TypePage, Slug: "home"}) != "/" {
+		t.Error("slug home")
+	}
+	SetBases(map[string]string{"home_page_id": "7"})
+	if PostURL(&model.Post{ID: 7, Type: model.TypePage, Slug: "start"}) != "/" || PostURL(&model.Post{ID: 8, Type: model.TypePage, Slug: "home"}) != "/home" ||
+		PostURL(&model.Post{ID: 7, Type: model.TypePost, Slug: "x"}) != "/blog/x" {
+		t.Error("home_page_id")
+	}
 	SetBases(map[string]string{"blog_base": "../x", "category_base": "a b"})
 	if BlogBase() != "blog" || CategoryBase() != "category" {
 		t.Errorf("invalid bases must fall back: %s %s", BlogBase(), CategoryBase())

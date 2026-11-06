@@ -71,6 +71,37 @@ func TestOfficialMaintenance(t *testing.T) {
 	if r := admin.send("GET", "/about", nil, nil); r.Code != 200 { // a CMS user's request (bearer token, e.g. a preview)
 		t.Fatalf("admin user blocked: %d", r.Code)
 	}
+	// 2.1.0: the site's own files, robots.txt and sitemap.xml stay up; openPaths keeps more working
+	for _, p := range []string{"/site-assets/qr.js", "/robots.txt", "/sitemap.xml"} {
+		if code, _, _ := get(p); code == 503 {
+			t.Errorf("%s should not be blocked", p)
+		}
+	}
+	offAPkgSettings(t, admin, "maintenance", map[string]any{"openPaths": "/s/,/status"})
+	for p, open := range map[string]bool{"/s/abc": true, "/s": true, "/status": true, "/status/x": true, "/sx": false, "/statuses": false} {
+		if code, _, _ := get(p); (code == 503) == open {
+			t.Errorf("openPaths %s: %d", p, code)
+		}
+	}
+	offAPkgSettings(t, admin, "maintenance", map[string]any{"openPaths": ""})
+	// CMS 2.3.0: an administrator browsing the site in the same browser (session cookie, no header) sees it
+	lr := c.send("POST", "/api/v1/auth/login", strings.NewReader(`{"email":"owner@x.io","password":"secret123"}`),
+		map[string]string{"X-Anasaki-Session": "cookie", "Content-Type": "application/json"})
+	var session string
+	for _, ck := range lr.Result().Cookies() {
+		if ck.Name == "anasaki_session" {
+			session = ck.Value
+		}
+	}
+	if session == "" {
+		t.Fatal("no session cookie")
+	}
+	if r := c.send("GET", "/about", nil, map[string]string{"Cookie": "anasaki_session=" + session}); r.Code != 200 {
+		t.Fatalf("admin browsing with the session cookie: %d", r.Code)
+	}
+	if r := c.send("GET", "/about", nil, map[string]string{"Cookie": "anasaki_session=forged"}); r.Code != 503 {
+		t.Fatalf("forged session cookie: %d", r.Code)
+	}
 	if html, _ := offAAdminPage(t, e, admin, "maintenance:maintenance", ""); !strings.Contains(html, `data-mt="status" data-on="true"`) {
 		t.Fatalf("admin page while on:\n%s", html)
 	}

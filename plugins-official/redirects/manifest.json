@@ -1,7 +1,7 @@
 {
   "id": "redirects",
   "name": "Redirects / เปลี่ยนเส้นทาง",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "301/302/307/308 redirects for moved or renamed links (exact path, trailing slash ignored, query kept, loop check) and a log of missing pages (404) to fix. / ตั้งค่า redirect เมื่อย้ายหรือเปลี่ยนลิงก์ และดูรายการหน้าที่ไม่พบ (404) เพื่อแก้ไข",
   "author": "Anasaki Studio",
   "icon": "↪️",

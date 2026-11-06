@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -197,7 +198,9 @@ func (e *Engine) DeveloperTables(ctx context.Context) ([]TableInfo, error) {
 	}
 	var out []TableInfo
 	for _, t := range list {
-		if !t.View && !t.System {
+		// a JS plugin's own tables (p_<id>_*: form submissions, visitor salts…) are its
+		// internals, not the site's data sources (2.3.0, Qraft feedback 33)
+		if !t.View && !t.System && !strings.HasPrefix(t.Name, "p_") {
 			out = append(out, t)
 		}
 	}

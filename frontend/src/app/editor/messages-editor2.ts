@@ -31,7 +31,7 @@ registerMessages({
   'ed.theme.bpMobile': { th: 'ใช้ดีไซน์มือถือเมื่อจอกว้าง', en: 'Mobile design up to' },
   'ed.theme.bpTablet': { th: 'ใช้ดีไซน์แท็บเล็ตเมื่อจอกว้าง', en: 'Tablet design up to' },
   'ed.theme.bpDefault': { th: 'ค่าเริ่มต้น', en: 'default' },
-  'ed.theme.bpHint': { th: 'ถ้าหน้าแบบสองคอลัมน์ล้นจอช่วง 641–767 px ให้เลือก 767 (แบบเดียวกับ Tailwind md) ผืนงานยังแสดงมือถือที่ 390 px และแท็บเล็ตที่ 834 px', en: 'If two-column pages overflow between 641 and 767 px, pick 767 (like Tailwind md). The canvas still shows mobile at 390 px and tablet at 834 px' },
+  'ed.theme.bpHint': { th: 'ตั้งครั้งเดียวมีผลกับทุกหน้าของเว็บ (บันทึกพร้อมธีม) ถ้าหน้าแบบสองคอลัมน์ล้นจอช่วง 641–767 px ให้เลือก 767 (แบบเดียวกับ Tailwind md) ผืนงานยังแสดงมือถือที่ 390 px และแท็บเล็ตที่ 834 px', en: 'One setting for every page of the site (saved with the theme). If two-column pages overflow between 641 and 767 px, pick 767 (like Tailwind md). The canvas still shows mobile at 390 px and tablet at 834 px' },
   'ed.theme.fontDefault': { th: 'ค่าเริ่มต้น (Inter + Noto Sans Thai)', en: 'Default (Inter + Noto Sans Thai)' },
   'ed.theme.save': { th: 'บันทึกธีม', en: 'Save theme' },
   'ed.theme.unsaved': { th: 'กำลังดูตัวอย่างบนผืนงาน — กดบันทึกธีม (หรือบันทึกหน้านี้) เพื่อใช้กับเว็บจริงทุกหน้า', en: 'Previewing on the canvas — save the theme (or save this page) to apply it to every page' },

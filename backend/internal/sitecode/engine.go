@@ -526,10 +526,16 @@ func (e *Engine) failedIn(u *unitInfo, key string, re *RunError, version int64) 
 
 func (e *Engine) setLastErr(s string) { e.lastErr.Store(&s) }
 
-// userFrom resolves ctx.user from an admin bearer token (nil = anonymous).
-func (e *Engine) userFrom(r *http.Request) *User {
-	tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok || e.cfg.Auth == nil {
+// userFrom resolves ctx.user from an admin session, bearer or cookie (nil = anonymous).
+func (e *Engine) userFrom(r *http.Request) *User { return e.userOf(auth.RequestToken(r)) }
+
+// viewerIsAdmin reports whether a signed-in CMS user is looking at the page:
+// userFrom, or the session cookie alone on a GET / HEAD (auth.ViewToken) —
+// for isAdminUser only; it never becomes ctx.user.
+func (e *Engine) viewerIsAdmin(r *http.Request) bool { return e.userOf(auth.ViewToken(r)) != nil }
+
+func (e *Engine) userOf(tok string) *User {
+	if tok == "" || e.cfg.Auth == nil {
 		return nil
 	}
 	p, err := e.cfg.Auth.Parse(tok)

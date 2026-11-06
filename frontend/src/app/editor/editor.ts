@@ -56,6 +56,12 @@ import { vectorShortcut } from './vector-ops';
               <input class="fg-title" [value]="store.title()" (change)="rename($event)" [title]="'ed.pageName' | t" />
               <small>{{ kindLabel() | t }} · {{ (store.kind() === 'post' ? (store.status() === 'publish' ? 'ed.ui.published' : 'ed.ui.draft') : 'ed.ui.mainComponent') | t }}
                 @if (store.dirty()) { <b class="dirty" [title]="'ed.unsavedTitle' | t">● {{ 'ed.ui.unsaved' | t }}</b> }</small>
+              @if (store.hasDraft()) {
+                <div class="fg-pending">
+                  <b id="ed-pending" [title]="'ed.ui.pendingTitle' | t">◐ {{ 'ed.ui.pendingChanges' | t }}</b>
+                  <button type="button" id="ed-discard-draft" (click)="store.discardDraft()">{{ 'ed.draft.discard' | t }}</button>
+                </div>
+              }
             </div>
           </div>
           <div class="fg-tabs">
