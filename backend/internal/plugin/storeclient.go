@@ -272,5 +272,9 @@ func (m *Manager) DownloadFromStoreMeta(id, version string) ([]byte, string, err
 			return nil, "", pkgErr("the downloaded package does not match the store's checksum (sha256) — try again")
 		}
 	}
+	// the store's signature (2.4.0): a package changed or swapped after it left the store is refused
+	if err := m.verifyPackage(id, b, hdr); err != nil {
+		return nil, "", err
+	}
 	return b, strings.TrimSpace(hdr.Get("X-Anasaki-Publisher")), nil
 }

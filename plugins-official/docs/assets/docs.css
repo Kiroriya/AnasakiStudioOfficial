@@ -426,3 +426,9 @@
 .dx-tabs .dx-code, .dx-tabs .dx-code pre { border-top-left-radius: 0; border-top-right-radius: 0; }
 .dx-tabs { margin: 20px 0; }
 .dx-tabs > .dx-code[hidden] { display: none; }
+
+/* 1.2.0: the page in another language */
+.dx-langs{margin:12px 0 0;font-size:14px;color:var(--dx-muted)}
+.dx-langs a{color:var(--dx-primary);font-weight:600;text-decoration:none}
+.dx-langs a:hover{text-decoration:underline}
+.dx-main>.dx-langs{margin:-6px 0 18px}

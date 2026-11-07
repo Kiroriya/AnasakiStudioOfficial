@@ -27,6 +27,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	// higher limits, so a stranger can't lock the owner out from elsewhere
 	keys := []string{"ipemail:" + ip + "|" + email, "ip:" + ip, "email:" + email}
 	if !loginFails.allow(keys...) {
+		a.audit(r, store.AuditEntry{Label: email, Status: http.StatusTooManyRequests, Via: "login"})
 		writeErr(w, http.StatusTooManyRequests, "เข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่")
 		return
 	}
@@ -38,6 +39,8 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		ok = auth.CheckPassword(hash, in.Password)
 	}
 	if !ok {
+		// the address typed, not whether it has an account (the log is for administrators)
+		a.audit(r, store.AuditEntry{Label: email, Status: http.StatusUnauthorized, Via: "login"})
 		loginFails.fail(keys...)
 		// each further wrong password on the same account from the same
 		// address answers a little later (2.3.0), up to loginMaxDelay
@@ -50,9 +53,11 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	loginFails.clear(keys[0])
 	loginFails.clear(keys[2])
 	if u.Status == model.UserSuspended {
+		a.audit(r, store.AuditEntry{UserID: u.ID, UserName: u.Name, Label: email, Status: http.StatusForbidden, Via: "login"})
 		writeErr(w, http.StatusForbidden, "บัญชีนี้ถูกระงับ")
 		return
 	}
+	a.audit(r, store.AuditEntry{UserID: u.ID, UserName: u.Name, Label: email, Status: http.StatusOK, Via: "login"})
 	a.issueToken(w, r, u, http.StatusOK)
 }
 

@@ -136,9 +136,24 @@ html.rea-lock{overflow:hidden}
 .rea-car-dots{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:6px;z-index:2}
 .rea-car-dots button{width:8px;height:8px;border-radius:999px;border:0;padding:0;background:rgba(255,255,255,.6);box-shadow:0 0 0 1px rgba(0,0,0,.18);cursor:pointer;transition:width .2s}
 .rea-car-dots button.on{background:#fff;width:22px}
+img[data-rea-lb]{cursor:zoom-in}
+.rea-lbx{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;background:rgba(10,12,20,.92);padding:56px 72px}
+.rea-lbx.rea-open{display:flex;animation:rea-pop-in .18s ease-out}
+.rea-lbx figure{margin:0;max-width:100%;max-height:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
+.rea-lbx img{max-width:100%;max-height:calc(100vh - 150px);object-fit:contain;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.rea-lbx figcaption{color:#e5e7eb;font-size:14px;text-align:center}
+.rea-lbx-c{color:#9ca3af;font-size:13px}
+.rea-lbx button{position:absolute;border:0;background:rgba(255,255,255,.14);color:#fff;width:46px;height:46px;border-radius:999px;font-size:28px;line-height:1;cursor:pointer}
+.rea-lbx button:hover,.rea-lbx button:focus-visible{background:rgba(255,255,255,.28);outline:0}
+.rea-lbx-x{top:14px;right:14px}.rea-lbx-p{left:14px;top:50%;transform:translateY(-50%)}.rea-lbx-n{right:14px;top:50%;transform:translateY(-50%)}
+.rea-lbx-one .rea-lbx-p,.rea-lbx-one .rea-lbx-n,.rea-lbx-one .rea-lbx-c{display:none}
+@media(max-width:640px){.rea-lbx{padding:60px 8px 80px}.rea-lbx-p,.rea-lbx-n{top:auto;bottom:16px;transform:none}}
 `
 
-// InteractScript wires the actions (window.__reaAct), popups and sliders.
+// InteractScript wires the actions (window.__reaAct), popups, sliders and
+// (2.4.0) the image lightbox: img[data-rea-lb] opens data-rea-full large;
+// images sharing data-rea-lb (the frame they sit in) page with ‹ › , the arrow
+// keys and a swipe; Escape or × closes and focus returns to the image.
 const InteractScript = `(function(){var A=window.__reaAct||[],d=document,ea=function(l,f){[].forEach.call(l,f)};
 function one(c){return d.querySelector('.'+c)}
 function show(p){if(!p)return;p.classList.add('rea-open');d.documentElement.classList.add('rea-lock');var f=p.querySelector('a,button,input,textarea,select');f&&f.focus({preventScroll:true})}
@@ -161,4 +176,16 @@ var pv=c.querySelector('.rea-car-prev'),nx=c.querySelector('.rea-car-next');pv&&
 var dots=c.querySelector('.rea-car-dots');if(dots){ea(tr.children,function(s,i){var b=d.createElement('button');b.type='button';b.setAttribute('aria-label',String(i+1));b.addEventListener('click',function(){tr.scrollTo({left:s.offsetLeft-tr.offsetLeft,behavior:'smooth'})});dots.appendChild(b)});
 var mark=function(){var x=tr.scrollLeft,best=0,bd=1e9;ea(tr.children,function(s,i){var dd=Math.abs(s.offsetLeft-tr.offsetLeft-x);if(dd<bd){bd=dd;best=i}});ea(dots.children,function(b,i){b.classList.toggle('on',i===best)})};
 tr.addEventListener('scroll',function(){clearTimeout(tr._t);tr._t=setTimeout(mark,80)});mark()}
-var ap=+c.dataset.autoplay;if(ap>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches){var hov=false;c.addEventListener('mouseenter',function(){hov=true});c.addEventListener('mouseleave',function(){hov=false});setInterval(function(){if(!hov&&!d.hidden)go(1)},ap*1000)}})})();`
+var ap=+c.dataset.autoplay;if(ap>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches){var hov=false;c.addEventListener('mouseenter',function(){hov=true});c.addEventListener('mouseleave',function(){hov=false});setInterval(function(){if(!hov&&!d.hidden)go(1)},ap*1000)}});
+var L=d.querySelectorAll('img[data-rea-lb]');if(L.length){var th=/^th/.test(d.documentElement.lang),bx,im,cp,ct,ls=[],at=0,from;
+function mk(){if(bx)return;bx=d.createElement('div');bx.className='rea-lbx';bx.setAttribute('role','dialog');bx.setAttribute('aria-modal','true');
+bx.innerHTML='<button type="button" class="rea-lbx-x" aria-label="'+(th?'ปิด':'Close')+'">×</button><button type="button" class="rea-lbx-p" aria-label="'+(th?'รูปก่อนหน้า':'Previous')+'">‹</button><figure><img alt=""><figcaption></figcaption><span class="rea-lbx-c"></span></figure><button type="button" class="rea-lbx-n" aria-label="'+(th?'รูปถัดไป':'Next')+'">›</button>';
+d.body.appendChild(bx);im=bx.querySelector('img');cp=bx.querySelector('figcaption');ct=bx.querySelector('.rea-lbx-c');
+bx.addEventListener('click',function(e){var t=e.target.closest('button');if(!t){if(e.target===bx)cl();return}if(t.classList.contains('rea-lbx-x'))cl();else st(t.classList.contains('rea-lbx-p')?-1:1)});
+var sx=0;bx.addEventListener('touchstart',function(e){sx=e.touches[0].clientX},{passive:true});bx.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>50)st(dx<0?1:-1)})}
+function dr(){var i=ls[at];im.src=i.dataset.reaFull;im.alt=i.alt;cp.textContent=i.alt;ct.textContent=(at+1)+' / '+ls.length;bx.classList.toggle('rea-lbx-one',ls.length<2)}
+function op(i){mk();ls=[].filter.call(L,function(x){return x.dataset.reaLb===i.dataset.reaLb});at=Math.max(0,ls.indexOf(i));from=i;dr();bx.classList.add('rea-open');d.documentElement.classList.add('rea-lock');bx.querySelector('.rea-lbx-x').focus()}
+function cl(){bx.classList.remove('rea-open');if(!d.querySelector('.rea-pop.rea-open'))d.documentElement.classList.remove('rea-lock');from&&from.focus()}
+function st(k){at=(at+k+ls.length)%ls.length;dr()}
+ea(L,function(i){i.addEventListener('click',function(e){e.preventDefault();op(i)});i.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();op(i)}})});
+d.addEventListener('keydown',function(e){if(!bx||!bx.classList.contains('rea-open'))return;if(e.key==='Escape')cl();else if(e.key==='ArrowLeft')st(-1);else if(e.key==='ArrowRight')st(1);else if(e.key==='Tab'){var b=bx.querySelectorAll('button:not([style*="none"])'),f=b[0],l=b[b.length-1];if(e.shiftKey&&d.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&d.activeElement===l){e.preventDefault();f.focus()}}})}})();`

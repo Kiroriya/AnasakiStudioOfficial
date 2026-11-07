@@ -83,6 +83,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 	a.mailRoutes(h, mux)
 
 	h("GET "+p+"/auth/me", "", a.me)
+	h("GET "+p+"/audit", auth.CapManageUsers, a.listAudit) // 2.4.0: admin activity log
 	h("PUT "+p+"/auth/me", "", a.updateMe)
 	h("GET "+p+"/auth/tokens", "", a.listTokens) // own tokens; ?user= with manage_users
 	h("POST "+p+"/auth/tokens", "", a.createToken)
@@ -176,6 +177,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 // (so demotions, suspensions, deletions and password changes apply
 // immediately) and enforces a capability.
 func (a *API) protect(cap string, fn http.HandlerFunc) http.Handler {
+	fn = a.audited(fn) // 2.4.0: changes go to the admin activity log
 	session := a.protectSession(cap, fn)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// a personal access token (tokens.go) instead of a session

@@ -287,3 +287,24 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   UNIQUE KEY uq_api_tokens_hash (token_hash),
   KEY idx_api_tokens_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Activity log of the admin (2.4.0): every change made through the signed-in
+-- API and every sign-in, without request bodies (no passwords or keys).
+-- route is the API pattern ("PUT /api/v1/posts/{id}"), target the id it named
+-- and label a readable name of it taken before the change (a deleted page's
+-- title). Kept 180 days.
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+  at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  user_id   BIGINT       NOT NULL DEFAULT 0,
+  user_name VARCHAR(191) NOT NULL DEFAULT '',
+  method    VARCHAR(8)   NOT NULL,
+  route     VARCHAR(191) NOT NULL,
+  target    VARCHAR(191) NOT NULL DEFAULT '',
+  label     VARCHAR(255) NOT NULL DEFAULT '',
+  status    INT          NOT NULL DEFAULT 0,
+  ip        VARCHAR(64)  NOT NULL DEFAULT '',
+  via       VARCHAR(16)  NOT NULL DEFAULT 'session',
+  KEY idx_admin_audit_at (at),
+  KEY idx_admin_audit_user (user_id, at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -527,6 +527,9 @@ const OVR_LABEL: Record<string, string> = {
               </div>
               @if (n.props?.src === siteLogo && !store.siteCtx()['logo']) { <p class="hint warn">{{ 'ed.pp.noLogo' | t }}</p> }
               <label>{{ 'ed.pp.alt' | t }} <rea-binding-input [nodeId]="n.id" [value]="n.props?.alt ?? ''" inputId="pp-alt" (changed)="props({ alt: $event })" /></label>
+              <!-- 2.4.0: open large on click; images with it in the same frame page through as one gallery -->
+              <label class="fg-check" [title]="'ed.pp.lightboxTip' | t"><input type="checkbox" id="pp-lightbox" [checked]="!!n.props?.lightbox" [disabled]="!!n.props?.href"
+                (change)="props({ lightbox: checked($event) || undefined })" /> 🔍 {{ 'ed.pp.lightbox' | t }}</label>
               <label>{{ 'ed.pp.fit' | t }}
                 <select [value]="e.style?.objectFit || 'cover'" (change)="style({ objectFit: $any(val($event)) })">
                   <option value="cover">{{ 'ed.pp.fitCover' | t }}</option><option value="contain">{{ 'ed.pp.fitContain' | t }}</option><option value="fill">{{ 'ed.pp2.stretch' | t }}</option>

@@ -133,6 +133,12 @@ export interface PostInput {
   discardDraft?: boolean;
 }
 
+/** A line of the admin activity log (GET /audit, CMS 2.4.0). */
+export interface AuditEntry {
+  id: number; at: string; userId: number; userName: string; method: string; route: string;
+  target: string; label: string; status: number; ip: string; via: 'session' | 'token' | 'login';
+}
+
 export interface Page<T> {
   items: T[];
   total: number;

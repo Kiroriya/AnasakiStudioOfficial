@@ -23,7 +23,14 @@ export interface Doc {
   sectionOrder: number;
   updatedAt: string;
   headings: Heading[];
+  /** 1.2.0: the article's language ('' = the site's) and the slug its URL uses — a translation shares it with
+   *  the original (post slug "intro-en", base "intro" → /docs/en/<product>/intro). */
+  lang: string;
+  base: string;
 }
+
+/** Languages an article can be written in (1.2.0). */
+export const DOC_LANGS: Lang[] = ['th', 'en'];
 
 export interface Heading {
   level: 2 | 3;
@@ -248,6 +255,8 @@ export function docFromPost(p: any): Doc {
     sectionOrder: num(pick('sectionOrder'), NaN),
     updatedAt: String(p.updatedAt ?? ''),
     headings: withHeadingIds(String(p.content ?? '')).headings,
+    lang: (DOC_LANGS as string[]).includes(String(pick('lang') ?? '').trim().toLowerCase()) ? String(pick('lang')).trim().toLowerCase() : '',
+    base: SLUG_RE.test(String(pick('base') ?? '').trim()) ? String(pick('base')).trim() : String(p.slug ?? ''),
   };
 }
 

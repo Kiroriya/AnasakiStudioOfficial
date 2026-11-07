@@ -199,6 +199,8 @@ registerMessages({
   'ed.pp2.text': { th: 'ข้อความ', en: 'Text' },
   'ed.pp2.textInherited': { th: 'ข้อความ (ชั้นลูกใช้ตาม)', en: 'Text (inherited by children)' },
   'ed.pp2.fontDefault': { th: 'Inter (ค่าเริ่มต้น)', en: 'Inter (default)' },
+  'ed.pp.lightbox': { th: 'คลิกเพื่อดูภาพใหญ่ (lightbox)', en: 'Open large on click (lightbox)' },
+  'ed.pp.lightboxTip': { th: 'รูปที่เปิดตัวเลือกนี้และอยู่ใน Frame เดียวกันจะเป็นแกลเลอรีเดียวกัน เลื่อนดูต่อได้ด้วยปุ่มลูกศรหรือปัด (ใช้ไม่ได้กับรูปที่มีลิงก์)', en: 'Images with this in the same frame form one gallery: page through with the arrows or a swipe (not for linked images)' },
   'ed.pp2.stackMobile': { th: 'บนมือถือเรียงแนวตั้ง', en: 'Stack on phones' },
   'ed.pp2.stackMobileTip': { th: 'แถวนี้จะเรียงบนลงล่างเมื่อจอแคบกว่าดีไซน์มือถือ ไม่ต้องไปตั้งในโหมดมือถือทีละแถว', en: 'This row stacks top to bottom below the mobile breakpoint, no need to set it in the mobile view' },
   'ed.pp2.fontSystem': { th: 'ฟอนต์ของระบบ (system-ui) — ไม่ต้องโหลด', en: 'System font (system-ui), nothing to load' },

@@ -12,9 +12,9 @@ const text = (name: string, t: string, style: DNode['style'], extra: Partial<DNo
 const button = (name: string, t: string, style: DNode['style'], props: DNode['props'] = {}): DNode =>
   ({ id: newId(), type: 'button', name, width: hug, height: hug, layout: { padding: [12, 24, 12, 24] }, style: { fill: 'var(--c-primary)', color: '#ffffff', radius: 10, fontWeight: 600, fontSize: 15, ...style }, props: { text: t, href: '', ...props } });
 
-export type InteractiveKind = 'popup' | 'faq' | 'tabs' | 'slider';
+export type InteractiveKind = 'popup' | 'faq' | 'tabs' | 'slider' | 'gallery';
 export const INTERACTIVE: { kind: InteractiveKind; icon: string }[] = [
-  { kind: 'popup', icon: '🗔' }, { kind: 'faq', icon: '☰' }, { kind: 'tabs', icon: '⊟' }, { kind: 'slider', icon: '🎞' },
+  { kind: 'popup', icon: '🗔' }, { kind: 'faq', icon: '☰' }, { kind: 'tabs', icon: '⊟' }, { kind: 'slider', icon: '🎞' }, { kind: 'gallery', icon: '🖼' },
 ];
 
 export function createInteractive(kind: InteractiveKind): DNode {
@@ -88,6 +88,18 @@ export function createInteractive(kind: InteractiveKind): DNode {
         id: newId(), type: 'frame', name: tr('pp.sliderBlock'), width: fill, height: fixed(420), layout: { mode: 'horizontal' }, style: { radius: 0, clip: true },
         props: { carousel: { arrows: true, dots: true, autoplay: 5 } }, children: slides,
         responsive: { mobile: { height: fixed(320) } },
+      };
+    }
+    case 'gallery': {
+      // 2.4.0: a wrapping grid of images that open large on click (one gallery: the frame)
+      const pics: DNode[] = Array.from({ length: 6 }, (_, i) => ({
+        id: newId(), type: 'image', name: tr('pp.photo') + ' ' + (i + 1), width: fixed(260), height: fixed(190),
+        style: { radius: 10, objectFit: 'cover' }, props: { src: '', alt: tr('pp.photo') + ' ' + (i + 1), lightbox: true },
+        responsive: { mobile: { width: fill, height: fixed(220) } },
+      }));
+      return {
+        id: newId(), type: 'frame', name: tr('pp.galleryBlock'), width: fill, height: hug,
+        layout: { mode: 'horizontal', wrap: true, gap: 12, justify: 'center', padding: [24, 24, 24, 24] }, children: pics,
       };
     }
   }

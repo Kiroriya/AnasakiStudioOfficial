@@ -7,7 +7,7 @@ import {
   DesignComponent, Media, Menu, Page, PluginInfo, Post, ServiceHealth, DemoStatus, PostInput, PostType, Revision,
   Settings, Stats, Taxonomy, Term, User, UserList, RolesResponse, RoleInfo, SetupStatus, PublicSite, InstalledPackage, BlockInfo,
   StoreSummary, StoreDetail, StoreCategory, StoreReview,
-  SchemaField, ApiToken, ApiTokenCreate,
+  SchemaField, ApiToken, ApiTokenCreate, AuditEntry,
 } from './models';
 import {
   CodeBuildResult, CodeFile, CodeFileInfo, CodeLogList, CodeRunRequest, CodeRunResult, CodeStatus, CodeUploadMode, CodeUploadResult,
@@ -139,6 +139,8 @@ export class Api {
   updateUser(id: number, u: Partial<User> & { password?: string }) { return this.put<User>(`/users/${id}`, u); }
   deleteUser(id: number, reassign?: number) { return this.del(`/users/${id}` + (reassign ? `?reassign=${reassign}` : '')); }
   roles() { return this.get<RolesResponse>('/roles'); }
+  /** Admin activity log (CMS 2.4.0, manage_users). */
+  audit(q: { page?: number; perPage?: number; q?: string; kind?: string; user?: number; failed?: number } = {}) { return this.get<{ items: AuditEntry[]; total: number; page: number }>('/audit', q); }
   saveRole(r: Partial<RoleInfo>, isNew: boolean) { return isNew ? this.post<RoleInfo>('/roles', r) : this.put<RoleInfo>(`/roles/${r.slug}`, r); }
   deleteRole(slug: string) { return this.del(`/roles/${slug}`); }
   /** Brings back deleted built-in roles with their default permissions. */

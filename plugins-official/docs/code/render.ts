@@ -1,8 +1,8 @@
 // HTML of the public docs pages (hub, product landing, article, not found). Every page is a route result
 // {page: {title, html}} so the site's header and footer wrap it; the look lives in assets/docs.css (class
 // prefix dx-) and the behaviour (drawer, search, TOC scroll-spy, copy buttons) in assets/docs.js.
-import { Doc, Heading, Lang, Product, Section, editHref, esc, formatDate, htmlToMarkdown, jsonData, prepareContent, readMinutes, readingOrder, sectionsOf, tr } from './lib';
-import { docURL, index, knownProduct, lang, offset, products, setting } from './model';
+import { Doc, Heading, Lang, Product, Section, docFromPost, editHref, esc, formatDate, htmlToMarkdown, jsonData, prepareContent, readMinutes, readingOrder, sectionsOf, tr } from './lib';
+import { docLang, docURL, hubPath, index, knownProduct, lang, langs, offset, products, setting, siteLang, translationOf } from './model';
 
 const T = {
   th: {
@@ -60,8 +60,22 @@ interface Ctx {
 function ctx(): Ctx {
   const l = lang();
   const ps = products();
-  const docs = index().filter((d) => knownProduct(d, ps));
+  // 1.2.0: the docs of the page's language only (an article without a language is in the site's)
+  const docs = index().filter((d) => knownProduct(d, ps) && docLang(d) === l);
   return { lang: l, t: T[l], products: ps, docs };
+}
+
+const LANG_NAMES: Record<Lang, string> = { th: 'ไทย', en: 'English' };
+
+/**
+ * Links to the other languages of this page (1.2.0): the same article when it is translated, else that
+ * language's docs home. Nothing when the docs exist in one language only.
+ */
+function langLinks(c: Ctx, hrefFor: (l: Lang) => string): string {
+  const others = langs().filter((l) => l !== c.lang);
+  if (!others.length) return '';
+  return `<nav class="dx-langs" aria-label="${c.lang === 'th' ? 'ภาษา' : 'Language'}">🌐 ` +
+    others.map((l) => `<a href="${esc(hrefFor(l))}" hreflang="${l}" lang="${l}">${esc(LANG_NAMES[l])}</a>`).join(' · ') + `</nav>`;
 }
 
 const countOf = (c: Ctx, p: Product) => c.docs.filter((d) => d.product === p.id).length;
@@ -71,7 +85,7 @@ const firstDoc = (c: Ctx, p: Product) => readingOrder(sectionsOf(c.docs, p.id, c
 function shell(c: Ctx, cls: string, body: string): string {
   const css = asset('assets/docs.css'), js = asset('assets/docs.js');
   const th = c.lang === 'th';
-  const data = { search: '/docs/search.json', lang: c.lang, t: { noResults: th ? 'ไม่พบผลลัพธ์สำหรับ' : 'No results for',
+  const data = { search: hubPath(c.lang) + '/search.json', lang: c.lang, t: { noResults: th ? 'ไม่พบผลลัพธ์สำหรับ' : 'No results for',
     copy: th ? 'คัดลอก' : 'Copy', copied: th ? 'คัดลอกแล้ว' : 'Copied', loading: th ? 'กำลังโหลด…' : 'Loading…', error: th ? 'โหลดดัชนีค้นหาไม่สำเร็จ' : 'Could not load the search index',
     placeholder: c.t.search, label: c.t.searchLabel, suggested: th ? 'แนะนำ' : 'Suggested', results: th ? 'ผลการค้นหา' : 'Results',
     navigate: th ? 'เลื่อน' : 'navigate', open: th ? 'เปิด' : 'open', close: th ? 'ปิด' : 'close', code: th ? 'โค้ด' : 'code',
@@ -90,7 +104,7 @@ function searchBox(c: Ctx, big = false): string {
 function switcher(c: Ctx, current: Product): string {
   const items = c.products.map((p) => {
     const on = p.id === current.id;
-    return `<li><a href="/docs/${esc(p.id)}" class="dx-switch-item${on ? ' is-active' : ''}"${on ? ' aria-current="true"' : ''}>` +
+    return `<li><a href="${esc(hubPath(c.lang))}/${esc(p.id)}" class="dx-switch-item${on ? ' is-active' : ''}"${on ? ' aria-current="true"' : ''}>` +
       `<span class="dx-picon" aria-hidden="true">${esc(p.icon)}</span><span><strong>${esc(tr(p.name, c.lang))}</strong>` +
       `<small>${esc(tr(p.desc, c.lang))}</small></span></a></li>`;
   }).join('');
@@ -109,7 +123,7 @@ function sidebar(c: Ctx, product: Product, sections: Section[], currentSlug: str
     return `<details class="dx-nav-group" open data-dx-group="${esc(product.id + '/' + s.name)}"><summary class="dx-nav-title">${esc(s.name)}</summary><ul>${links}</ul></details>`;
   }).join('');
   return `<aside class="dx-sidebar" id="dx-sidebar" aria-label="${esc(c.t.menu)}">` +
-    `<div class="dx-sidebar-head"><a class="dx-home" href="/docs">${ARROW_L}<span>${esc(c.t.allDocs)}</span></a>` +
+    `<div class="dx-sidebar-head"><a class="dx-home" href="${esc(hubPath(c.lang))}">${ARROW_L}<span>${esc(c.t.allDocs)}</span></a>` +
     `<button type="button" class="dx-icon-btn dx-close" data-dx-close aria-label="${esc(c.t.closeMenu)}">${CLOSE}</button></div>` +
     switcher(c, product) + searchBox(c) +
     `<nav class="dx-nav" aria-label="${esc(tr(product.name, c.lang))}">${groups || `<p class="dx-muted">${esc(c.t.empty)}</p>`}</nav></aside>`;
@@ -137,16 +151,19 @@ function toc(c: Ctx, hs: Heading[]): string {
 
 // ---------------------------------------------------------------- pages
 
+/** The hub's title / intro: the settings are written in the site's language; another language uses its own. */
+const hubText = (c: Ctx, key: 'hubTitle' | 'hubIntro') => (c.lang === siteLang() ? String(setting(key) || '').trim() : '') || c.t[key];
+
 export function hubPage(): RouteResult {
   const c = ctx();
-  const title = String(setting('hubTitle') || '').trim() || c.t.hubTitle;
-  const intro = String(setting('hubIntro') || '').trim() || c.t.hubIntro;
+  const title = hubText(c, 'hubTitle');
+  const intro = hubText(c, 'hubIntro');
   const cards = c.products.map((p) => {
     const first = firstDoc(c, p);
     const n = countOf(c, p);
     return `<div class="dx-card dx-pcard">` +
       `<span class="dx-pcard-icon" aria-hidden="true">${esc(p.icon)}</span>` +
-      `<h3 class="dx-pcard-name"><a class="dx-stretch" href="/docs/${esc(p.id)}">${esc(tr(p.name, c.lang))}</a></h3>` +
+      `<h3 class="dx-pcard-name"><a class="dx-stretch" href="${esc(hubPath(c.lang))}/${esc(p.id)}">${esc(tr(p.name, c.lang))}</a></h3>` +
       `<p class="dx-pcard-desc">${esc(tr(p.desc, c.lang))}</p>` +
       `<div class="dx-pcard-foot"><span class="dx-badge">${esc(c.t.docsCount(n))}</span>` +
       (first ? `<a class="dx-pcard-cta" href="${esc(docURL(first))}">${esc(c.t.start)} <span aria-hidden="true">→</span></a>` : '') + `</div></div>`;
@@ -161,7 +178,8 @@ export function hubPage(): RouteResult {
       `</ul></section>`
     : '';
   const body = `<header class="dx-hero"><div class="dx-hero-inner"><p class="dx-eyebrow">${esc(c.t.docs)}</p>` +
-    `<h1 class="dx-hero-title">${esc(title)}</h1><p class="dx-hero-intro">${esc(intro)}</p>${searchBox(c, true)}</div></header>` +
+    `<h1 class="dx-hero-title">${esc(title)}</h1><p class="dx-hero-intro">${esc(intro)}</p>${searchBox(c, true)}` +
+    langLinks(c, (l) => hubPath(l)) + `</div></header>` +
     `<div class="dx-wrap"><section aria-labelledby="dx-products-h"><h2 id="dx-products-h" class="dx-sr">${esc(c.t.products)}</h2>` +
     `<div class="dx-pgrid">${cards}</div></section>${quickHTML}</div>`;
   return { page: { title, html: shell(c, 'dx-hub', body) }, headers: { 'Cache-Control': 'no-cache' } };
@@ -182,7 +200,7 @@ export function productPage(productId: string): RouteResult {
   }).join('');
   const first = readingOrder(sections)[0];
   const n = countOf(c, p);
-  const main = `<main class="dx-main" id="dx-main">` + crumbs(c, [{ label: c.t.docs, href: '/docs' }, { label: name }]) +
+  const main = `<main class="dx-main" id="dx-main">` + crumbs(c, [{ label: c.t.docs, href: hubPath(c.lang) }, { label: name }]) + langLinks(c, (l) => `${hubPath(l)}/${p.id}`) +
     `<header class="dx-phead"><span class="dx-phead-icon" aria-hidden="true">${esc(p.icon)}</span><div><h1>${esc(name)}</h1>` +
     `<p class="dx-lead">${esc(tr(p.desc, c.lang))}</p><p class="dx-meta"><span class="dx-badge">${esc(c.t.docsCount(n))}</span>` +
     `<span class="dx-badge dx-badge-soft">${esc(c.t.sections(sections.length))}</span>` +
@@ -210,11 +228,13 @@ export function articlePage(productId: string, post: any): RouteResult {
       `<strong>${esc(d.title)}</strong></a>`
     : '<span></span>';
   const tocHTML = toc(c, headings);
-  const mdURL = `/docs/${p.id}/${post.slug}.md`;
+  const doc = docFromPost(post);
+  const mdURL = docURL(doc) + '.md';
   const edit = editHref(setting('editUrl'), { id: Number(post.id), slug: String(post.slug), product: p.id });
   const ext = (u: string) => (u.startsWith('https://') ? ' target="_blank" rel="noopener"' : '');
   const main = `<main class="dx-main" id="dx-main">` +
-    crumbs(c, [{ label: c.t.docs, href: '/docs' }, { label: name, href: `/docs/${p.id}` }, { label: section }]) +
+    crumbs(c, [{ label: c.t.docs, href: hubPath(c.lang) }, { label: name, href: `${hubPath(c.lang)}/${p.id}` }, { label: section }]) +
+    langLinks(c, (l) => { const tl = translationOf(doc, l); return tl ? docURL(tl) : `${hubPath(l)}/${p.id}`; }) +
     `<article class="dx-article"><header class="dx-ahead"><p class="dx-eyebrow">${esc(section)}</p><h1>${esc(post.title)}</h1>` +
     (post.excerpt ? `<p class="dx-lead">${esc(post.excerpt)}</p>` : '') +
     `<p class="dx-meta">${CLOCK}<span>${esc(c.t.minutes(readMinutes(post.content)))}</span>` +
@@ -237,7 +257,7 @@ export function articlePage(productId: string, post: any): RouteResult {
 
 export function notFoundPage(c: Ctx = ctx()): RouteResult {
   const body = `<div class="dx-wrap dx-404"><p class="dx-404-code">404</p><h1>${esc(c.t.notFound)}</h1><p>${esc(c.t.notFoundText)}</p>` +
-    searchBox(c, true) + `<p><a class="dx-btn" href="/docs">${ARROW_L} ${esc(c.t.backHub)}</a></p></div>`;
+    searchBox(c, true) + `<p><a class="dx-btn" href="${esc(hubPath(c.lang))}">${ARROW_L} ${esc(c.t.backHub)}</a></p></div>`;
   return { status: 404, page: { title: c.t.notFound, html: shell(c, 'dx-nf', body) }, headers: { 'Cache-Control': 'no-cache' } };
 }
 
@@ -268,7 +288,7 @@ function siteURL(): string {
 
 function docMarkdown(c: Ctx, p: Product, post: any, base: string): string {
   const lead = post.excerpt ? `> ${String(post.excerpt).replace(/\s+/g, ' ').trim()}\n\n` : '';
-  return `# ${post.title}\n\n${lead}${c.t.source}: ${base}/docs/${p.id}/${post.slug}\n\n${htmlToMarkdown(String(post.content ?? ''))}`;
+  return `# ${post.title}\n\n${lead}${c.t.source}: ${base}${docURL(docFromPost(post))}\n\n${htmlToMarkdown(String(post.content ?? ''))}`;
 }
 
 /** GET /docs/<product>/<slug>.md — the article as Markdown. */
@@ -283,8 +303,8 @@ export function markdownPage(productId: string, post: any): RouteResult {
 export function llmsTxt(): RouteResult {
   const c = ctx();
   const base = siteURL();
-  const title = String(setting('hubTitle') || '').trim() || c.t.hubTitle;
-  const intro = String(setting('hubIntro') || '').trim() || c.t.hubIntro;
+  const title = hubText(c, 'hubTitle');
+  const intro = hubText(c, 'hubIntro');
   let out = `# ${title}\n\n> ${intro}\n\n`;
   for (const p of c.products) {
     const docs = readingOrder(sectionsOf(c.docs, p.id, c.t.noSection));
@@ -292,7 +312,8 @@ export function llmsTxt(): RouteResult {
     out += `## ${tr(p.name, c.lang)}\n\n` +
       docs.map((d) => `- [${d.title}](${base}${docURL(d)}.md)${d.excerpt ? ': ' + d.excerpt.replace(/\s+/g, ' ').trim() : ''}`).join('\n') + '\n\n';
   }
-  out += `## Optional\n\n- [${c.t.allDocs}](${base}/docs/llms-full.txt)\n`;
+  out += `## Optional\n\n- [${c.t.allDocs}](${base}${hubPath(c.lang)}/llms-full.txt)\n`;
+  for (const l of langs()) if (l !== c.lang) out += `- [${LANG_NAMES[l]}](${base}${hubPath(l)}/llms.txt)\n`;
   return { status: 200, headers: TXT_HEADERS, body: out };
 }
 

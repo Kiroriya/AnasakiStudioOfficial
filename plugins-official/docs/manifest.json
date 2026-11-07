@@ -1,7 +1,7 @@
 {
   "id": "docs",
   "name": "Docs",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "Documentation hub at /docs: articles grouped by product and section, with sidebar, table of contents, search, Markdown / llms.txt and drag-and-drop ordering. / ศูนย์รวมเอกสารที่ /docs แบ่งตามผลิตภัณฑ์ มีสารบัญและค้นหา",
   "author": "Anasaki Studio",
   "icon": "📘",

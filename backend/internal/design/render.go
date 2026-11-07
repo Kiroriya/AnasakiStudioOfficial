@@ -131,6 +131,7 @@ type renderer struct {
 	inComp   map[int64]bool // components being rendered (cycle guard)
 	placed   int            // instances rendered so far (fan-out guard)
 	images   int            // image layers rendered so far (the first eagerImages load at once)
+	lbGroup  string         // id of the frame being rendered: its lightbox images are one gallery
 	anim     bool           // a node uses a scroll-in animation
 	interact bool           // popups, collapsed layers, sliders or actions are used
 	actions  []Action
@@ -517,6 +518,11 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 		if !eager {
 			img += ` loading="lazy"`
 		}
+		// 2.4.0: "open large on click" — images with it in the same frame form one gallery
+		if href == "" && getBool(n.Props, "lightbox") {
+			r.interact = true
+			img += ` data-rea-lb="` + attr(r.lbGroup) + `" data-rea-full="` + attr(src) + `" tabindex="0" role="button"`
+		}
 		img += `>`
 		if href != "" {
 			// wrap without changing layout: the link becomes display:contents
@@ -637,6 +643,9 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 			w.WriteString("<" + tag + ` class="` + cls + `">`)
 		}
 		modes := layoutModes(n)
+		prevGroup := r.lbGroup
+		r.lbGroup = n.ID
+		defer func() { r.lbGroup = prevGroup }()
 		for _, c := range n.Children {
 			if isCarousel(n) && c.Width.Mode == "fill" {
 				fill := *c // one slide per view

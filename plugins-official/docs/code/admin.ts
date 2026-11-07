@@ -3,7 +3,7 @@
 // products, redirects) and the JSON bundle import ({products?, hubTitle?, hubIntro?, docs:[{slug,title,excerpt,
 // product,section,order,sectionOrder,content}], legacyRedirects?} — upsert by slug). The page is drawn on the
 // server; assets/admin.js (admin UI kit) adds the drag and drop, the forms and the import through the actions.
-import { Lang, SLUG_RE, docFromPost, editHref, esc, jsonData, parseProducts, parseRedirects, sectionsOf, tr } from './lib';
+import { DOC_LANGS, docFromPost, editHref, esc, jsonData, Lang, parseProducts, parseRedirects, sectionsOf, SLUG_RE, tr } from './lib';
 import { TYPE, docURL, invalidate, loadAll, products, setting } from './model';
 
 // The "Docs hub" page and the bundle import: CMS 2.0.6+ the roles holding docs.manage (default administrators
@@ -150,6 +150,11 @@ export function registerAdmin(): void {
           const n = Number(d[k]);
           meta[k] = d[k] === '' || d[k] == null || !isFinite(n) ? null : n;
         }
+        // 1.2.0: a translation — {lang: "en", base: "<the original's slug>"} (the post slug stays unique, e.g. "intro-en")
+        const lng = String(d.lang ?? '').trim().toLowerCase();
+        meta.lang = (DOC_LANGS as string[]).includes(lng) ? lng : null;
+        const base = String(d.base ?? '').trim();
+        meta.base = SLUG_RE.test(base) && base !== slug ? base : null;
         try {
           const cur = db.posts.get(slug, { type: TYPE });
           if (cur) {

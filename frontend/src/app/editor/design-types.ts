@@ -149,6 +149,8 @@ export interface Props {
   tag?: string;
   src?: string;
   alt?: string;
+  /** Image: open large on click; images with it in one frame form a gallery (2.4.0). */
+  lightbox?: boolean;
   href?: string;
   /** Name for code (2.2.0): rendered as data-ref, found with anasaki.ref(name). */
   ref?: string;

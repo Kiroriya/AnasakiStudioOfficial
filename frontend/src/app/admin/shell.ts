@@ -16,6 +16,7 @@ import { SiteInfo } from '../core/site';
 import { roleName } from '../core/roles';
 import './messages-content-types2';
 import './messages-platform';
+import './messages-activity';
 import './messages-content-types';
 import './messages-phase7';
 
@@ -198,6 +199,7 @@ export class Shell {
           { ...item('/tools/export', 'nav.tools', '💾', 'manage_options'), id: 'nav-tools' },
           item('/users', 'nav.users', '👥', 'manage_users'),
           item('/roles', 'nav.roles', '🛡', 'manage_users'),
+          item('/activity', 'nav.activity', '📜', 'manage_users'),
           item('/profile', 'nav.profile', '🙂'),
         ],
       },

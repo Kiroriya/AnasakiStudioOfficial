@@ -37,6 +37,7 @@ export const routes: Routes = [
       { path: 'components', canActivate: [capGuard('edit_pages')], loadComponent: () => import('./admin/manage-pages').then(m => m.Components) },
       { path: 'users', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/users-page').then(m => m.Users) },
       { path: 'roles', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/users-page').then(m => m.Roles) },
+      { path: 'activity', canActivate: [capGuard('manage_users')], loadComponent: () => import('./admin/activity-page').then(m => m.ActivityPage) },
       { path: 'settings', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/settings-page').then(m => m.SettingsPage) },
       { path: 'content-types', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/content-types').then(m => m.ContentTypes) },
       { path: 'plugins', canActivate: [capGuard('manage_options')], loadComponent: () => import('./admin/plugins-page').then(m => m.PluginsPage) },
