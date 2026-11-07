@@ -15,7 +15,7 @@ import { SelectValue } from '../shared/select-value';
 import { ApiTokens } from './api-tokens';
 
 function initials(u: Partial<User>) {
-  return (u.name || u.email || '?').trim().slice(0, 1).toUpperCase();
+  return avatarInitial(u.name || u.email);
 }
 
 type Draft = Partial<User> & { password?: string; sendWelcome?: boolean };
@@ -23,6 +23,7 @@ type Draft = Partial<User> & { password?: string; sendWelcome?: boolean };
 // ===================================================================== Users
 
 import { Pager } from '../shared/pager';
+import { avatarInitial } from '../shared/initial';
 
 @Component({
   selector: 'rea-users',
@@ -583,7 +584,7 @@ export class Roles implements OnInit {
       <div class="form-row">
         <div class="form-label">{{ 'users.avatar' | t }}<small>{{ 'profile.avatarHint' | t }}</small></div>
         <div class="avatar-row">
-          @if (avatar()) { <img class="avatar-lg" [src]="avatar()" alt="" /> } @else { <span class="avatar avatar-lg">{{ (name() || email() || '?').slice(0, 1).toUpperCase() }}</span> }
+          @if (avatar()) { <img class="avatar-lg" [src]="avatar()" alt="" /> } @else { <span class="avatar avatar-lg">{{ initialOf(name() || email()) }}</span> }
           <button type="button" class="btn btn-sm" (click)="picking.set(true)">🖼 {{ 'post.chooseImage' | t }}</button>
           @if (avatar()) { <button type="button" class="btn btn-sm" (click)="avatar.set('')">{{ 'post.removeImage' | t }}</button> }
         </div>
@@ -633,6 +634,7 @@ export class Roles implements OnInit {
   `,
 })
 export class Profile implements OnInit {
+  readonly initialOf = avatarInitial;
   /** The shared demo visitor account: only the language can change. */
   readonly isDemo = computed(() => this.auth.user()?.role === 'demo');
   readonly i18n = inject(I18n);

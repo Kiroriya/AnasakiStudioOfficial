@@ -6,6 +6,7 @@ import { I18n, TPipe } from '../core/i18n';
 import { InstalledPackage, SchemaField, ServiceHealth, ServiceView } from '../core/models';
 import { Plugins } from '../core/plugins';
 import { SchemaForm } from '../shared/schema-form';
+import { oneLanguage } from '../shared/bilingual';
 import './messages-platform';
 
 /**
@@ -20,7 +21,7 @@ import './messages-platform';
     <header class="page-head">
       <a class="back-btn" routerLink="/plugins" [queryParams]="{ tab: pkg ? 'installed' : 'builtin' }">←</a>
       <span class="page-icon">{{ icon() }}</span>
-      <div class="page-head-text"><h1>{{ name() }}</h1><p>{{ desc() || ('plugins.settingsSub' | t) }}</p></div>
+      <div class="page-head-text"><h1>{{ name() }}</h1><p>{{ oneLang(desc()) || ('plugins.settingsSub' | t) }}</p></div>
       @if (schema().length) { <button class="btn btn-primary" [disabled]="busy() || !dirty()" (click)="save()">💾 {{ 'common.save' | t }}</button> }
     </header>
     @if (error()) { <p class="alert">{{ error() }}</p> }
@@ -104,6 +105,7 @@ export class PluginSettings implements OnInit {
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly name = signal('');
   readonly desc = signal('');
+  oneLang(d: string) { return oneLanguage(d, this.i18n.locale()); }
   readonly icon = signal('⚙️');
   readonly schema = signal<SchemaField[]>([]);
   readonly values = signal<Record<string, unknown>>({});

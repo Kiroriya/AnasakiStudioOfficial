@@ -53,6 +53,12 @@
 .rea-exporting .rea-cond-badge, .rea-exporting .rea-fmt-marker { display: none !important; }
 
 /* ============================================================ rich content (posts): mirrors BaseCSS in backend/internal/site/site.go */
+/* 2.5.0 Fields block (mirrors the site BaseCSS) */
+.rea-fields{display:grid;grid-template-columns:minmax(120px,max-content) 1fr;gap:.5em 1.25em;margin:0}
+.rea-field{display:contents}.rea-fields dt{color:var(--c-muted,#6b7280);font-size:.92em}.rea-fields dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.rea-tags{display:flex;flex-wrap:wrap;gap:6px}.rea-tags a{padding:3px 10px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:.88em}
+.rea-langs{display:flex;flex-wrap:wrap;gap:4px 12px}.rea-langs a{opacity:.7}.rea-langs a[aria-current]{opacity:1;font-weight:700}
+.rea-fields-inline .rea-fields{display:flex;flex-wrap:wrap;gap:.25em 1em}.rea-fields-inline .rea-field{display:flex;gap:.35em;align-items:baseline}.rea-fields-inline dt{font-size:.85em}.rea-fields-inline dd{font-size:.95em}
 .rea-content{line-height:1.75;overflow-wrap:break-word}
 .rea-content>*+*{margin-top:1em}
 .rea-content::after{content:"";display:block;clear:both}

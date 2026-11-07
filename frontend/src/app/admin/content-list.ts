@@ -9,9 +9,11 @@ import { PostTypes } from '../core/post-types';
 import { editRoute, listColumns, metaCell, publicPath, supportsOf, typePrefix, typeSource } from '../core/post-type-utils';
 import { starterPage } from '../editor/presets';
 import './messages-admin';
+import './messages-v250';
 import './messages-content-types';
 import './messages-content-types2';
 import { SelectValue } from '../shared/select-value';
+import { langLabel, parseLangs } from '../shared/languages';
 import { Pager } from '../shared/pager';
 
 /**
@@ -63,8 +65,16 @@ import { Pager } from '../shared/pager';
           <option value="">{{ 'common.allStatus' | t }}</option>
           <option value="publish">{{ 'common.published' | t }}</option>
           <option value="draft">{{ 'common.draft' | t }}</option>
+          <option value="pending">{{ 'post.pendingBadge' | t }}</option>
           <option value="scheduled">{{ 'post.scheduledBadge' | t }}</option>
         </select>
+        @if (langs().length && type() !== 'template') {
+          <select id="content-lang-filter" [value]="langFilter()" (change)="langFilter.set(val($event)); page.set(1); load()" [attr.aria-label]="'lang.filter' | t">
+            <option value="*">{{ 'lang.all' | t }}</option>
+            <option value="">{{ langLabel(siteLang()) }}</option>
+            @for (l of langs(); track l) { <option [value]="l">{{ langLabel(l) }}</option> }
+          </select>
+        }
         @if (hasCategories()) {
           <select [value]="category()" (change)="category.set(val($event)); page.set(1); load()">
             <option value="">{{ 'content.allCategories' | t }}</option>
@@ -93,6 +103,7 @@ import { Pager } from '../shared/pager';
                 @if (p.pinned) { <span class="pin-badge" [title]="'post.pinned' | t">📌</span> }
                 <a class="row-title" [routerLink]="editLink(p)">{{ p.title }}</a>
                 @if (roleOf(p); as r) { <span class="badge badge-info">{{ r | t }}</span> }
+                @if (p.lang) { <span class="badge lang-badge" [attr.data-lang]="p.lang" [title]="langLabel(p.lang)">{{ p.lang.toUpperCase() }}</span> }
                 <div class="muted small">{{ 'common.by' | t: { name: p.authorName } }}</div>
               </td>
               @if (type() !== 'template') { <td class="mono muted small cell-path">{{ path(p) }}</td> }
@@ -100,7 +111,7 @@ import { Pager } from '../shared/pager';
               @if (hasCategories()) {
                 <td>@for (c of p.categories; track c.id) { <span class="chip">{{ c.name }}</span> } @empty { <span class="muted">—</span> }</td>
               }
-              <td><span class="badge" [attr.data-status]="p.status" [class.badge-live]="p.status === 'publish'" [title]="p.status === 'scheduled' && p.publishedAt ? i18n.date(p.publishedAt, true) : ''">{{ p.status === 'scheduled' ? '⏰' : '●' }} {{ (p.status === 'publish' ? 'common.published' : p.status === 'scheduled' ? 'post.scheduledBadge' : 'common.draft') | t }}</span></td>
+              <td><span class="badge" [attr.data-status]="p.status" [class.badge-live]="p.status === 'publish'" [title]="p.status === 'scheduled' && p.publishedAt ? i18n.date(p.publishedAt, true) : ''">{{ p.status === 'scheduled' ? '⏰' : '●' }} {{ (p.status === 'publish' ? 'common.published' : p.status === 'scheduled' ? 'post.scheduledBadge' : p.status === 'pending' ? 'post.pendingBadge' : 'common.draft') | t }}</span></td>
               <td class="muted small nowrap">{{ i18n.date(p.updatedAt, true) }}</td>
               <td class="row-actions">
                 @if (designed()) { <a class="btn btn-sm btn-primary" [routerLink]="['/design', p.id]">🎨 {{ 'content.design' | t }}</a> }
@@ -121,6 +132,11 @@ import { Pager } from '../shared/pager';
                     }
                     @if (type() === 'post' && auth.can('edit_others_posts')) {
                       <button (click)="togglePin(p)">📌 {{ (p.pinned ? 'post.unpin' : 'post.pin') | t }}</button>
+                    }
+                    @if (type() !== 'template') {
+                      @for (l of translateTo(p); track l) {
+                        <button class="content-translate" [attr.data-lang]="l" (click)="translate(p, l)">🌐 {{ 'lang.translateTo' | t: { lang: langLabel(l) } }}</button>
+                      }
                     }
                     <button (click)="duplicate(p)">⧉ {{ 'common.duplicate' | t }}</button>
                     @if (canModify(p)) { <button class="danger" (click)="remove(p)">🗑 {{ 'common.delete' | t }}</button> }
@@ -204,6 +220,10 @@ export class ContentList {
   readonly search = signal('');
   readonly status = signal('');
   readonly category = signal('');
+  /** 2.5.0: '*' = every language, '' = the site's, else a content language. */
+  readonly langFilter = signal('*');
+  readonly siteLang = computed(() => this.settings()['language'] || 'th');
+  readonly langs = computed(() => parseLangs(this.settings()['content_languages'] ?? '', this.siteLang()));
   readonly terms = signal<Term[]>([]);
   readonly settings = signal<Settings>({});
   readonly error = signal('');
@@ -227,8 +247,11 @@ export class ContentList {
         this.total.set(0);
         this.page.set(1);
         this.search.set('');
-        this.status.set('');
+        // 2.5.0: ?status= opens a filtered list (the dashboard's "waiting for review" link)
+        const st = new URLSearchParams(location.search).get('status') ?? '';
+        this.status.set(['draft', 'pending', 'publish', 'scheduled'].includes(st) ? st : '');
         this.category.set('');
+        this.langFilter.set('*');
         this.more.set(null);
         if (type === 'post' || !BUILTIN_POST_TYPES.includes(type)) this.api.terms().then(t => this.terms.set(t)).catch(() => undefined);
         void this.load();
@@ -242,7 +265,8 @@ export class ContentList {
 
   async load() {
     try {
-      const res = await this.api.posts({ type: this.type(), search: this.search(), status: this.status(), category: this.category(), page: this.page(), perPage: this.perPage });
+      const lang = this.langFilter() === '*' ? undefined : this.langFilter();
+      const res = await this.api.posts({ type: this.type(), search: this.search(), status: this.status(), category: this.category(), page: this.page(), perPage: this.perPage, ...(lang === undefined ? {} : { lang }) });
       this.items.set(res.items);
       this.total.set(res.total);
       this.error.set('');
@@ -255,10 +279,23 @@ export class ContentList {
 
   editLink(p: Post) { return p.type === 'page' || p.type === 'template' ? ['/design', p.id] : editRoute(p.type, p.id); }
   path(p: Post) {
-    if (this.custom()) return publicPath(this.pt() ?? { type: this.type() }, p.slug);
-    return this.settings()['home_page_id'] === String(p.id) ? '/' : `/${p.type === 'post' ? 'blog/' : ''}${p.slug}`;
+    const pre = p.lang ? '/' + p.lang : ''; // 2.5.0: a translation lives under /<lang>/
+    if (this.custom()) return pre + publicPath(this.pt() ?? { type: this.type() }, p.slug);
+    const home = this.settings()['home_page_id'];
+    if (home === String(p.id) || (p.lang && home === String(p.translationOf))) return pre || '/';
+    return `${pre}/${p.type === 'post' ? 'blog/' : ''}${p.slug}`;
   }
-  viewUrl(p: Post) { return this.custom() ? SITE_ORIGIN + this.path(p) : `${SITE_ORIGIN}/${p.type === 'post' ? 'blog/' : ''}${p.slug}`; }
+  viewUrl(p: Post) { return SITE_ORIGIN + this.path(p); }
+  langLabel(code: string) { return langLabel(code); }
+  /** The languages a post can be translated into (not its own). */
+  translateTo(p: Post) { return this.langs().filter(l => l !== (p.lang ?? '')); }
+  async translate(p: Post, lang: string) {
+    this.more.set(null);
+    try {
+      const t = await this.api.translatePost(p.id, lang);
+      await this.router.navigate(this.editLink(t));
+    } catch (e) { this.error.set(errorMessage(e)); }
+  }
   fieldLabel(f: SchemaField) { this.i18n.locale(); return localized(f.label as never); }
   cell(f: SchemaField, p: Post) { return metaCell(f, p.meta?.[f.key]); }
 
@@ -354,7 +391,7 @@ export class ContentList {
   }
 
   /** Published content needs publish_posts to change or delete (the server enforces it too). */
-  canModify(p: Post) { return p.status === 'draft' || this.auth.can('publish_posts'); }
+  canModify(p: Post) { return p.status === 'draft' || p.status === 'pending' || this.auth.can('publish_posts'); }
 
   async remove(p: Post) {
     this.more.set(null);

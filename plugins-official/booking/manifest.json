@@ -1,8 +1,8 @@
 {
   "id": "booking",
   "name": "Booking",
-  "version": "1.0.0",
-  "description": "Appointments and reservations: services with duration and price, weekly opening hours and closed days, a booking page with free time slots, no double booking, confirmation and cancel links by email, and a bookings admin page. / ระบบจองคิว บริการ เวลาเปิด เลือกช่วงเวลาว่าง ยืนยันทางอีเมล",
+  "version": "1.1.0",
+  "description": "Appointments and table bookings: services, party size, staff, opening hours, free time slots, your own questions, a PromptPay deposit with slip, reminder and cancel mails. / จองคิวและจองโต๊ะ จำนวนคน ผู้ให้บริการ มัดจำพร้อมเพย์ แจ้งเตือนก่อนนัด",
   "author": "Anasaki Studio",
   "icon": "📅",
   "category": "utilities",
@@ -17,6 +17,15 @@
       "default": ["administrator", "editor"] }
   ],
   "settings": [
+    { "key": "pageTitle", "type": "text", "maxLength": 60, "placeholder": "จองโต๊ะ",
+      "label": { "th": "ชื่อหน้าจอง", "en": "Booking page title" },
+      "help": { "th": "เช่น จองโต๊ะ จองห้อง นัดหมอ — เว้นว่าง = จองคิว", "en": "Such as Book a table or Reserve a room — empty = Book an appointment" } },
+    { "key": "buttonLabel", "type": "text", "maxLength": 40,
+      "label": { "th": "ข้อความบนปุ่มจอง", "en": "Booking button text" },
+      "help": { "th": "ค่าเริ่มต้นของบล็อกปุ่มจอง — เว้นว่าง = จองคิว", "en": "The booking button block's default — empty = Book now" } },
+    { "key": "questions", "type": "textarea", "maxLength": 2000, "placeholder": "อาการเบื้องต้น *\nเคยมาใช้บริการหรือไม่",
+      "label": { "th": "คำถามเพิ่มเติมในฟอร์มจอง", "en": "Extra questions on the booking form" },
+      "help": { "th": "บรรทัดละคำถาม ใส่ * ท้ายบรรทัด = ต้องตอบ (สูงสุด 10 ข้อ)", "en": "One per line; end a line with * to make it required (up to 10)" } },
     { "key": "autoConfirm", "type": "boolean", "default": true,
       "label": { "th": "ยืนยันการจองอัตโนมัติ", "en": "Confirm bookings automatically" },
       "help": { "th": "ปิด = การจองใหม่รอร้านกดยืนยัน", "en": "Off = new bookings wait for you to confirm" } },
@@ -26,11 +35,24 @@
       "label": { "th": "ต้องจองก่อนอย่างน้อย (ชั่วโมง)", "en": "Minimum notice (hours)" } },
     { "key": "notifyEmail", "type": "text", "maxLength": 200,
       "label": { "th": "อีเมลแจ้งการจองใหม่", "en": "New booking email" },
-      "help": { "th": "เว้นว่าง = อีเมลผู้ดูแลเว็บ", "en": "Empty = the site's admin email" } }
+      "help": { "th": "เว้นว่าง = อีเมลผู้ดูแลเว็บ", "en": "Empty = the site's admin email" } },
+    { "key": "remindHours", "type": "number", "default": 24, "min": 0, "max": 168,
+      "label": { "th": "ส่งอีเมลเตือนก่อนนัด (ชั่วโมง)", "en": "Reminder mail before the visit (hours)" },
+      "help": { "th": "0 = ไม่ส่ง (ส่งให้ผู้ที่ใส่อีเมลไว้และการจองยืนยันแล้ว)", "en": "0 = none (sent to confirmed bookings with an email)" } },
+    { "key": "promptpayId", "type": "text", "maxLength": 20, "placeholder": "0812345678",
+      "label": { "th": "พร้อมเพย์สำหรับมัดจำ", "en": "PromptPay ID for deposits" },
+      "help": { "th": "ใช้กับบริการที่ตั้งยอดมัดจำไว้ (ตั้งในหน้า การจอง → บริการ)", "en": "For services with a deposit (Bookings → Services)" } },
+    { "key": "promptpayName", "type": "text", "maxLength": 120,
+      "label": { "th": "ชื่อบัญชีพร้อมเพย์", "en": "PromptPay account name" } },
+    { "key": "bankInfo", "type": "textarea", "maxLength": 1000,
+      "label": { "th": "บัญชีสำหรับโอนมัดจำ", "en": "Bank details for deposits" } },
+    { "key": "depositHours", "type": "number", "default": 24, "min": 0, "max": 336,
+      "label": { "th": "ยกเลิกการจองที่ไม่ชำระมัดจำหลัง (ชั่วโมง)", "en": "Cancel bookings without a deposit after (hours)" },
+      "help": { "th": "0 = ไม่ยกเลิกเอง", "en": "0 = never" } }
   ],
   "code": {
     "entry": "code/main.ts",
-    "scopes": ["db", "routes", "mail", "admin-pages", "jobs"],
+    "scopes": ["db", "routes", "mail", "admin-pages", "jobs", "files"],
     "routes": ["/booking"],
     "hooks": { "events": ["booking.created", "booking.status"] }
   }

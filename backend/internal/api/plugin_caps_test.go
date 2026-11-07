@@ -212,7 +212,8 @@ func TestPluginCapabilities(t *testing.T) {
 		t.Fatal("contributor listed kit docs")
 	}
 	code, doc := author.do("POST", "/api/v1/posts", map[string]any{"type": "cap_kit_doc", "title": "Draft only", "status": "publish"})
-	if code != 201 || doc["status"] != "draft" {
+	if code != 201 || doc["status"] != "pending" { // 2.5.0: sent for review
+
 		t.Fatalf("author (edit, no publish): %d %v", code, doc)
 	}
 	setRole("author", append(roleCaps("author"), "cap-kit.publish"))

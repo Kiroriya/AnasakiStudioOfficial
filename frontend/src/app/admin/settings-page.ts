@@ -14,6 +14,8 @@ import './messages-admin';
 import './messages-platform';
 import './messages-content-types';
 import { SelectValue } from '../shared/select-value';
+import { CONTENT_LANGS, parseLangs } from '../shared/languages';
+import './messages-v250';
 
 type Tab = 'general' | 'reading' | 'permalinks' | 'media' | 'email' | 'admin';
 
@@ -103,6 +105,30 @@ export function reservedOwner(p: string, reserved: ReservedPath[]): string | nul
                 <option value="en">English (en)</option>
               </select>
             </div>
+            <div class="form-row" id="settings-languages">
+              <div class="form-label">{{ 'settings.languages' | t }}<small>{{ 'settings.languagesHint' | t }}</small></div>
+              <div>
+                <div class="radio-list lang-list">
+                  @for (l of extraLangOptions(); track l.code) {
+                    <label class="check"><input type="checkbox" [attr.data-lang]="l.code" [checked]="extraLangs().includes(l.code)" (change)="toggleLang(l.code, check($event))" />
+                      {{ l.name }} <code class="muted small">/{{ l.code }}/</code></label>
+                  }
+                </div>
+                @for (l of extraLangs(); track l) {
+                  <div class="lang-parts" [attr.data-lang-parts]="l">
+                    <span class="muted small">{{ 'settings.langParts' | t: { lang: langName(l) } }}</span>
+                    <select [id]="'settings-header-' + l" [value]="v('site_header_component_' + l)" (change)="set('site_header_component_' + l, $event)" [attr.aria-label]="'settings.langHeader' | t">
+                      <option value="">{{ 'settings.langHeaderSame' | t }}</option>
+                      @for (c of components(); track c.id) { <option [value]="'' + c.id">{{ c.name }}</option> }
+                    </select>
+                    <select [id]="'settings-footer-' + l" [value]="v('site_footer_component_' + l)" (change)="set('site_footer_component_' + l, $event)" [attr.aria-label]="'settings.langFooter' | t">
+                      <option value="">{{ 'settings.langFooterSame' | t }}</option>
+                      @for (c of components(); track c.id) { <option [value]="'' + c.id">{{ c.name }}</option> }
+                    </select>
+                  </div>
+                }
+              </div>
+            </div>
             <div class="form-row">
               <div class="form-label">{{ 'settings.timezone' | t }}<small>{{ 'settings.timezoneHint' | t }}</small></div>
               <select [value]="v('timezone') || 'Asia/Bangkok'" (change)="set('timezone', $event)">
@@ -151,6 +177,11 @@ export function reservedOwner(p: string, reserved: ReservedPath[]): string | nul
                       <span>{{ pt.icon || '📦' }} {{ typeName(pt) }} <small class="muted mono">{{ 'settings.typeTemplateHint' | t: { slug: prefix(pt) } }}</small></span>
                       <select [id]="'settings-type-template-' + pt.type" [value]="v(tplKey(pt.type))" (change)="set(tplKey(pt.type), $event)">
                         <option value="">{{ 'settings.postTemplateDefault' | t }}</option>
+                        @for (p of templates(); track p.id) { <option [value]="'' + p.id">{{ p.title }}</option> }
+                      </select>
+                      <select [id]="'settings-type-archive-' + pt.type" [value]="v('archive_template_' + pt.type)" (change)="set('archive_template_' + pt.type, $event)"
+                        [attr.aria-label]="'settings.typeArchive' | t" [title]="'settings.typeArchive' | t">
+                        <option value="">{{ 'settings.typeArchiveDefault' | t }}</option>
                         @for (p of templates(); track p.id) { <option [value]="'' + p.id">{{ p.title }}</option> }
                       </select>
                     </label>
@@ -330,6 +361,10 @@ export class SettingsPage implements OnInit {
   readonly reserved = signal<ReservedPath[]>([]);
   readonly pages = signal<Post[]>([]);
   readonly templates = signal<Post[]>([]);
+  readonly components = signal<{ id: number; name: string }[]>([]);
+  /** 2.5.0: extra content languages (content_languages "en, ja"). */
+  readonly extraLangs = computed(() => parseLangs(this.draft()['content_languages'] ?? '', this.draft()['language'] || 'th'));
+  readonly extraLangOptions = computed(() => CONTENT_LANGS.filter(l => l.code !== (this.draft()['language'] || 'th')));
   readonly product = signal('');
   readonly pickFor = signal<'site_icon' | 'site_logo' | null>(null);
   readonly busy = signal(false);
@@ -358,12 +393,18 @@ export class SettingsPage implements OnInit {
     } catch (e) { this.error.set(errorMessage(e)); }
     this.api.posts({ type: 'page', perPage: 100 }).then(r => this.pages.set(r.items)).catch(() => undefined);
     this.api.posts({ type: 'template', perPage: 100 }).then(r => this.templates.set(r.items)).catch(() => undefined);
+    this.api.components().then(r => this.components.set(r.map(c => ({ id: c.id, name: c.name })))).catch(() => undefined);
     this.api.publicSite().then(s => this.product.set(`${s.product} ${s.version}`)).catch(() => undefined);
     this.api.reservedPaths().then(r => this.reserved.set(r.items)).catch(() => undefined); // the server checks again on save
     void this.postTypes.ensureLoaded();
   }
 
   tplKey(type: string) { return templateOption(type); }
+  langName(code: string) { return CONTENT_LANGS.find(l => l.code === code)?.name ?? code; }
+  toggleLang(code: string, on: boolean) {
+    const cur = this.extraLangs().filter(l => l !== code);
+    this.put('content_languages', (on ? [...cur, code] : cur).join(', '));
+  }
   typeName(pt: CodePostType) { this.i18n.locale(); return localized(pt.label) || pt.type; }
   prefix(pt: CodePostType) { return typePrefix(pt); }
 

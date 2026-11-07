@@ -64,7 +64,7 @@ export const FIELD_TYPES = ['text', 'textarea', 'richtext', 'number', 'bool', 'd
   'image', 'gallery', 'file', 'color', 'relation', 'repeater'] as const;
 /** What a repeater row may hold (no nesting). */
 export const REPEATER_TYPES = ['text', 'textarea', 'number', 'bool', 'date', 'datetime', 'select', 'url', 'email', 'image', 'file', 'color'] as const;
-export const SUPPORTS = ['content', 'excerpt', 'image', 'categories'] as const;
+export const SUPPORTS = ['content', 'excerpt', 'image', 'categories', 'tags'] as const;
 
 const TYPE_RE = /^[a-z][a-z0-9_]{1,19}$/;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,40}$/;

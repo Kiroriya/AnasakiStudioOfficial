@@ -156,18 +156,22 @@ func CategoryBase() string { return getBases().category }
 // PostURL returns a post's public path; the home page's is "/" (2.3.0, Qraft
 // feedback 34: plugins such as SEO showed it as /home).
 func PostURL(p *model.Post) string {
+	prefix := ""
+	if p.Lang != "" { // 2.5.0: a translation lives under /<lang>/
+		prefix = "/" + p.Lang
+	}
 	if u, ok := customURL(p); ok {
-		return u
+		return prefix + u
 	}
 	if p.Type == model.TypePage {
-		if h := getBases().home; (h > 0 && h == p.ID) || (h == 0 && p.Slug == "home") {
-			return "/"
+		if h := getBases().home; (h > 0 && h == p.TranslationRoot()) || (h == 0 && p.Slug == "home" && p.Lang == "") {
+			return orDefault(prefix, "/")
 		}
 	}
 	if p.Type == model.TypePost {
-		return "/" + BlogBase() + "/" + url.PathEscape(p.Slug)
+		return prefix + "/" + BlogBase() + "/" + url.PathEscape(p.Slug)
 	}
-	return "/" + url.PathEscape(p.Slug)
+	return prefix + "/" + url.PathEscape(p.Slug)
 }
 
 // configuredURL is the public address set by the owner (option site_url, else
@@ -201,6 +205,10 @@ func BaseURL(opts map[string]string, r *http.Request) string {
 
 // Source implements design.DataSource on top of the store, caching per render.
 type Source struct {
+	types   []PostTypeRoute // custom types with their fields (the Fields block, 2.5.0)
+	lang    string          // the site's language ("th" | "en")
+	opts    map[string]string
+	langs   []design.LangLink // the page in every content language (2.5.0: the language switch)
 	st      *store.Store
 	plugins Plugins
 	comps   map[int64]*design.Node
@@ -223,6 +231,18 @@ func (s *Source) Format(name string, v any, args []any) (string, bool) {
 		return "", false
 	}
 	return s.code.Format(name, v, args)
+}
+
+// newSource is NewSource for a request: it knows the site's custom types.
+func (s *Site) newSource(opts map[string]string) *Source {
+	src := NewSource(s.st, s.plugins)
+	src.types = s.customTypes(opts)
+	src.opts = opts
+	src.lang = "th"
+	if strings.HasPrefix(opts["language"], "en") {
+		src.lang = "en"
+	}
+	return src
 }
 
 func NewSource(st *store.Store, plugins Plugins) *Source {
@@ -271,23 +291,44 @@ func (s *Source) Media(id int64) *design.MediaInfo {
 }
 
 func (s *Source) QueryPosts(q design.Query) []design.PostCtx {
+	out, _ := s.QueryPostsPage(q)
+	return out
+}
+
+// QueryPostsPage is QueryPosts with the number of matching posts (design.PostPager, 2.5.0: page links).
+func (s *Source) QueryPostsPage(q design.Query) ([]design.PostCtx, int) {
 	f := model.PostFilter{Type: q.PostType, Status: model.StatusPublish,
-		Category: q.Category, Limit: q.Limit, Order: q.Order, PinnedFirst: true, Search: q.Search,
+		Category: q.Category, Limit: q.Limit, Offset: q.Offset, Order: q.Order, AuthorID: q.AuthorID, PinnedFirst: true, Search: q.Search,
 		// a custom type's list filters by its own taxonomies too (Qraft feedback 32)
-		AnyTaxonomy: q.PostType != "" && q.PostType != model.TypePost}
+		AnyTaxonomy: q.PostType != "" && q.PostType != model.TypePost,
+		Lang:        pageLang(s.opts)} // 2.5.0: the posts of the page's language
 	if q.TermIDs != nil { // a taxonomy term's archive (2.1.0)
 		f.Type, f.Types, f.TermIDs = "", q.PostTypes, q.TermIDs
+	} else if len(q.PostTypes) > 0 { // 2.5.0: the search page (several types)
+		f.Type, f.Types, f.AnyTaxonomy = "", q.PostTypes, false
 	}
-	posts, _, err := s.st.ListPosts(f)
+	for _, c := range q.Where { // 2.5.0: custom field conditions (numbers and true / false compare as such)
+		var v any = c.Value
+		if n, err := strconv.ParseFloat(c.Value, 64); err == nil {
+			v = n
+		} else if c.Value == "true" || c.Value == "false" {
+			v = c.Value == "true"
+		}
+		f.Meta = append(f.Meta, model.MetaCond{Key: c.Key, Op: c.Op, Value: v})
+	}
+	if q.OrderBy != "" {
+		f.MetaOrder, f.MetaDesc = q.OrderBy, q.OrderDesc
+	}
+	posts, total, err := s.st.ListPosts(f)
 	if err != nil {
 		log.Printf("query posts: %v", err)
-		return nil
+		return nil, 0
 	}
 	out := make([]design.PostCtx, 0, len(posts))
 	for _, p := range posts {
 		out = append(out, PostContext(p))
 	}
-	return out
+	return out, total
 }
 
 func (s *Source) MenuItems(id int64) []design.MenuItem {
@@ -303,6 +344,7 @@ func (s *Source) MenuItems(id int64) []design.MenuItem {
 }
 
 func (s *Source) Component(id int64) *design.Node {
+	id = langComponent(s.opts, id) // 2.5.0: the header / footer of the page's language
 	if n, ok := s.comps[id]; ok {
 		return n
 	}
@@ -353,9 +395,19 @@ func PostContext(p *model.Post) design.PostCtx {
 		"slug":        p.Slug,
 		"type":        p.Type,
 		"pinned":      pinned,
+		"authorUrl":   AuthorURL(p.AuthorID), // 2.5.0: the author's page
 	}
 	if m := metaJSON(p.Meta); m != "" {
 		ctx["meta"] = m // {{post.meta.<key>}}
+	}
+	if tags := p.Terms["tag"]; len(tags) > 0 { // the Tags block (2.5.0)
+		list := make([]map[string]string, 0, len(tags))
+		for _, t := range tags {
+			list = append(list, map[string]string{"name": t.Name, "url": "/tag/" + url.PathEscape(t.Slug)})
+		}
+		if b, err := json.Marshal(list); err == nil {
+			ctx["tags"] = string(b)
+		}
 	}
 	return ctx
 }
@@ -451,9 +503,16 @@ func (s *Site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if (path == "sitemap.xml" || path == "robots.txt") && s.serveCodeSEO(pw, r, opts, path) {
 		return
 	}
+	if len(ContentLanguages(opts)) > 0 { // 2.5.0: /<lang>/… pages of an extra content language
+		lang, rest := splitLang(opts, path)
+		opts, path = withPageLang(opts, lang), rest
+	}
 	parts := strings.Split(path, "/")
 	b := getBases()
 	types := s.customTypes(opts)
+	if s.serveDiscover(pw, r, opts, path, types) { // 2.5.0: /feed, /search, /author/<id>, …/page/N
+		return
+	}
 
 	switch {
 	case len(parts) == 2 && taxBySlug(s.taxonomies(opts), parts[0]) != nil:
@@ -462,7 +521,9 @@ func (s *Site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.singleCustom(pw, opts, typeBySlug(types, parts[0]), parts[1])
 	case len(parts) == 1 && typeBySlug(types, parts[0]) != nil:
 		if p, err := s.st.PostBySlug(model.TypePage, parts[0], true); err == nil {
-			s.renderPost(pw, opts, p, nil, "", http.StatusOK) // a page at /<slug> wins over the archive
+			if !s.langGate(pw, opts, p) {
+				s.renderPost(pw, opts, p, nil, "", http.StatusOK) // a page at /<slug> wins over the archive
+			}
 		} else {
 			s.typeArchive(pw, opts, typeBySlug(types, parts[0]))
 		}
@@ -476,7 +537,9 @@ func (s *Site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.archive(pw, opts, parts[1])
 	case len(parts) == 1 && parts[0] == b.blog:
 		if p, err := s.st.PostBySlug(model.TypePage, parts[0], true); err == nil {
-			s.renderPost(pw, opts, p, nil, "", http.StatusOK)
+			if !s.langGate(pw, opts, p) {
+				s.renderPost(pw, opts, p, nil, "", http.StatusOK)
+			}
 		} else {
 			s.blogIndex(pw, opts) // no page at /blog yet: list the posts
 		}
@@ -488,9 +551,16 @@ func (s *Site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Site) front(w http.ResponseWriter, opts map[string]string) {
+	lang := opts[pageLangKey]
 	home := func(p *model.Post) {
+		if lang != "" { // /<lang>: the home page's translation (2.5.0)
+			if p = s.translationIn(p, lang); p == nil {
+				s.notFound(w, opts)
+				return
+			}
+		}
 		ctx := PostContext(p)
-		ctx["url"], ctx["isHome"] = "/", "1"
+		ctx["url"], ctx["isHome"] = PostURL(p), "1"
 		s.renderPost(w, opts, p, ctx, "", http.StatusOK)
 	}
 	if id, _ := strconv.ParseInt(opts["home_page_id"], 10, 64); id > 0 {
@@ -520,6 +590,9 @@ func (s *Site) page(w http.ResponseWriter, opts map[string]string, slug string) 
 		s.notFound(w, opts)
 		return
 	}
+	if s.langGate(w, opts, p) {
+		return
+	}
 	s.renderPost(w, opts, p, nil, "", http.StatusOK)
 }
 
@@ -527,6 +600,9 @@ func (s *Site) single(w http.ResponseWriter, opts map[string]string, slug string
 	p, err := s.st.PostBySlug(model.TypePost, slug, true)
 	if err != nil {
 		s.notFound(w, opts)
+		return
+	}
+	if s.langGate(w, opts, p) {
 		return
 	}
 	tpl := s.template(opts["post_template_id"])
@@ -548,13 +624,21 @@ func (s *Site) archive(w http.ResponseWriter, opts map[string]string, slug strin
 		s.notFound(w, opts)
 		return
 	}
-	ctx := design.PostCtx{"title": t.Name, "slug": t.Slug, "url": CategoryURL(t.Slug)}
-	m := meta{title: t.Name, postType: "archive"}
+	// {{post.excerpt}}: the archive template's subtitle (2.5.0)
+	desc := t.Description
+	if desc == "" {
+		desc = "บทความทั้งหมดในหมวดหมู่นี้"
+		if opts["language"] == "en" {
+			desc = "All posts in this category"
+		}
+	}
+	ctx := design.PostCtx{"title": t.Name, "slug": t.Slug, "url": CategoryURL(t.Slug), "excerpt": desc}
+	m := meta{title: t.Name, description: t.Description, postType: "archive"}
 	if tpl := s.template(opts["archive_template_id"]); tpl != nil {
 		s.renderPost(w, opts, tpl, ctx, slug, http.StatusOK, m)
 		return
 	}
-	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: model.TypePost, Status: model.StatusPublish, Category: slug, Limit: 50, NoContent: true})
+	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: model.TypePost, Status: model.StatusPublish, Category: slug, Limit: 50, NoContent: true, Lang: pageLang(opts)})
 	var b strings.Builder
 	b.WriteString("<h1>" + html.EscapeString(t.Name) + "</h1><ul>")
 	for _, p := range posts {
@@ -573,10 +657,14 @@ func (s *Site) blogIndex(w http.ResponseWriter, opts map[string]string) {
 		title = "Blog"
 	}
 	if tpl := s.template(opts["archive_template_id"]); tpl != nil {
-		s.renderPost(w, opts, tpl, design.PostCtx{"title": title, "url": "/" + getBases().blog}, "", http.StatusOK, meta{title: title, postType: "archive"})
+		sub := "บทความทั้งหมด"
+		if opts["language"] == "en" {
+			sub = "All posts"
+		}
+		s.renderPost(w, opts, tpl, design.PostCtx{"title": title, "url": "/" + getBases().blog, "excerpt": sub}, "", http.StatusOK, meta{title: title, postType: "archive"})
 		return
 	}
-	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: model.TypePost, Status: model.StatusPublish, Limit: 50, NoContent: true})
+	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: model.TypePost, Status: model.StatusPublish, Limit: 50, NoContent: true, Lang: pageLang(opts)})
 	var b strings.Builder
 	b.WriteString(`<div style="max-width:880px;margin:0 auto;padding:64px 24px"><h1 style="font-size:40px;font-weight:800;margin-bottom:32px">` + html.EscapeString(title) + `</h1>`)
 	if len(posts) == 0 {
@@ -721,7 +809,15 @@ func (s *Site) renderDocument(root *design.Node, d Doc) (page string, cookies []
 			}
 		}
 	}
-	src := NewSource(s.st, s.plugins)
+	src := s.newSource(d.Options)
+	if len(ContentLanguages(d.Options)) > 0 { // 2.5.0: the page's translations (hreflang, the language switch)
+		var post *model.Post
+		if d.PostID > 0 {
+			post, _ = s.st.GetPost(d.PostID)
+		}
+		src.langs = s.langLinks(d.Options, post)
+		d.Head += hreflangHTML(src.langs, d.BaseURL)
+	}
 	var query url.Values
 	if d.Request != nil {
 		query = d.Request.URL.Query()
@@ -913,6 +1009,14 @@ h1,h2,h3,h4,h5,h6,p,blockquote{margin:0;font-size:inherit;font-weight:inherit}
 :where(.rea-btn:has(.rea-btn-ic)){gap:.5em}.rea-btn-ic{flex-shrink:0}
 .rea-download{gap:.5em}
 .rea-file-meta{font-size:.8em;opacity:.75;font-weight:400;white-space:nowrap}
+.rea-fields{display:grid;grid-template-columns:minmax(120px,max-content) 1fr;gap:.5em 1.25em;margin:0}
+.rea-field{display:contents}.rea-fields dt{color:var(--c-muted,#6b7280);font-size:.92em}.rea-fields dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.rea-fields img{max-width:100%;border-radius:8px}.rea-field-gallery{display:flex;flex-wrap:wrap;gap:6px}.rea-field-gallery img{width:96px;height:72px;object-fit:cover}
+.rea-langs{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.92em}.rea-langs a{color:inherit;text-decoration:none;opacity:.7}.rea-langs a[aria-current]{opacity:1;font-weight:700}.rea-langs a:hover{opacity:1}
+.rea-tags{display:flex;flex-wrap:wrap;gap:6px}.rea-tags a{padding:3px 10px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:.88em;text-decoration:none}.rea-tags a:hover{background:#e5e7eb}
+.rea-field-swatch{display:inline-block;width:1em;height:1em;border-radius:4px;vertical-align:-.15em;border:1px solid rgba(0,0,0,.15)}
+.rea-fields-inline .rea-fields{display:flex;flex-wrap:wrap;gap:.25em 1em}.rea-fields-inline .rea-field{display:flex;gap:.35em;align-items:baseline}.rea-fields-inline dt{font-size:.85em}.rea-fields-inline dd{font-size:.95em}
+@media (max-width:640px){.rea-fields{grid-template-columns:1fr;gap:.15em}.rea-fields dd{margin-bottom:.6em}}
 .rea-content{line-height:1.75;overflow-wrap:break-word}
 .rea-content>*+*{margin-top:1em}
 .rea-content::after{content:"";display:block;clear:both}
@@ -978,6 +1082,7 @@ func wrap(d Doc, pi plugin.PageInfo, icon, body, css string, fonts []string) str
 	}
 	b.WriteString(d.extra.html())
 	b.WriteString(`<meta name="generator" content="` + Generator + `">`)
+	b.WriteString(`<link rel="alternate" type="application/rss+xml" title="` + html.EscapeString(d.Options["site_title"]) + `" href="/feed">`) // 2.5.0
 	if icon != "" {
 		b.WriteString(`<link rel="icon" href="` + html.EscapeString(icon) + `">`)
 		b.WriteString(`<link rel="apple-touch-icon" href="` + html.EscapeString(icon) + `">`)

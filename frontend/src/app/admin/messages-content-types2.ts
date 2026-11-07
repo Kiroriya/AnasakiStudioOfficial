@@ -23,6 +23,7 @@ registerMessages({
   'ct.sup.excerpt': { th: 'คำโปรย', en: 'Excerpt' },
   'ct.sup.image': { th: 'ภาพหน้าปก', en: 'Cover image' },
   'ct.sup.categories': { th: 'หมวดหมู่', en: 'Categories' },
+  'ct.sup.tags': { th: 'แท็ก', en: 'Tags' },
   'ct.fields': { th: 'ช่องข้อมูล', en: 'Fields' },
   'ct.fieldsHint': { th: 'ช่องที่จะกรอกในหน้าแก้ไข — ใช้ในหน้าออกแบบด้วย {{post.meta.<รหัสช่อง>}}', en: 'Fields filled in the editor — use them in the designer as {{post.meta.<key>}}' },
   'ct.fieldLabel': { th: 'ชื่อช่อง', en: 'Field name' },

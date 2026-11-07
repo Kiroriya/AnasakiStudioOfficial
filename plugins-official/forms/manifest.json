@@ -1,8 +1,8 @@
 {
   "id": "forms",
   "name": "Forms",
-  "version": "2.1.0",
-  "description": "Form builder: contact, newsletter or quote forms placed with the designer block, an inbox with CSV export, spam protection, mail notification, webhooks and the form.submitted event. / สร้างฟอร์ม วางบนหน้าเว็บด้วยดีไซเนอร์ ดูข้อความที่ส่งเข้ามา ส่งออก CSV แจ้งเตือนทางอีเมล และ webhook",
+  "version": "2.2.0",
+  "description": "Form builder: contact, job or quote forms placed with the designer block, file uploads, an inbox with CSV export, spam protection, mail and webhooks. / สร้างฟอร์ม แนบไฟล์ได้ ดูข้อความที่ส่งมา ส่งออก CSV แจ้งเตือนอีเมล",
   "author": "Anasaki Studio",
   "icon": "📝",
   "category": "forms",
@@ -34,7 +34,7 @@
   "webhooks": [ { "event": "forms.submitted", "url": "{{settings.webhookUrl}}" } ],
   "code": {
     "entry": "code/main.ts",
-    "scopes": ["db", "routes", "mail", "admin-pages", "webhooks"],
+    "scopes": ["db", "routes", "mail", "admin-pages", "webhooks", "files"],
     "routes": ["/forms"],
     "exports": ["legacyImport"],
     "hooks": { "events": ["forms.submitted"] },

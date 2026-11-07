@@ -4,8 +4,9 @@
 // Users → Roles — forms.manage (build / delete forms) and forms.view_submissions (inbox, CSV export), both
 // defaulting to administrators and editors. Older CMS versions: editors (was capability edit_pages).
 import {
-  createForm, deleteForm, deleteSubmission, getForm, listForms, listSubmissions, markRead, updateForm, validateForm,
+  createForm, deleteForm, deleteSubmission, filesOf, getForm, getSubmission, listForms, listSubmissions, markRead, updateForm, validateForm,
 } from './model';
+import { contentType } from './files';
 import { exportCSV } from './csv';
 
 const CAPS = typeof (site as any).can === 'function';
@@ -45,7 +46,20 @@ export function registerAdmin(): void {
       if (CAPS && !ctx.user?.can('forms.view_submissions')) {
         return { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'ไม่มีสิทธิ์ดูข้อความที่ส่งเข้ามา' };
       }
-      const id = Number(Array.isArray(ctx.query?.form) ? ctx.query.form[0] : ctx.query?.form) || 0;
+      const q = (k: string) => String(Array.isArray(ctx.query?.[k]) ? (ctx.query[k] as string[])[0] : ctx.query?.[k] ?? '');
+      // 2.2: …/download?file=<submission id>&key=<field> → the file sent with it
+      if (q('file')) {
+        const s = getSubmission(Number(q('file')) || 0);
+        const path = s ? filesOf(s)[q('key')] : '';
+        const bytes = path ? files.get(path) : null;
+        if (!s || !bytes) return { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'ไม่พบไฟล์ / File not found' };
+        const name = s.data[q('key')] || path.replace(/^.*\//, '');
+        const ascii = name.replace(/[^A-Za-z0-9._-]+/g, '_');
+        return { status: 200, body: bytes, headers: { 'Content-Type': contentType(path),
+          'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+          'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' } };
+      }
+      const id = Number(q('form')) || 0;
       const fm = getForm(id);
       if (!fm) return { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'ไม่พบฟอร์มนี้' };
       return {

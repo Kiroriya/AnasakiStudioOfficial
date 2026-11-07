@@ -4,6 +4,7 @@ import { Api, errorMessage } from '../core/api';
 import { Auth } from '../core/auth';
 import { Dialog } from '../core/dialog';
 import { I18n, TPipe } from '../core/i18n';
+import { oneLanguage } from '../shared/bilingual';
 import { InstalledPackage, PluginInfo, Reconsent, StoreCategory, StoreDetail, StoreReview, StoreSummary } from '../core/models';
 import { PluginConsentDialog, PluginDepsDialog, PluginUninstallDialog, UninstallChoice, UninstallState } from './plugin-dialogs';
 import {
@@ -144,7 +145,7 @@ import { Pager } from '../shared/pager';
                 @if (isJs(p)) { <span class="badge badge-info plugin-runtime-badge" data-runtime="js" [title]="'pjs.runtimeHint' | t">JS</span> }
                 <span class="badge" [class.badge-live]="p.active">{{ (p.active ? 'plugins.on' : 'plugins.off') | t }}</span>
               </div>
-              <p class="plugin-desc">{{ p.description }}</p>
+              <p class="plugin-desc">{{ desc(p.description) }}</p>
               @if (p.activationError) {
                 <p class="alert plugin-activation-error" [attr.data-id]="p.id">⛔ <b>{{ 'pjs.activationError' | t }}:&nbsp;</b><span class="mono small">{{ p.activationError }}</span></p>
               }
@@ -278,7 +279,7 @@ import { Pager } from '../shared/pager';
                         <p class="muted small">{{ 'store.by' | t: { name: p.author } }} · v{{ p.version }}</p>
                       </div>
                     </div>
-                    <p class="plugin-desc">{{ p.description }}</p>
+                    <p class="plugin-desc">{{ desc(p.description) }}</p>
                     <div class="store-stats">
                       @if (p.ratingCount) { <span class="stars" [title]="p.rating.toFixed(1)">{{ stars(p.rating) }}</span><span class="muted small">({{ p.ratingCount }})</span> }
                       @else { <span class="muted small store-no-reviews">{{ 'store.noReviewsShort' | t }}</span> }
@@ -544,6 +545,8 @@ export class PluginsPage implements OnInit {
   stars(r: number) { const f = Math.round(r || 0); return '★'.repeat(f) + '☆'.repeat(5 - f); }
   pname(p: PluginInfo) { return this.english(p)[0] ?? p.name; }
   pdesc(p: PluginInfo) { return this.english(p)[1] ?? p.description; }
+  /** 2.5.0: "English / ไทย" descriptions in the admin's language only. */
+  desc(d: string | undefined) { return oneLanguage(d, this.i18n.locale()); }
   /** English name/description in EN mode (from the server, or our own translation of built-ins). */
   private english(p: PluginInfo): [string?, string?] {
     if (this.i18n.locale() === 'th') return [];

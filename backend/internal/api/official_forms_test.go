@@ -45,8 +45,8 @@ func TestOfficialForms(t *testing.T) {
 	// admin page (editors and administrators) and its actions
 	html, call := adminPage(t, e.toSample(), admin, "forms:forms", "")
 	offBContains(t, "admin page", html, "<title>Forms</title>", `<script type="application/json" id="forms-data">{"locale":"en","forms":[]`,
-		`src="/plugin-assets/forms/assets/admin.js?v=2.1.0" defer`)
-	if rec := e.offBSend(offBReq{path: "/plugin-assets/forms/assets/admin.js?v=2.1.0"}); rec.Code != 200 || !strings.Contains(rec.Body.String(), "anasaki.call('forms:'") {
+		`src="/plugin-assets/forms/assets/admin.js?v=2.2.0" defer`)
+	if rec := e.offBSend(offBReq{path: "/plugin-assets/forms/assets/admin.js?v=2.2.0"}); rec.Code != 200 || !strings.Contains(rec.Body.String(), "anasaki.call('forms:'") {
 		t.Fatalf("admin script: %d", rec.Code)
 	}
 	if code, _ := user("Au", "author").do("POST", "/api/v1/code/admin-pages/forms:forms/ticket", map[string]any{}); code == 200 {
@@ -73,7 +73,7 @@ func TestOfficialForms(t *testing.T) {
 		{"name": "", "fields": offBTestForm()["fields"]},
 		{"name": "x"},
 		{"name": "x", "fields": []any{map[string]any{"key": "_hp", "type": "text"}}},
-		{"name": "x", "fields": []any{map[string]any{"key": "a", "type": "file"}}},
+		{"name": "x", "fields": []any{map[string]any{"key": "a", "type": "video"}}},
 		{"name": "x", "fields": []any{map[string]any{"key": "a", "type": "select"}}},
 		{"name": "x", "fields": []any{map[string]any{"key": "a"}, map[string]any{"key": "a"}}},
 		{"name": "x", "fields": one, "webhookUrl": "ftp://x"},
@@ -137,7 +137,7 @@ func TestOfficialForms(t *testing.T) {
 	out = e.offBSend(offBReq{path: "/contact-us"}).Body.String()
 	offBContains(t, "page with the block", out, `pb-forms-form`, `<form class="rea-form" id="rea-form-`+sid+`" method="post" action="/forms/`+sid+`/submit"`,
 		`name="_hp" tabindex="-1"`, `<label for="rea-f`+sid+`-name">Name &lt;b&gt;`, `.pb-forms-form .rea-form{`,
-		`<script defer src="/plugin-assets/forms/assets/form.js?v=2.1.0"></script>`, `role="status"`)
+		`<script defer src="/plugin-assets/forms/assets/form.js?v=2.2.0"></script>`, `role="status"`)
 	if strings.Contains(out, `<p class="rea-form-msg" role="status" aria-live="polite">`) {
 		t.Fatal("success message shown without ?sent")
 	}
@@ -148,7 +148,7 @@ func TestOfficialForms(t *testing.T) {
 	if out := e.offBSend(offBReq{path: "/contact-us?sent=999"}).Body.String(); strings.Contains(out, `<p class="rea-form-msg" role="status" aria-live="polite">`) {
 		t.Fatal("success message shown for another form's ?sent")
 	}
-	if js := e.offBSend(offBReq{path: "/plugin-assets/forms/assets/form.js?v=2.1.0"}).Body.String(); !strings.Contains(js, "window.__reaForms") {
+	if js := e.offBSend(offBReq{path: "/plugin-assets/forms/assets/form.js?v=2.2.0"}).Body.String(); !strings.Contains(js, "window.__reaForms") {
 		t.Fatalf("client script: %s", js)
 	}
 	// the designer preview of the block

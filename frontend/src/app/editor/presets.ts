@@ -38,6 +38,12 @@ export function createNode(type: NodeType, opts: { menuId?: number; plugin?: str
       return { id, type, name, width: hug, height: hug, layout: { mode: 'horizontal', gap: 24, align: 'center' }, style: { fontSize: 15, fontWeight: 500 }, props: { menuId: opts.menuId } };
     case 'postContent':
       return { id, type, name, width: fill, height: hug, style: { fontSize: 18 } };
+    case 'postFields':
+      return { id, type, name, width: fill, height: hug, style: { fontSize: 16 } };
+    case 'postTags':
+      return { id, type, name, width: fill, height: hug, style: { fontSize: 14 } };
+    case 'langSwitch':
+      return { id, type, name, width: hug, height: hug, style: { fontSize: 14 } };
     case 'embed':
       return { id, type, name, width: fill, height: hug, props: { html: `<div style="padding:24px;border:2px dashed #cbd5e1;border-radius:12px;text-align:center">${tr('ed.def.embed')}</div>` } };
     case 'codeblock':

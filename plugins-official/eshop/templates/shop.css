@@ -28,6 +28,7 @@
 .shop-field.is-invalid input,.shop-field.is-invalid textarea{border-color:#dc2626}
 .shop-err{color:#dc2626;font-size:.85em}
 .shop-radio{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-weight:400!important}
+.shop-field .shop-radio input{width:auto;flex:none;margin:0;padding:0}
 .shop-summary{background:#f9fafb;border:1px solid #eef0f3;border-radius:12px;padding:16px 20px}
 .shop-summary ul{list-style:none;margin:0;padding:0}
 .shop-summary li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed #e5e7eb}
@@ -48,5 +49,8 @@
 .shop-note{flex-basis:100%;margin:4px 0 0;font-size:.9em}
 .shop-cart-link{position:relative;display:inline-flex;align-items:center;gap:6px;color:inherit;text-decoration:none;font-weight:600}
 .shop-count{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--c-primary,#4f46e5);color:#fff;font-size:12px;line-height:20px;text-align:center}
+.shop-opt{display:flex;align-items:center;gap:8px}.shop-opt select{min-height:36px;padding:0 8px;border:1px solid #d1d5db;border-radius:8px;font:inherit}
+.shop-from{font-size:.7em;color:#6b7280}.shop-code{font-family:ui-monospace,monospace;font-size:.9em}
 .shop-hint{color:#6b7280;font-size:13px;padding:8px;border:1px dashed #d1d5db;border-radius:8px}
 .shop-address{line-height:1.6}
+.shop-tax{gap:10px}.shop-tax summary{list-style:none;cursor:pointer}.shop-tax summary::-webkit-details-marker{display:none}.shop-orders{list-style:none;padding:0}.shop-orders li{padding:10px 0;border-bottom:1px solid #eef0f3}

@@ -39,6 +39,14 @@ const (
 	// (filters, action forms).
 	TypePagination = "pagination"
 	TypeInput      = "input"
+
+	// 2.5.0: the custom fields of the current post (a content type's price,
+	// bedrooms, event date …) with their labels.
+	TypePostFields = "postFields"
+	// 2.5.0: the current post's tags as links to /tag/<slug>.
+	TypePostTags = "postTags"
+	// TypeLangSwitch links the page in the site's other content languages (2.5.0, props style: list | select)
+	TypeLangSwitch = "langSwitch"
 )
 
 // Breakpoints, widest first. Each narrower breakpoint inherits the overrides

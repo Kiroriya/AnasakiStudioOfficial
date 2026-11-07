@@ -84,6 +84,7 @@ func offBNew(t *testing.T) *offBEnv {
 	code := sitecode.New(st, sitecode.Config{Auth: authn, Services: pm.ServicePublicPaths, PostURL: site.PostURL,
 		DSN: dsn, CodeDSN: os.Getenv("TEST_CODE_DB_DSN"), Emit: pm.Emit, TypeSlugs: site.SetTypeSlugs,
 		SecretKey: "test-site-code-key", KeyDir: t.TempDir(), UploadDir: up, Plugins: pm,
+		MailReady: offBMailReady,
 		Mailer: func(m sitecode.MailMessage) error {
 			e.mu.Lock()
 			defer e.mu.Unlock()
@@ -267,3 +268,7 @@ func offBQuiet(t *testing.T, admin *client, unit string) {
 		}
 	}
 }
+
+// offBMailReady is mail.ready() of the next offBNew (nil = the mailer is set up); a test sets it before
+// offBNew and resets it after.
+var offBMailReady func() bool

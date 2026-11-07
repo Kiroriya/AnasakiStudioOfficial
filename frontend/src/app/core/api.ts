@@ -16,7 +16,7 @@ import {
   CodePostType, CodeAdminPage, CodeSettings, CodeSettingsUpdate, CodeJobList, CodeCron, CodeHook, CodePackageRequest, CodePackageDryRun, CodeFormatter,
 } from './code-models';
 
-import type { LegacySummary, RecommendedInstall, RecommendedList, ToolsImportResult } from './legacy';
+import type { LegacySummary, RecommendedInstall, RecommendedList, SetupKit, ToolsImportResult } from './legacy';
 
 const BASE = '/api/v1';
 
@@ -46,7 +46,9 @@ export class Api {
   refreshSession() { return this.post<{ token: string; user: User }>('/auth/refresh', {}); }
   updateMe(data: Partial<User> & { password?: string; currentPassword?: string }) { return this.put<User & { token?: string }>('/auth/me', data); }
   setupStatus() { return this.get<SetupStatus>('/setup'); }
-  runSetup(d: { siteTitle: string; tagline: string; language: string; adminName: string; adminEmail: string; adminPassword: string; locale: string; demo: boolean; setupToken?: string }) {
+  /** 2.5.0: the Plugin Store's starter kits (before setup only). */
+  setupKits() { return this.get<{ storeAvailable: boolean; items: SetupKit[] }>('/setup/kits'); }
+  runSetup(d: { siteTitle: string; tagline: string; language: string; adminName: string; adminEmail: string; adminPassword: string; locale: string; demo: boolean; kit?: string; setupToken?: string }) {
     return this.post<{ token: string; user: User }>('/setup', d);
   }
   forgotPassword(email: string) { return this.post<{ message: string }>('/auth/forgot', { email }); }
@@ -61,9 +63,12 @@ export class Api {
   stats() { return this.get<Stats>('/stats'); }
 
   // posts / pages / templates
-  posts(q: { type: PostType; status?: string; search?: string; category?: string; page?: number; perPage?: number; order?: string }) {
+  posts(q: { type: PostType; status?: string; search?: string; category?: string; page?: number; perPage?: number; order?: string; lang?: string }) {
     return this.get<Page<Post>>('/posts', q);
   }
+  /** 2.5.0: the post's translation group, and a draft translation in lang (or the existing one). */
+  translations(id: number) { return this.get<{ id: number; lang: string; title: string; status: string; url: string; type: string }[]>(`/posts/${id}/translations`); }
+  translatePost(id: number, lang: string) { return this.post<Post>(`/posts/${id}/translate`, { lang }); }
   getPost(id: number) { return this.get<Post>(`/posts/${id}`); }
   createPost(data: PostInput) { return this.post<Post>('/posts', data); }
   updatePost(id: number, data: PostInput) { return this.put<Post>(`/posts/${id}`, data); }

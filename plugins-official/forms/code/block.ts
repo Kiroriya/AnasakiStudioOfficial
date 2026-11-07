@@ -22,7 +22,9 @@ export function registerBlock(): void {
       if (!fm) return hint(NOT_FOUND);
       // ?sent=<id>: back from a no-JavaScript submit — show the success message (the script does it with JS)
       const sent = String(ctx.query?.sent ?? '') === String(id);
-      return { html: renderForm(fm, sent), css: formCSS() };
+      // 2.2: on a post's page (a listing, an event, a product) the form says which one it was sent from
+      const about = ctx.post && ctx.post.title ? `${ctx.post.title} — ${ctx.post.url ?? ''}` : '';
+      return { html: renderForm(fm, sent, about), css: formCSS() };
     },
   });
 }

@@ -76,6 +76,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 	mux.Handle("POST "+p+"/auth/refresh", a.protectSession("", http.HandlerFunc(a.refreshSession)))
 	mux.HandleFunc("GET "+p+"/setup", a.getSetup)
 	mux.HandleFunc("POST "+p+"/setup", a.runSetup)
+	mux.HandleFunc("GET "+p+"/setup/kits", a.setupKits) // starter kits (2.5.0): before the first user only
 	mux.HandleFunc("GET /api/public/site", a.publicSite)
 	mux.HandleFunc("GET /download/{id}", a.download)
 
@@ -97,6 +98,8 @@ func (a *API) Routes(mux *http.ServeMux) {
 	h("PUT "+p+"/posts/{id}", "", a.updatePost)
 	h("DELETE "+p+"/posts/{id}", "", a.deletePost)
 	h("POST "+p+"/posts/{id}/duplicate", "", a.duplicatePost)
+	h("GET "+p+"/posts/{id}/translations", "", a.listTranslations) // 2.5.0
+	h("POST "+p+"/posts/{id}/translate", "", a.translatePost)
 	h("GET "+p+"/posts/{id}/revisions", "", a.listRevisions)
 	h("GET "+p+"/posts/{id}/revisions/{rid}", "", a.getRevision)
 	h("POST "+p+"/posts/{id}/revisions/{rid}/restore", "", a.restoreRevision)

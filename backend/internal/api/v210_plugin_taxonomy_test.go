@@ -43,7 +43,7 @@ func TestPluginTaxonomy(t *testing.T) {
 		t.Fatalf("plugin terms: %d %s", rec.Code, rec.Body.String())
 	}
 	_, txs := admin.doList("GET", "/api/v1/taxonomies")
-	if len(txs) != 2 || txs[1]["id"] != "px_kit_brand" || txs[1]["plugin"] != "px-kit" || txs[1]["slug"] != "px-kit-brand" {
+	if len(txs) != 3 || txs[2]["id"] != "tag" || txs[1]["id"] != "px_kit_brand" || txs[1]["plugin"] != "px-kit" || txs[1]["slug"] != "px-kit-brand" {
 		t.Fatalf("catalog: %v", txs)
 	}
 	if code, b := e.c.public("GET", "/px-kit-brand/acme"); code != 200 || !strings.Contains(b, "Anvil") {

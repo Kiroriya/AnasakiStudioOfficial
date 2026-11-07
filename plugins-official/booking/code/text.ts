@@ -27,6 +27,21 @@ const T = {
   mailConfirmed: ['ยืนยันการจองแล้ว', 'Booking confirmed'],
   mailView: ['ดูหรือยกเลิกการจอง', 'See or cancel the booking'],
   bookNow: ['จองคิว', 'Book now'],
+  // 1.1
+  party: ['จำนวนคน', 'People'], staff: ['ผู้ให้บริการ', 'With'], anyStaff: ['ใครก็ได้', 'Anyone'], apply: ['ดูเวลาว่าง', 'Show times'],
+  people: ['{n} คน', '{n} people'],
+  depositNote: ['ต้องชำระมัดจำ {amount} เพื่อยืนยันการจอง', 'A deposit of {amount} confirms the booking'],
+  answerAll: ['กรุณาตอบคำถามที่มีเครื่องหมาย *', 'Please answer the questions marked *'],
+  thanksDeposit: ['จองไว้แล้ว — ชำระมัดจำและแนบสลิปด้านล่างเพื่อยืนยัน', 'Booked — pay the deposit and send the slip below to confirm'],
+  s_deposit: ['รอชำระมัดจำ', 'Waiting for the deposit'],
+  payDeposit: ['ชำระมัดจำ {amount}', 'Pay the deposit of {amount}'],
+  account: ['ชื่อบัญชี: {name}', 'Account name: {name}'],
+  slip: ['แนบสลิปการโอน', 'Upload the payment slip'], slipSend: ['ส่งสลิป', 'Send slip'],
+  slipDone: ['ได้รับสลิปแล้ว ร้านจะตรวจและยืนยันการจองให้', 'Slip received — the booking is confirmed once it is checked'],
+  slipBad: ['ส่งได้เฉพาะรูป JPG หรือ PNG', 'Only JPG or PNG images'],
+  mailDeposit: ['จองไว้แล้ว รอชำระมัดจำ {amount}', 'Booked — deposit of {amount} due'],
+  mailReminder: ['เตือนนัด', 'Reminder'],
+  reminderText: ['แจ้งเตือนการจองของคุณ', 'A reminder of your booking'],
 } as const;
 
 export function lang(): 0 | 1 {

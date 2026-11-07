@@ -89,7 +89,18 @@ func wireSiteContent(web *site.Site, code *sitecode.Engine) {
 	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
 		var out []site.PostTypeRoute
 		for _, pt := range code.ContentFor(opts).PostTypes {
-			out = append(out, site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label})
+			r := site.PostTypeRoute{Type: pt.Type, Slug: pt.Slug, Public: pt.Public, Label: pt.Label}
+			for _, f := range pt.Fields {
+				if f.Plugin != "" {
+					continue
+				}
+				rf := site.RouteField{Key: f.Key, Type: f.Type, Label: f.Label, Hidden: f.HideOnSite, OnCards: f.HideOnPage}
+				for _, o := range f.Options {
+					rf.Options = append(rf.Options, site.RouteOption{Value: o.Value, Label: o.Label})
+				}
+				r.Fields = append(r.Fields, rf)
+			}
+			out = append(out, r)
 		}
 		return out
 	})

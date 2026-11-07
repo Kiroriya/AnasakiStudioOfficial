@@ -104,3 +104,38 @@ func TestOfficialMembers(t *testing.T) {
 		t.Fatal("a disabled member signed in")
 	}
 }
+
+// members 1.1.0 + CMS 2.5.0: on a site that cannot send email yet (mail.ready() false) a new member is signed in
+// right away instead of waiting for a confirmation mail that never comes; administrators see a notice.
+func TestOfficialMembersWithoutEmail(t *testing.T) {
+	old := plugin.CoreVersion
+	plugin.CoreVersion = "2.5.0"
+	t.Cleanup(func() { plugin.CoreVersion = old })
+	offBMailReady = func() bool { return false }
+	defer func() { offBMailReady = nil }()
+	e := offBNew(t)
+	admin, _ := setupSite(t, e.c)
+	offBInstall(t, admin, "members")
+	r := e.offBSend(offBReq{method: "POST", path: "/members/register", ip: "203.0.113.30",
+		body: strings.NewReader(`{"email":"new@x.io","password":"password1","name":"New"}`),
+		hdr:  map[string]string{"Content-Type": "application/json", "Accept": "application/json"}})
+	if r.Code != 200 || !strings.Contains(r.Body.String(), `"signedIn":true`) {
+		t.Fatalf("register: %d %s", r.Code, r.Body.String())
+	}
+	var sid *http.Cookie
+	for _, c := range r.Result().Cookies() {
+		if strings.HasSuffix(c.Name, "sid") {
+			sid = c
+		}
+	}
+	if sid == nil {
+		t.Fatal("no session cookie after registering")
+	}
+	if len(e.mails) != 0 {
+		t.Fatalf("a confirmation mail was sent: %v", e.mails)
+	}
+	_, n := admin.doAny("GET", "/api/v1/code/admin-notices", nil)
+	if s := fmt.Sprint(n); !strings.Contains(s, "cannot send email yet") && !strings.Contains(s, "เว็บยังส่งอีเมลไม่ได้") {
+		t.Fatalf("no admin notice: %v", n)
+	}
+}

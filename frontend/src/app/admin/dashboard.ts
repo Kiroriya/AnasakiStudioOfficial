@@ -12,6 +12,7 @@ import { Plugins } from '../core/plugins';
 import { starterPage } from '../editor/presets';
 import { MediaPicker } from '../shared/media-picker';
 import { FrameMediaPick, WIDGET_MAX_HEIGHT, WIDGET_MIN_HEIGHT, adminBase, clampHeight, readFrameMessage, sourceFrame } from './plugin-frame';
+import './messages-v250';
 
 interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; run: () => void }
 
@@ -32,6 +33,9 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
       </div>
     </section>
     @if (error()) { <p class="alert">{{ error() }}</p> }
+    @if (pending() > 0) {
+      <a class="alert alert-info dash-pending" id="dash-pending" [routerLink]="['/posts']" [queryParams]="{ status: 'pending' }">📨 {{ 'dash.pending' | t }}: <b>{{ pending() }}</b> →</a>
+    }
 
     @if (stats(); as s) {
       <div class="stat-grid">
@@ -164,8 +168,12 @@ export class Dashboard implements OnInit {
   readonly visibleActions = computed(() =>
     this.actions.filter(a => (!a.cap || this.auth.can(a.cap)) && (!a.show || a.show())).slice(0, 6));
 
+  /** 2.5.0: posts contributors sent for review (shown to those who may publish them). */
+  readonly pending = signal(0);
+
   async ngOnInit() {
     this.api.codeDashboardWidgets().then(r => this.widgets.set(normalizeWidgets(r))).catch(() => undefined);
+    if (this.auth.can('publish_posts')) this.api.posts({ type: 'post', status: 'pending', perPage: 1 }).then(r => this.pending.set(r.total ?? 0)).catch(() => undefined);
     try {
       const [s, p] = await Promise.all([
         this.api.stats(),

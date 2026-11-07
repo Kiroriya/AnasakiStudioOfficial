@@ -139,7 +139,17 @@ export function sessionMember(request: SiteRequest): any | null {
 
 // ---------------------------------------------------------------- flows
 
-export function register(input: { email?: unknown; password?: unknown; name?: unknown }, request: SiteRequest): Result {
+/**
+ * Whether a new member must confirm the email first (1.1.0): the setting, and only while the site can send email
+ * (mail.ready, CMS 2.5.0) — on a site without SMTP nobody could ever get in. Older cores: the setting alone.
+ */
+export function verificationNeeded(): boolean {
+  if (setting('requireVerification', 'true') === 'false') return false;
+  const m = mail as unknown as { ready?: () => boolean };
+  return typeof m.ready === 'function' ? !!m.ready() : true;
+}
+
+export function register(input: { email?: unknown; password?: unknown; name?: unknown }, request: SiteRequest, response?: SiteResponse): Result {
   const email = normEmail(input.email);
   const name = String(input.name ?? '').trim().slice(0, 100) || email.split('@')[0];
   const errors: Record<string, string> = {};
@@ -152,6 +162,11 @@ export function register(input: { email?: unknown; password?: unknown; name?: un
     return fail(t('อีเมลนี้สมัครไว้แล้ว', 'This email is already registered'), { email: t('อีเมลนี้สมัครไว้แล้ว', 'Already registered') });
   }
   const id = db.table('members').insert({ email, name, password_hash: crypto.password.hash(String(input.password)) });
+  if (!verificationNeeded()) { // no confirmation step: signed in right away
+    site.emit('members.registered', { id, email, name });
+    if (response) startSession(id, response);
+    return { ok: true, message: t('สมัครแล้ว ยินดีต้อนรับ', 'Registered — welcome'), data: { id, mailSent: false, signedIn: !!response } };
+  }
   const token = issueToken(id, 'verify', 2 * DAY);
   const sent = sendMail('verify', { email, name }, `${siteUrl(request)}/members/verify?token=${token}`);
   site.emit('members.registered', { id, email, name });
@@ -192,7 +207,7 @@ export function login(input: { email?: unknown; password?: unknown }, response: 
     return fail(t('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'Wrong email or password'));
   }
   if (m.status !== 'active') return fail(t('บัญชีนี้ถูกระงับ', 'This account is disabled'));
-  if (setting('requireVerification', 'true') !== 'false' && !m.verified_at) {
+  if (verificationNeeded() && !m.verified_at) {
     return fail(t('กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ', 'Please confirm your email first'), { email: t('ยังไม่ได้ยืนยันอีเมล', 'Email not confirmed') });
   }
   cache.delete(key);

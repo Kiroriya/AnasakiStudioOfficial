@@ -46,7 +46,9 @@
       e.preventDefault();
       var b = f.querySelector('.rea-form-submit');
       if (b) b.disabled = true;
-      fetch(f.action, { method: 'POST', body: new URLSearchParams(new FormData(f)), headers: { Accept: 'application/json' } })
+      // 2.2: forms with a file field send multipart (the files), the others url-encoded
+      var body = f.querySelector('input[type=file]') ? new FormData(f) : new URLSearchParams(new FormData(f));
+      fetch(f.action, { method: 'POST', body: body, headers: { Accept: 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (d.ok) {

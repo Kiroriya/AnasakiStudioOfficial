@@ -111,6 +111,18 @@ export class LegacyMigrations {
   }
 }
 
+// ---------------------------------------------------------------- setup wizard: starter kits (2.5.0)
+
+/** A starter kit of the Plugin Store: the site starts from its pages, menu and content types. */
+export interface SetupKit {
+  id: string;
+  name: string | { th?: string; en?: string };
+  description: string | { th?: string; en?: string };
+  icon?: string;
+  /** The official plugins it works with (ticked in the "Recommended plugins" step). */
+  plugins: string[];
+}
+
 // ---------------------------------------------------------------- setup wizard: recommended plugins
 
 export interface RecommendedItem {

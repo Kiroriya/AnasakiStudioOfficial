@@ -12,6 +12,23 @@
   function ask(text, danger) { return window.AK && AK.confirm ? AK.confirm(text, { danger: !!danger }) : Promise.resolve(window.confirm(text)); }
 
   document.addEventListener('click', function (e) {
+    var tb = e.target.closest && e.target.closest('[data-shop-track]');
+    if (tb) {
+      e.preventDefault();
+      tb.disabled = true;
+      anasaki.call('eshop:setTracking', {
+        id: Number(tb.getAttribute('data-shop-track')),
+        carrier: document.getElementById('shop-carrier').value,
+        tracking: document.getElementById('shop-tracking').value,
+        ship: tb.hasAttribute('data-ship'),
+      }).then(function (r) {
+        tb.disabled = false;
+        if (!done(r)) { toast((r && r.message) || 'Error', 'danger'); return; }
+        if (tb.hasAttribute('data-ship')) location.reload();
+        else toast(en ? 'Saved' : 'บันทึกแล้ว', 'success');
+      });
+      return;
+    }
     var b = e.target.closest && e.target.closest('[data-shop-status]');
     if (b) {
       e.preventDefault();

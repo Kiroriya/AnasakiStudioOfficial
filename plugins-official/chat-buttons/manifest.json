@@ -1,0 +1,49 @@
+{
+  "id": "chat-buttons",
+  "name": "Chat buttons",
+  "version": "1.0.0",
+  "description": "A floating contact button on every page that opens LINE, Messenger, WhatsApp, Instagram, phone and email, plus a contact-buttons block for the designer. Works without JavaScript. / ปุ่มลอยติดต่อทุกหน้า LINE Messenger WhatsApp Instagram โทร อีเมล และบล็อกปุ่มติดต่อสำหรับหน้าออกแบบ",
+  "author": "Anasaki Studio",
+  "icon": "💬",
+  "category": "social",
+  "tags": ["chat", "line", "messenger", "whatsapp", "contact", "thai"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings", "head"],
+  "head": ["assets/chat.css"],
+  "settings": [
+    { "key": "line", "type": "text", "maxLength": 120, "placeholder": "@myshop",
+      "label": { "th": "LINE OA หรือ LINE ID", "en": "LINE Official Account or LINE ID" },
+      "help": { "th": "เช่น @myshop หรือลิงก์ https://lin.ee/… — เว้นว่าง = ไม่แสดง", "en": "Such as @myshop or a https://lin.ee/… link — empty = hidden" } },
+    { "key": "messenger", "type": "text", "maxLength": 120, "placeholder": "myshop",
+      "label": { "th": "Facebook เพจ (m.me/…)", "en": "Facebook page (m.me/…)" } },
+    { "key": "whatsapp", "type": "text", "maxLength": 30, "placeholder": "+66812345678",
+      "label": { "th": "WhatsApp (เบอร์พร้อมรหัสประเทศ)", "en": "WhatsApp (number with country code)" } },
+    { "key": "instagram", "type": "text", "maxLength": 60, "placeholder": "myshop",
+      "label": { "th": "Instagram (ชื่อบัญชี)", "en": "Instagram (username)" } },
+    { "key": "phone", "type": "text", "maxLength": 30, "placeholder": "081-234-5678",
+      "label": { "th": "เบอร์โทร", "en": "Phone" } },
+    { "key": "email", "type": "text", "maxLength": 120,
+      "label": { "th": "อีเมล", "en": "Email" } },
+    { "key": "label", "type": "text", "maxLength": 40, "default": "แชทกับเรา",
+      "label": { "th": "ข้อความบนปุ่มลอย", "en": "Floating button text" },
+      "help": { "th": "เว้นว่าง = ไอคอนอย่างเดียว", "en": "Empty = icon only" } },
+    { "key": "position", "type": "select", "default": "right",
+      "label": { "th": "ตำแหน่ง", "en": "Position" },
+      "options": [
+        { "value": "right", "label": { "th": "ขวาล่าง", "en": "Bottom right" } },
+        { "value": "left", "label": { "th": "ซ้ายล่าง", "en": "Bottom left" } },
+        { "value": "off", "label": { "th": "ไม่แสดงปุ่มลอย (ใช้แค่บล็อก)", "en": "No floating button (block only)" } }
+      ] },
+    { "key": "color", "type": "color", "default": "#06c755",
+      "label": { "th": "สีปุ่ม", "en": "Button colour" } },
+    { "key": "hidePaths", "type": "textarea", "maxLength": 1000, "placeholder": "/checkout\n/cart",
+      "label": { "th": "ไม่แสดงปุ่มลอยในหน้า", "en": "Hide the floating button on" },
+      "help": { "th": "บรรทัดละหนึ่งที่อยู่ (ขึ้นต้นด้วย / รวมหน้าย่อย)", "en": "One path per line (starting with /, sub-pages included)" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": []
+  }
+}

@@ -91,7 +91,8 @@ function shell(c: Ctx, cls: string, body: string): string {
     navigate: th ? 'เลื่อน' : 'navigate', open: th ? 'เปิด' : 'open', close: th ? 'ปิด' : 'close', code: th ? 'โค้ด' : 'code',
     copyMd: c.t.copyMd, copiedMd: th ? 'คัดลอก Markdown แล้ว' : 'Markdown copied' } };
   return (css ? `<link rel="stylesheet" href="${esc(css)}">` : '') +
-    `<div class="dx ${cls}" data-dx>${body}</div>` +
+    // a page in another language than the site's says so (screen readers, translation tools) — 1.2.1
+    `<div class="dx ${cls}" data-dx${c.lang !== siteLang() ? ` lang="${c.lang}"` : ''}>${body}</div>` +
     `<script type="application/json" id="dx-data">${jsonData(data)}</script>` +
     (js ? `<script defer src="${esc(js)}"></script>` : '');
 }

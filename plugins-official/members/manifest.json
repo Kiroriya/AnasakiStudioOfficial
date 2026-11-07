@@ -1,7 +1,7 @@
 {
   "id": "members",
   "name": "Members",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Visitor accounts: sign up with email confirmation, sign in, password reset, a My account page, a member menu block, members-only sections (visitor.is.member) and a members admin screen with CSV export. / ระบบสมาชิก สมัคร ยืนยันอีเมล เข้าสู่ระบบ ลืมรหัส หน้าบัญชีของฉัน และส่วนเฉพาะสมาชิก",
   "author": "Anasaki Studio",
   "icon": "👥",
@@ -14,7 +14,7 @@
   "settings": [
     { "key": "requireVerification", "type": "boolean", "default": true,
       "label": { "th": "ต้องยืนยันอีเมลก่อนเข้าสู่ระบบ", "en": "Confirm the email before signing in" },
-      "help": { "th": "ต้องตั้งค่าอีเมล (SMTP) ของเว็บก่อน", "en": "Needs the site's email (SMTP) settings" } },
+      "help": { "th": "ใช้ได้เมื่อตั้งค่าอีเมล (SMTP) ของเว็บแล้ว — ถ้ายังไม่ได้ตั้ง สมาชิกใหม่จะเข้าสู่ระบบได้เลยโดยไม่ต้องยืนยัน", "en": "Works once the site's email (SMTP) is set up — until then new members sign in without confirming" } },
     { "key": "allowedDomains", "type": "text", "maxLength": 300, "placeholder": "company.co.th, example.com",
       "label": { "th": "รับเฉพาะอีเมลโดเมน", "en": "Only these email domains" },
       "help": { "th": "คั่นด้วยจุลภาค — เว้นว่าง = ทุกโดเมน", "en": "Comma separated — empty = any domain" } },

@@ -6,7 +6,7 @@ export type Role = 'administrator' | 'editor' | 'author' | 'contributor' | 'subs
 export type PostType = 'post' | 'page' | 'template' | (string & {});
 export const BUILTIN_POST_TYPES = ['post', 'page', 'template'];
 /** 'scheduled' (CMS 2.1.0): waits for publishedAt, then the server publishes it. */
-export type PostStatus = 'draft' | 'publish' | 'scheduled';
+export type PostStatus = 'draft' | 'publish' | 'scheduled' | 'pending'; // pending: sent for review (2.5.0)
 
 export interface User {
   id: number;
@@ -105,6 +105,9 @@ export interface Post {
   publishedAt: string | null;
   /** Custom field values (phase 4a; present when the type has fields). */
   meta?: Record<string, unknown>;
+  /** 2.5.0: the content language ('' = the site's) and the original it translates (0 = an original). */
+  lang?: string;
+  translationOf?: number;
   /** Saved, not yet published designer changes of a published page (CMS 2.3.0; single-post reads only). */
   draft?: { title: string; slug: string; design: DNode; savedAt: string } | null;
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"slices"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/anasaki/studio/backend/internal/auth"
 	"github.com/anasaki/studio/backend/internal/design"
 	"github.com/anasaki/studio/backend/internal/kses"
+	"github.com/anasaki/studio/backend/internal/mail"
 	"github.com/anasaki/studio/backend/internal/model"
 	"github.com/anasaki/studio/backend/internal/sitecode"
 	"github.com/anasaki/studio/backend/internal/store"
@@ -69,7 +71,7 @@ func (a *API) canPublish(p *auth.Principal, typ string) bool {
 // left it unless the user may publish too (a contributor can't rewrite or
 // remove it after an editor approved it).
 func (a *API) canModify(p *auth.Principal, post *model.Post) bool {
-	return a.canEdit(p, post) && (post.Status == model.StatusDraft || a.canPublish(p, post.Type))
+	return a.canEdit(p, post) && (post.Status == model.StatusDraft || post.Status == model.StatusPending || a.canPublish(p, post.Type))
 }
 
 const msgPublishedLocked = "เนื้อหานี้เผยแพร่แล้ว ต้องมีสิทธิ์เผยแพร่จึงจะแก้ไขหรือลบได้"
@@ -102,6 +104,10 @@ func (a *API) listPosts(w http.ResponseWriter, r *http.Request) {
 	if f.Limit < 1 || f.Limit > 200 { // same bounds as the store (a negative offset is a SQL error)
 		f.Limit = 20
 	}
+	if q.Has("lang") { // 2.5.0: one content language ("" = the site's); absent = every language
+		l := q.Get("lang")
+		f.Lang = &l
+	}
 	// status: one of draft / publish / scheduled; "any" (or "all", "") = every status (2.3.0:
 	// before, an unknown value silently matched nothing — Qraft feedback 28)
 	switch f.Status {
@@ -110,7 +116,7 @@ func (a *API) listPosts(w http.ResponseWriter, r *http.Request) {
 	case "":
 	default:
 		if !model.ValidStatus(f.Status) {
-			writeErr(w, http.StatusBadRequest, "status ต้องเป็น draft, publish, scheduled หรือ any")
+			writeErr(w, http.StatusBadRequest, "status ต้องเป็น draft, pending, publish, scheduled หรือ any")
 			return
 		}
 	}
@@ -203,7 +209,7 @@ func (in *postInput) apply(p *model.Post, me *auth.Principal, canPublish bool) s
 		}
 		p.Status = *in.Status
 		if p.Status != model.StatusDraft && !canPublish {
-			p.Status = model.StatusDraft // contributors submit drafts for review
+			p.Status = model.StatusPending // contributors send posts for review (2.5.0; before: a draft)
 		}
 	}
 	if in.PublishedAt != nil && canPublish {
@@ -298,7 +304,29 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
+	if p.Status == model.StatusPending {
+		a.notifyPending(p, me)
+	}
 	a.respondPost(w, p.ID, http.StatusCreated)
+}
+
+// notifyPending tells the site's administrator email that a post waits for review (2.5.0; best effort, in
+// the background — a site without email set up just shows it in the list).
+func (a *API) notifyPending(p *model.Post, me *auth.Principal) {
+	opts, err := a.st.Options()
+	if err != nil || strings.TrimSpace(opts["admin_email"]) == "" {
+		return
+	}
+	to, title, by := strings.TrimSpace(opts["admin_email"]), p.Title, me.Name
+	link := strings.TrimRight(opts["site_url"], "/") + "/" + orDefault(opts["admin_path"], "admin") + "/posts/" + strconv.FormatInt(p.ID, 10)
+	go func() {
+		err := a.SendMailMessage(mail.Message{To: []string{to},
+			Subject: "มีบทความรอตรวจ: " + title + " / A post waits for review",
+			Text:    by + " ส่งบทความ \"" + title + "\" ให้ตรวจ / sent \"" + title + "\" for review\n\n" + link + "\n"})
+		if err != nil && !errors.Is(err, mail.ErrNotConfigured) {
+			log.Printf("pending post mail: %v", err)
+		}
+	}()
 }
 
 func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
@@ -315,6 +343,7 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 	if a.denyModify(w, me, p) {
 		return
 	}
+	wasStatus := p.Status
 	if a.saveConflict(w, "post", p.ID, in.BaseUpdatedAt, p.UpdatedAt) {
 		return
 	}
@@ -360,6 +389,9 @@ func (a *API) updatePost(w http.ResponseWriter, r *http.Request) {
 	if err := a.db(r).SavePost(p, false, store.PostSave{Terms: terms, Meta: meta, EditorID: me.ID}); err != nil {
 		serverErr(w, err)
 		return
+	}
+	if p.Status == model.StatusPending && wasStatus != model.StatusPending {
+		a.notifyPending(p, me)
 	}
 	if in.Design != nil { // the designer published: its draft is now live
 		if _, err := a.st.SetPostDraft(p.ID, nil); err != nil {
@@ -429,6 +461,7 @@ func (a *API) duplicatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	cp := *src
 	cp.ID, cp.Status, cp.AuthorID, cp.PublishedAt = 0, model.StatusDraft, me.ID, nil
+	cp.TranslationOf = 0 // a copy keeps the language but is not one of the original's translations
 	cp.Title = src.Title + " (copy)"
 	if cp.Slug, err = a.st.UniqueSlug(cp.Type, src.Slug+"-copy", 0); err != nil {
 		serverErr(w, err)

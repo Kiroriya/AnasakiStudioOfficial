@@ -108,7 +108,7 @@ func (s *Site) designFor(id int64, opts map[string]string) (root *design.Node, c
 		ctx, path = PostContext(p), PostURL(p)
 		tpl := s.typeTemplate(opts, p.Type)
 		if tpl == nil && len(p.Design) == 0 {
-			tpl = s.defaultPostTemplate()
+			tpl = s.defaultTemplateFor(p)
 		}
 		if tpl != nil {
 			raw = tpl.Design
@@ -150,7 +150,11 @@ func (s *Site) servePartial(w http.ResponseWriter, r *http.Request, opts map[str
 	if hp := cleanPath(r.Header.Get("X-Rea-Path")); hp != "" {
 		path = hp
 	}
-	src := NewSource(s.st, s.plugins)
+	if len(ContentLanguages(opts)) > 0 { // 2.5.0: the list of a /<lang>/ page keeps its language
+		lang, _ := splitLang(opts, strings.Trim(path, "/"))
+		opts = withPageLang(opts, lang)
+	}
+	src := s.newSource(opts)
 	var data map[string]any
 	sess := s.session(r, opts)
 	if sess != nil {
@@ -285,7 +289,7 @@ func (s *Site) serveAction(w http.ResponseWriter, r *http.Request, opts map[stri
 			for _, n := range res.Refresh {
 				srcs = append(srcs, "code:"+n)
 			}
-			src := NewSource(s.st, s.plugins)
+			src := s.newSource(opts)
 			src.code = sess
 			dc := designContext(opts, ctxPost, "", path, query, data)
 			dc.Visitor = visitorFunc(sess)

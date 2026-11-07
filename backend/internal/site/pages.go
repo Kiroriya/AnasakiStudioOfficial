@@ -150,7 +150,13 @@ func HeaderFooter(st *store.Store) (header, footer int64) {
 
 // defaultPostTemplate shows a post (without a design of its own) between the
 // site header and footer until the owner makes a post template.
-func (s *Site) defaultPostTemplate() *model.Post {
+func (s *Site) defaultPostTemplate() *model.Post { return s.defaultTemplateFor(nil) }
+
+// defaultTemplateFor is the page of a post without a template: for a custom
+// type's post (2.5.0) the title, its featured image, the Fields block and the
+// content (plugins add to it: Shop's buy box) — no date line, a menu item or a
+// listing has no meaningful publish date.
+func (s *Site) defaultTemplateFor(p *model.Post) *model.Post {
 	header, footer := HeaderFooter(s.st)
 	inst := func(id string, comp int64) *design.Node {
 		return &design.Node{ID: id, Type: design.TypeInstance, Width: design.Size{Mode: "fill"},
@@ -167,7 +173,21 @@ func (s *Site) defaultPostTemplate() *model.Post {
 			text("post-title", "{{post.title}}", "h1", map[string]any{"fontSize": 40.0, "fontWeight": 800.0, "lineHeight": 1.2}),
 			text("post-date", "{{post.date}}", "p", map[string]any{"fontSize": 14.0, "color": "var(--c-muted)"}),
 			{ID: "post-content", Type: design.TypePostContent, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"}, Style: map[string]any{"fontSize": 18.0}},
+			{ID: "post-tags", Type: design.TypePostTags, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"}},
 		}}
+	if p != nil && p.Type != model.TypePost && p.Type != model.TypePage {
+		kids := []*design.Node{text("post-title", "{{post.title}}", "h1", map[string]any{"fontSize": 40.0, "fontWeight": 800.0, "lineHeight": 1.2})}
+		if p.FeaturedImage != "" {
+			kids = append(kids, &design.Node{ID: "post-image", Type: design.TypeImage, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"},
+				Style: map[string]any{"radius": 16.0, "objectFit": "cover", "maxHeight": 520.0}, Props: map[string]any{"src": "{{post.image}}", "alt": "{{post.title}}", "lightbox": true}})
+		}
+		kids = append(kids, &design.Node{ID: "post-fields", Type: design.TypePostFields, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"},
+			Style: map[string]any{"fontSize": 17.0}, Layout: map[string]any{"padding": []any{20.0, 0.0, 20.0, 0.0}}})
+		// the content even when empty: plugins add to it (Shop's buy box, Blog Extras)
+		kids = append(kids, &design.Node{ID: "post-content", Type: design.TypePostContent, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"}, Style: map[string]any{"fontSize": 18.0}})
+		article.Children = kids
+		article.Layout["gap"] = 20.0
+	}
 	root := &design.Node{ID: "root", Type: design.TypeFrame, Width: design.Size{Mode: "fill"}, Height: design.Size{Mode: "hug"},
 		Layout: map[string]any{"mode": "vertical", "align": "center"}, Style: map[string]any{"fill": "#ffffff"}}
 	if header > 0 {

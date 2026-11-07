@@ -1,6 +1,7 @@
 // Public markup of a form — the Go plugin's RenderForm (same HTML, classes, honeypot "_hp"), plus the small
 // pages the public routes answer.
 import { DEFAULT_SUBMIT, DEFAULT_SUCCESS, Form } from './model';
+import { ACCEPT, FILE_HINT } from './files';
 
 /** Go's html.EscapeString (& < > ' " → &amp; &lt; &gt; &#39; &#34;). */
 export const esc = (v: unknown) =>
@@ -10,12 +11,14 @@ export const esc = (v: unknown) =>
  * Accessible HTML of a form (labels, required, honeypot "_hp") posting to /forms/{id}/submit. `sent` = the page was
  * reached through the no-JavaScript redirect after a successful submit (?sent=<id>): the success message is shown.
  */
-export function renderForm(fm: Form, sent = false): string {
+export function renderForm(fm: Form, sent = false, about = ''): string {
   const e = esc;
   const sid = String(fm.id);
   const success = fm.successMessage || DEFAULT_SUCCESS;
   const submit = fm.submitLabel || DEFAULT_SUBMIT;
-  let b = `<form class="rea-form" id="rea-form-${sid}" method="post" action="/forms/${sid}/submit" data-rea-form="${sid}" data-success="${e(success)}">`;
+  // 2.2: a form with a file field posts multipart/form-data
+  const enc = fm.fields.some((f) => f.type === 'file') ? ' enctype="multipart/form-data"' : '';
+  let b = `<form class="rea-form" id="rea-form-${sid}" method="post" action="/forms/${sid}/submit"${enc} data-rea-form="${sid}" data-success="${e(success)}">`;
   for (const fd of fm.fields) {
     const id = 'rea-f' + sid + '-' + fd.key;
     const req = fd.required ? ' required' : '';
@@ -46,6 +49,9 @@ export function renderForm(fm: Form, sent = false): string {
       case 'select':
         b += `<select${name}${req}><option value="">—</option>` + fd.options.map((o) => `<option value="${e(o)}">${e(o)}</option>`).join('') + '</select>';
         break;
+      case 'file':
+        b += `<input type="file"${name}${req} accept="${ACCEPT}"><small class="rea-form-hint">${e(fd.placeholder || FILE_HINT)}</small>`;
+        break;
       default: {
         const auto = fd.type === 'email' ? ' autocomplete="email"' : fd.type === 'tel' ? ' autocomplete="tel"' : '';
         b += `<input type="${fd.type}"${name}${ph}${req}${auto} maxlength="1000">`;
@@ -54,6 +60,7 @@ export function renderForm(fm: Form, sent = false): string {
     b += '</div>';
   }
   b += '<div class="rea-form-hp" aria-hidden="true"><label>Leave this empty<input type="text" name="_hp" tabindex="-1" autocomplete="off"></label></div>';
+  if (about) b += `<input type="hidden" name="_about" value="${e(about.slice(0, 300))}">`; // 2.2: the page it was sent from
   b += `<button type="submit" class="rea-form-submit">${e(submit)}</button>`;
   b += sent
     ? `<p class="rea-form-msg" role="status" aria-live="polite">${e(success)}</p></form>`

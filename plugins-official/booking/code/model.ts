@@ -1,13 +1,25 @@
 // Services, opening hours, closed days, bookings and the free time slots of a day.
 
-export interface Service { id: number; name: string; description: string; minutes: number; price: string; capacity: number; active: boolean; sort: number }
+/** capacity: bookings at once — or seats when max_party > 1 (a table for up to max_party people). deposit: paid to book (1.1). */
+export interface Service {
+  id: number; name: string; description: string; minutes: number; price: string; capacity: number; active: boolean; sort: number;
+  max_party: number; deposit: string;
+}
+/** Someone who gives services (1.1); services = ids joined by commas, "" = every service. */
+export interface Staff { id: number; name: string; services: string; active: boolean; sort: number }
 export interface Hours { weekday: number; open_min: number; close_min: number; closed: boolean }
 export type BStatus = 'pending' | 'confirmed' | 'cancelled' | 'done';
 export const STATUSES: BStatus[] = ['pending', 'confirmed', 'cancelled', 'done'];
 export interface Booking {
   id: number; code: string; service_id: number; service_name: string; day: string; start_min: number; end_min: number;
   name: string; phone: string; email: string; note: string; status: BStatus; created_at: string;
+  /** 1.1 */
+  party: number; staff_id: number; staff_name: string; answers: string | null; deposit: string; slip: string; slip_at: string | null;
+  reminded_at: string | null;
 }
+
+/** The booking still waits for its deposit (no slip yet). */
+export const awaitingDeposit = (b: Booking) => b.status === 'pending' && Number(b.deposit) > 0 && !b.slip;
 
 export const esc = (v: unknown) =>
   String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&#34;' })[c] as string);
@@ -76,8 +88,39 @@ export function bookableDays(): { day: string; open: boolean }[] {
   return out;
 }
 
-/** Free start times (minutes) of a service on a day: steps of the service's length (at most 30 min apart). */
-export function freeSlots(svc: Service, day: string): number[] {
+// ---------------------------------------------------------------- staff (1.1)
+
+export const allStaff = () => db.table('staff').orderBy('sort').orderBy('id').get() as Staff[];
+const gives = (s: Staff, svc: Service) => !String(s.services ?? '').trim() || String(s.services).split(',').map(Number).includes(Number(svc.id));
+/** The active staff who give svc ([] = the service is booked without choosing anyone). */
+export const staffFor = (svc: Service) => allStaff().filter((s) => s.active && gives(s, svc));
+
+type Taken = { start_min: number; end_min: number; party: number; staff_id: number };
+const overlaps = (b: Taken, s: number, e: number) => Number(b.start_min) < e && Number(b.end_min) > s;
+
+/**
+ * Who serves a booking of svc on day from s to e: staffId (0 = anyone free) among the service's staff, or null
+ * when nobody is free. A person is busy with any booking of theirs, of any service.
+ */
+export function freeStaff(svc: Service, day: string, s: number, e: number, staffId = 0, taken?: Taken[]): Staff | null {
+  const people = staffFor(svc).filter((p) => !staffId || p.id === staffId);
+  if (!people.length) return null;
+  const rows = taken ?? (db.table('bookings').where('day', day).whereIn('status', ['pending', 'confirmed']).where('staff_id', '>', 0)
+    .select('start_min', 'end_min', 'party', 'staff_id').get() as Taken[]);
+  return people.find((p) => !rows.some((b) => Number(b.staff_id) === p.id && overlaps(b, s, e))) ?? null;
+}
+
+/** The party sizes a visitor may choose (1 … max_party, at most the capacity). */
+export const partySizes = (svc: Service) => {
+  const max = Math.max(1, Math.min(Number(svc.max_party) || 1, Number(svc.capacity) || 1, 50));
+  return Array.from({ length: max }, (_, i) => i + 1);
+};
+
+/**
+ * Free start times (minutes) of a service on a day: steps of the service's length (at most 30 min apart).
+ * party: people of the booking (seats of a service with max_party > 1); staffId: a chosen person (0 = anyone).
+ */
+export function freeSlots(svc: Service, day: string, party = 1, staffId = 0): number[] {
   if (!isDay(day) || !bookableDays().some((d) => d.day === day && d.open)) return [];
   const h = hours()[weekday(day)];
   const minutes = Math.max(5, Number(svc.minutes) || 60);
@@ -86,17 +129,52 @@ export function freeSlots(svc: Service, day: string): number[] {
   const notice = Math.max(0, Number(site.settings('minNoticeHours') ?? 2) || 0) * 60;
   // minutes after the day's midnight before which no slot may start (now + notice, in site time)
   const earliest = (Date.parse(now.day + 'T00:00:00Z') - Date.parse(day + 'T00:00:00Z')) / 60_000 + now.minutes + notice;
-  const taken = db.table('bookings').where('day', day).whereIn('status', ['pending', 'confirmed']).where('service_id', svc.id)
-    .select('start_min', 'end_min').get() as { start_min: number; end_min: number }[];
-  const cap = Math.max(1, Number(svc.capacity) || 1);
   const out: number[] = [];
+  if (staffFor(svc).length) {
+    // with staff: a time is free while one of them is
+    const busy = db.table('bookings').where('day', day).whereIn('status', ['pending', 'confirmed']).where('staff_id', '>', 0)
+      .select('start_min', 'end_min', 'party', 'staff_id').get() as Taken[];
+    for (let s = h.open_min; s + minutes <= h.close_min; s += step) {
+      if (s >= earliest && freeStaff(svc, day, s, s + minutes, staffId, busy)) out.push(s);
+    }
+    return out;
+  }
+  const taken = db.table('bookings').where('day', day).whereIn('status', ['pending', 'confirmed']).where('service_id', svc.id)
+    .select('start_min', 'end_min', 'party', 'staff_id').get() as Taken[];
+  const cap = Math.max(1, Number(svc.capacity) || 1);
+  // seats (party sizes) when the service takes parties, else one per booking
+  const seats = (Number(svc.max_party) || 1) > 1;
+  const need = seats ? Math.max(1, party) : 1;
   for (let s = h.open_min; s + minutes <= h.close_min; s += step) {
     if (s < earliest) continue;
-    const overlap = taken.filter((b) => Number(b.start_min) < s + minutes && Number(b.end_min) > s).length;
-    if (overlap < cap) out.push(s);
+    const used = taken.filter((b) => overlaps(b, s, s + minutes)).reduce((n, b) => n + (seats ? Math.max(1, Number(b.party) || 1) : 1), 0);
+    if (used + need <= cap) out.push(s);
   }
   return out;
 }
+
+// ---------------------------------------------------------------- the shop's own questions (setting "questions", 1.1)
+
+export interface Question { key: string; label: string; required: boolean }
+
+/** One per line; a line ending in * must be answered. Keys q0, q1 … follow the lines. */
+export function questions(): Question[] {
+  return String(site.settings('questions') ?? '').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 10)
+    .map((l, i) => ({ key: 'q' + i, label: l.replace(/\s*\*$/, '').slice(0, 200), required: /\*$/.test(l) }));
+}
+
+/** answers JSON → [{label, value}] */
+export function answersOf(b: Booking): { label: string; value: string }[] {
+  try {
+    const a = JSON.parse(String(b.answers ?? '[]'));
+    return Array.isArray(a) ? a.filter((x) => x && x.value).map((x) => ({ label: String(x.label ?? ''), value: String(x.value) })) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** When a booking starts, as a Date (the day and minutes are site time). */
+export const startsAt = (b: Booking) => new Date(Date.parse(dayStr(b.day) + 'T00:00:00Z') + (Number(b.start_min) - offsetMinutes()) * 60_000);
 
 export const getBooking = (id: number) => db.table('bookings').where('id', id).first() as Booking | null;
 export const byCode = (code: string) => (/^[0-9a-f]{24}$/.test(code) ? (db.table('bookings').where('code', code).first() as Booking | null) : null);

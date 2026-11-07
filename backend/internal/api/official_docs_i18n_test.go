@@ -52,9 +52,12 @@ func TestOfficialDocsTranslations(t *testing.T) {
 	}
 	offBContains(t, "english product", page("/docs/en/studio", 200), "Getting started", ">Studio<")
 	a := page("/docs/en/studio/install", 200)
-	offBContains(t, "english article", a, "<h1>Install</h1>", "English", `href="/docs/studio/install" hreflang="th"`, `data-dx-copy-md="/docs/en/studio/install.md"`,
+	offBContains(t, "english article", a, "<h1>Install</h1>", `data-dx lang="en">`, "English", `href="/docs/studio/install" hreflang="th"`, `data-dx-copy-md="/docs/en/studio/install.md"`,
 		`<link rel="alternate" href="http://example.com/docs/studio/install" hreflang="th">`, `<link rel="alternate" href="http://example.com/docs/en/studio/install" hreflang="en">`)
 	// the Thai article links to its translation; a Thai-only article links to the English product page
+	if strings.Contains(page("/docs/studio/install", 200), `data-dx lang=`) {
+		t.Error("the site's language got a lang attribute")
+	}
 	offBContains(t, "thai article", page("/docs/studio/install", 200), "<h1>ติดตั้ง</h1>", `href="/docs/en/studio/install" hreflang="en"`)
 	offBContains(t, "thai only", page("/docs/studio/only-thai", 200), `href="/docs/en/studio" hreflang="en"`)
 	// Markdown, search and llms.txt per language

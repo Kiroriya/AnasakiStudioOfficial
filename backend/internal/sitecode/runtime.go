@@ -360,7 +360,7 @@ func (v *vm) install() {
 	_ = rt.Set("files", obj(map[string]func(goja.FunctionCall) goja.Value{ // 2.1.0
 		"put": v.filesPut, "get": v.filesGet, "text": v.filesText, "list": v.filesList, "delete": v.filesDelete, "url": v.filesURL,
 	}))
-	_ = rt.Set("mail", obj(map[string]func(goja.FunctionCall) goja.Value{"send": v.mailSend}))
+	_ = rt.Set("mail", obj(map[string]func(goja.FunctionCall) goja.Value{"send": v.mailSend, "ready": v.mailReady}))
 	_ = rt.Set("http", obj(map[string]func(goja.FunctionCall) goja.Value{"fetch": v.httpFetch, "webhook": v.httpWebhook}))
 	_ = rt.Set("jobs", obj(map[string]func(goja.FunctionCall) goja.Value{"enqueue": v.jobsEnqueue}))
 

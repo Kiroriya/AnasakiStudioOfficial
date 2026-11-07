@@ -13,7 +13,7 @@ import (
 
 const postSelect = `SELECT p.id, p.type, p.title, p.slug, p.status, COALESCE(p.excerpt,''), %s,
   p.featured_media_id, COALESCE(m.url,''), p.author_id, COALESCE(u.name,''),
-  p.pinned, p.sort_order, p.created_at, p.updated_at, p.published_at
+  p.pinned, p.sort_order, p.created_at, p.updated_at, p.published_at, p.lang, p.translation_of
 FROM posts p
 LEFT JOIN users u ON u.id = p.author_id
 LEFT JOIN media m ON m.id = p.featured_media_id`
@@ -30,7 +30,7 @@ func scanPost(sc interface{ Scan(...any) error }, withBody bool) (*model.Post, e
 	} else {
 		dst = append(dst, &content)
 	}
-	dst = append(dst, &fm, &p.FeaturedImage, &p.AuthorID, &p.AuthorName, &p.Pinned, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt, &pub)
+	dst = append(dst, &fm, &p.FeaturedImage, &p.AuthorID, &p.AuthorName, &p.Pinned, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt, &pub, &p.Lang, &p.TranslationOf)
 	if err := sc.Scan(dst...); err != nil {
 		return nil, err
 	}
@@ -81,6 +81,10 @@ func (s *Store) ListPosts(f model.PostFilter) ([]*model.Post, int, error) {
 	if f.AuthorID != 0 {
 		where = append(where, "p.author_id = ?")
 		args = append(args, f.AuthorID)
+	}
+	if f.Lang != nil {
+		where = append(where, "p.lang = ?")
+		args = append(args, *f.Lang)
 	}
 	if f.IDs != nil {
 		if len(f.IDs) == 0 {
@@ -225,6 +229,25 @@ func (s *Store) SetPostDraft(id int64, d *model.PostDraft) (time.Time, error) {
 	return now, err
 }
 
+// Translations are the posts of p's translation group (the original first, then by language), p included.
+func (s *Store) Translations(p *model.Post) ([]*model.Post, error) {
+	root := p.TranslationRoot()
+	rows, err := s.DB.Query(fmt.Sprintf(postSelect, "''")+` WHERE p.id = ? OR p.translation_of = ? ORDER BY p.translation_of, p.lang, p.id`, root, root)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*model.Post
+	for rows.Next() {
+		q, err := scanPost(rows, false)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}
+
 // PostBySlug finds a post of a type; publishedOnly hides drafts (public site).
 func (s *Store) PostBySlug(typ, slug string, publishedOnly bool) (*model.Post, error) {
 	q := fmt.Sprintf(postSelect, "p.content, p.design") + ` WHERE p.type = ? AND p.slug = ?`
@@ -348,9 +371,9 @@ func (s *Store) createPost(p *model.Post, o PostSave) error {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`INSERT INTO posts (type, title, slug, status, excerpt, content, design, featured_media_id,
-		author_id, pinned, sort_order, created_at, updated_at, published_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		author_id, pinned, sort_order, created_at, updated_at, published_at, lang, translation_of) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		p.Type, p.Title, p.Slug, p.Status, p.Excerpt, p.Content, nullBytes(p.Design), p.FeaturedMediaID,
-		p.AuthorID, p.Pinned, p.SortOrder, now, now, p.PublishedAt)
+		p.AuthorID, p.Pinned, p.SortOrder, now, now, p.PublishedAt, p.Lang, p.TranslationOf)
 	if err != nil {
 		return err
 	}

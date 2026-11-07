@@ -1,6 +1,6 @@
 // The "Orders" admin page (admin UI kit, drawn on the server; assets/admin.js runs the status buttons through
 // anasaki.call) and a dashboard card. Capability shop.orders (CMS 2.0.6+), else editors.
-import { OrderRow, STATUSES, Status, counts, esc, getOrder, listOrders, money, orderItems, setStatus } from './model';
+import { OrderRow, STATUSES, Status, counts, esc, getOrder, itemTitle, listOrders, money, orderItems, setStatus, setTracking } from './model';
 import { statusChanged } from './events';
 
 const CAPS = typeof (site as any).can === 'function';
@@ -18,9 +18,13 @@ const L = {
   setTo: ['เปลี่ยนเป็น', 'Mark as'], noSlip: ['ยังไม่มีสลิป', 'No slip yet'], download: ['ดาวน์โหลด', 'Download'],
   view: ['หน้าคำสั่งซื้อของลูกค้า ↗', 'Customer’s order page ↗'], products: ['จัดการสินค้า', 'Products'], settings: ['ตั้งค่าร้าน', 'Shop settings'],
   pending: ['รอชำระ', 'Pending'], paid: ['ชำระแล้ว', 'Paid'], shipped: ['จัดส่งแล้ว', 'Shipped'], done: ['สำเร็จ', 'Completed'], cancelled: ['ยกเลิก', 'Cancelled'],
-  promptpay: ['พร้อมเพย์', 'PromptPay'], bank: ['โอนเงิน', 'Bank transfer'], cod: ['ปลายทาง', 'Cash on delivery'],
+  promptpay: ['พร้อมเพย์', 'PromptPay'], bank: ['โอนเงิน', 'Bank transfer'], cod: ['ปลายทาง', 'Cash on delivery'], card: ['บัตร (ออนไลน์)', 'Card (online)'],
   widget: ['ร้านค้า', 'Shop'], waiting: ['รอตรวจ/รอชำระ', 'Awaiting payment'], toShip: ['รอจัดส่ง', 'To ship'], today: ['ยอดวันนี้', 'Today'],
   prev: ['‹ ก่อนหน้า', '‹ Previous'], next: ['ถัดไป ›', 'Next ›'],
+  discount: ['ส่วนลด', 'Discount'], tracking: ['เลขพัสดุ', 'Tracking number'], carrier: ['ขนส่ง', 'Carrier'],
+  trackSave: ['บันทึกเลขพัสดุ', 'Save tracking'], trackShip: ['บันทึกและเปลี่ยนเป็นจัดส่งแล้ว', 'Save and mark as shipped'],
+  trackHint: ['ลูกค้าเห็นเลขพัสดุในหน้าคำสั่งซื้อและในอีเมลแจ้งจัดส่ง (ลิงก์ติดตามของไปรษณีย์ไทย Kerry Flash และ J&T)',
+    'Customers see it on their order page and in the shipped mail (tracking links for Thailand Post, Kerry, Flash and J&T)'],
 } as const;
 type LK = keyof typeof L;
 
@@ -52,7 +56,17 @@ function b64(bytes: Uint8Array): string {
 
 function detail(o: OrderRow, tr: (k: LK) => string): string {
   const rows = orderItems(o.id).map((i) =>
-    `<tr><td>${esc(i.title)}</td><td class="ak-num">${i.qty}</td><td class="ak-num">${money(Number(i.price) * i.qty)}</td></tr>`).join('');
+    `<tr><td>${esc(itemTitle(i))}</td><td class="ak-num">${i.qty}</td><td class="ak-num">${money(Number(i.price) * i.qty)}</td></tr>`).join('') +
+    (Number(o.discount) > 0 ? `<tr><td>${esc(tr('discount'))} <code>${esc(o.coupon)}</code></td><td></td><td class="ak-num">-${money(Number(o.discount))}</td></tr>` : '');
+  const carriers = ['ไปรษณีย์ไทย', 'Kerry Express', 'Flash Express', 'J&T Express', 'Ninja Van', 'Lalamove'];
+  const track = o.status === 'cancelled' ? '' :
+    `<div class="ak-card"><div class="ak-card-head"><h3>${esc(tr('tracking'))}</h3></div>` +
+    `<div class="ak-actions" style="flex-wrap:wrap"><input id="shop-carrier" list="shop-carriers" value="${esc(o.carrier)}" placeholder="${esc(tr('carrier'))}" maxlength="60" style="max-width:200px">` +
+    `<datalist id="shop-carriers">${carriers.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>` +
+    `<input id="shop-tracking" value="${esc(o.tracking)}" placeholder="${esc(tr('tracking'))}" maxlength="120" style="max-width:260px">` +
+    `<button class="ak-btn ak-btn-sm" data-shop-track="${o.id}">${esc(tr('trackSave'))}</button>` +
+    (o.status === 'paid' ? `<button class="ak-btn ak-btn-sm ak-btn-primary" data-shop-track="${o.id}" data-ship="1">${esc(tr('trackShip'))}</button>` : '') +
+    `</div><p class="ak-hint">${esc(tr('trackHint'))}</p></div>`;
   let slip = `<p class="ak-muted">${esc(tr('noSlip'))}</p>`;
   if (o.slip) {
     const bytes = files.get(o.slip);
@@ -65,7 +79,7 @@ function detail(o: OrderRow, tr: (k: LK) => string): string {
   return `<p><a href="?" class="ak-btn ak-btn-sm ak-btn-ghost">${esc(tr('back'))}</a></p>` +
     `<header class="ak-page-head"><div class="ak-page-head-text"><h1>#${o.id} ${badge(o.status, tr)}</h1><p>${esc(when(o.created_at))} · ${esc(tr(o.payment as LK))} · <b>${money(Number(o.total))}</b></p></div>` +
     `<div class="ak-actions"><a class="ak-btn ak-btn-sm" href="/shop/order/${esc(o.code)}" target="_blank" rel="noopener">${esc(tr('view'))}</a></div></header>` +
-    `<div class="ak-card"><div class="ak-card-head"><h3>${esc(tr('setTo'))}</h3></div><div class="ak-actions" id="shop-status-buttons">${buttons}</div></div>` +
+    `<div class="ak-card"><div class="ak-card-head"><h3>${esc(tr('setTo'))}</h3></div><div class="ak-actions" id="shop-status-buttons">${buttons}</div></div>` + track +
     `<div class="ak-grid" style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">` +
     `<section class="ak-card"><h3>${esc(tr('items'))}</h3><div class="ak-table-wrap"><table class="ak-table"><tbody>${rows}` +
     `<tr><td>${esc(tr('total'))}</td><td></td><td class="ak-num"><b>${money(Number(o.total))}</b></td></tr></tbody></table></div>` +
@@ -132,12 +146,13 @@ export function registerAdmin(): void {
         return { status: 200, headers: { 'Content-Type': o.slip.endsWith('.png') ? 'image/png' : 'image/jpeg', 'Content-Disposition': `attachment; filename="slip-${o.id}${o.slip.endsWith('.png') ? '.png' : '.jpg'}"` }, body: bytes };
       }
       const status = q1(ctx.query.status);
-      const lines = ['id,code,date,status,payment,name,phone,email,address,items,subtotal,shipping,total'];
+      const lines = ['id,code,date,status,payment,name,phone,email,address,items,subtotal,discount,coupon,shipping,total,carrier,tracking'];
       for (let page = 1; page <= 200; page++) {
         const r = listOrders({ status, page, perPage: 100 });
         for (const o of r.items) {
-          const items = orderItems(o.id).map((i) => `${i.title} x${i.qty}`).join('; ');
-          lines.push([o.id, o.code, when(o.created_at), o.status, o.payment, o.name, o.phone, o.email, o.address, items, o.subtotal, o.shipping, o.total].map(csvCell).join(','));
+          const items = orderItems(o.id).map((i) => `${itemTitle(i)} x${i.qty}`).join('; ');
+          lines.push([o.id, o.code, when(o.created_at), o.status, o.payment, o.name, o.phone, o.email, o.address, items, o.subtotal, o.discount, o.coupon,
+            o.shipping, o.total, o.carrier, o.tracking].map(csvCell).join(','));
         }
         if (page * r.perPage >= r.total) break;
       }
@@ -155,6 +170,23 @@ export function registerAdmin(): void {
       const after = setStatus(o, input.status as Status);
       statusChanged(o, after);
       return { data: { id: after.id, status: after.status } };
+    },
+  });
+
+  // the parcel's carrier and number; ship = also mark a paid order as shipped (the customer is mailed)
+  site.action('setTracking', {
+    input: { id: 'number', carrier: 'text?', tracking: 'text?', ship: 'bool' },
+    access: ACCESS,
+    run: ({ input }) => {
+      const o = getOrder(Number(input.id));
+      if (!o) return { message: 'not found', errors: { id: 'not found' } };
+      let after = setTracking(o, String(input.carrier ?? ''), String(input.tracking ?? ''));
+      if (input.ship && after.status === 'paid' && after.tracking) {
+        const shipped = setStatus(after, 'shipped');
+        statusChanged(after, shipped);
+        after = shipped;
+      }
+      return { data: { id: after.id, status: after.status, tracking: after.tracking } };
     },
   });
 

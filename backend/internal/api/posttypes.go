@@ -123,7 +123,7 @@ func (a *API) prepareSave(w http.ResponseWriter, me *auth.Principal, p *model.Po
 	}
 	if s, ok := out["status"].(string); ok && model.ValidStatus(s) {
 		if s != model.StatusDraft && !a.canPublish(me, p.Type) {
-			s = model.StatusDraft
+			s = model.StatusPending // post.beforeSave cannot publish for a contributor: the post goes for review
 		}
 		p.Status = s
 	}

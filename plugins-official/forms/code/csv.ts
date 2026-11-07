@@ -24,9 +24,11 @@ const line = (cells: string[]) => cells.map(field).join(',') + '\n';
 
 /** The CSV file of form fm: id, createdAt, then one column per field (labels as headers). */
 export function exportCSV(fm: Form): string {
-  let out = '\ufeff' + line(['id', 'createdAt', ...fm.fields.map((f) => csvSafe(f.label))]);
-  for (const s of listSubmissions(fm.id)) {
-    out += line([String(s.id), s.createdAt, ...fm.fields.map((f) => csvSafe(s.data[f.key] ?? ''))]);
+  const subs = listSubmissions(fm.id);
+  const about = subs.some((s) => s.data._about); // 2.2: a "sentFrom" column when the form sat on a post's page
+  let out = '\ufeff' + line(['id', 'createdAt', ...fm.fields.map((f) => csvSafe(f.label)), ...(about ? ['sentFrom'] : [])]);
+  for (const s of subs) {
+    out += line([String(s.id), s.createdAt, ...fm.fields.map((f) => csvSafe(s.data[f.key] ?? '')), ...(about ? [csvSafe(s.data._about ?? '')] : [])]);
   }
   return out;
 }

@@ -10,10 +10,12 @@ import { Plugins } from '../core/plugins';
 import { PostTypes } from '../core/post-types';
 import { editRoute, metaErrorsFromApi, pickMeta, supportsOf, templateOption, typePrefix, validateMeta } from '../core/post-type-utils';
 import { MediaPicker } from '../shared/media-picker';
+import { langLabel, parseLangs } from '../shared/languages';
 import { RichEditor } from '../shared/rich-editor';
 import { SchemaForm } from '../shared/schema-form';
 import './messages-content-types';
 
+import './messages-v250';
 /**
  * Post editor: title, rich text, excerpt, categories, featured image, SEO,
  * revisions — and custom fields (site.fields / site.postType). Also the
@@ -37,7 +39,7 @@ import './messages-content-types';
       <div class="head-actions">
         @if (post()?.status === 'publish') { <a class="btn" [href]="viewUrl()" target="_blank">↗ {{ 'common.view' | t }}</a> }
         <button class="btn" id="post-save-draft" [disabled]="busy() || locked()" (click)="save('draft')" [title]="'post.draftHint' | t">💾 {{ 'post.saveDraft' | t }}</button>
-        <button class="btn btn-primary" id="post-publish" [disabled]="busy() || locked()" (click)="save('publish')">{{ future() ? '⏰' : '🚀' }} {{ (future() ? 'post.schedule' : post()?.status === 'publish' ? 'post.update' : 'post.publish') | t }}</button>
+        <button class="btn btn-primary" id="post-publish" [disabled]="busy() || locked()" (click)="save('publish')">{{ !mayPublish() ? '📨' : future() ? '⏰' : '🚀' }} {{ (!mayPublish() ? (post()?.status === 'pending' ? 'post.updateReview' : 'post.submitReview') : future() ? 'post.schedule' : post()?.status === 'publish' ? 'post.update' : post()?.status === 'pending' ? 'post.approve' : 'post.publish') | t }}</button>
       </div>
     </header>
     @if (error()) { <p class="alert">{{ error() }}</p> }
@@ -60,7 +62,7 @@ import './messages-content-types';
         @if (siteFields().length) {
           <section class="post-fields" id="post-fields" [attr.data-type]="type()">
             <h4>🧾 {{ 'post.fields' | t }}</h4>
-            <p class="hint">{{ 'post.fieldsHint' | t }}</p>
+            <p class="hint">{{ (pt()?.admin ? 'post.fieldsHintAdmin' : 'post.fieldsHint') | t }}</p>
             <rea-schema-form idPrefix="post-field" [fields]="siteFields()" [values]="meta()" [errors]="fieldErrors()" [blankOption]="true" (changed)="setMeta($event)" />
           </section>
         }
@@ -76,7 +78,7 @@ import './messages-content-types';
       <aside class="editor-side">
         <section class="card">
           <h4>{{ 'post.publishBox' | t }}</h4>
-          <p><span class="badge" id="post-status-badge" [attr.data-status]="post()?.status || 'draft'" [class.badge-live]="post()?.status === 'publish'">{{ post()?.status === 'scheduled' ? '⏰' : '●' }} {{ (post()?.status === 'publish' ? 'common.published' : post()?.status === 'scheduled' ? 'post.scheduledBadge' : 'post.notLive') | t }}</span></p>
+          <p><span class="badge" id="post-status-badge" [attr.data-status]="post()?.status || 'draft'" [class.badge-live]="post()?.status === 'publish'">{{ post()?.status === 'scheduled' ? '⏰' : '●' }} {{ (post()?.status === 'publish' ? 'common.published' : post()?.status === 'scheduled' ? 'post.scheduledBadge' : post()?.status === 'pending' ? 'post.pendingBadge' : 'post.notLive') | t }}</span></p>
           @if (post(); as p) {
             @if (p.publishedAt) { <p class="muted small">{{ i18n.date(p.publishedAt, true) }}</p> }
             <p class="muted small">{{ 'common.by' | t: { name: p.authorName } }}</p>
@@ -91,6 +93,24 @@ import './messages-content-types';
             <label class="check" [title]="'post.pinHint' | t"><input type="checkbox" [checked]="pinned()" (change)="pinned.set($any($event.target).checked)" /> 📌 {{ 'post.pin' | t }}</label>
           }
         </section>
+
+        @if (langs().length && post(); as p) {
+          <section class="card" id="post-translations">
+            <h4>🌐 {{ 'lang.title' | t }}</h4>
+            <p class="small">{{ 'lang.thisIs' | t: { lang: langLabel(p.lang || siteLang()) } }}</p>
+            <ul class="plain-list">
+              @for (tr of translations(); track tr.id) {
+                @if (tr.id !== p.id) {
+                  <li><a [routerLink]="editRouteOf(tr)" [attr.data-lang]="tr.lang">{{ langLabel(tr.lang || siteLang()) }}: {{ tr.title }}</a>
+                    <span class="muted small">{{ (tr.status === 'publish' ? 'common.published' : 'common.draft') | t }}</span></li>
+                }
+              }
+            </ul>
+            @for (l of missingLangs(); track l) {
+              <button class="btn btn-sm post-translate" [attr.data-lang]="l" (click)="translate(l)">+ {{ 'lang.translateTo' | t: { lang: langLabel(l) } }}</button>
+            }
+          </section>
+        }
 
         <section class="card tpl-card">
           <h4>🧩 {{ 'post.lookTitle' | t }}</h4>
@@ -203,6 +223,14 @@ export class PostEdit implements OnInit {
   readonly fieldErrors = signal<Record<string, string>>({});
   readonly id = signal(0);
   readonly post = signal<Post | null>(null);
+  /** 2.5.0: multilingual content — the site's content languages and this post's translation group. */
+  readonly siteLang = signal('th');
+  readonly langs = signal<string[]>([]);
+  readonly translations = signal<{ id: number; lang: string; title: string; status: string; type: string }[]>([]);
+  readonly missingLangs = computed(() => {
+    const have = new Set(this.translations().map(t => t.lang));
+    return this.langs().filter(l => !have.has(l));
+  });
   readonly title = signal('');
   readonly slug = signal('');
   readonly content = signal('');
@@ -215,7 +243,8 @@ export class PostEdit implements OnInit {
   readonly picking = signal(false);
   readonly pinned = signal(false);
   /** Taxonomies of this type from site.taxonomy (CMS 2.1.0; "category" has its own box). */
-  readonly taxes = computed(() => this.postTypes.taxonomiesOf(this.type()));
+  // the loaded post's own type (a page opened at /posts/<id> must not get the tags of posts)
+  readonly taxes = computed(() => this.postTypes.taxonomiesOf(this.post()?.type ?? this.type()));
   /** Their terms, and the ids chosen per taxonomy. */
   readonly txTerms = signal<Record<string, Term[]>>({});
   readonly txSel = signal<Record<string, Set<number>>>({});
@@ -231,10 +260,19 @@ export class PostEdit implements OnInit {
   readonly error = signal('');
 
   async ngOnInit() {
+    // another post in the same screen (a translation's link): start over with it
+    this.route.paramMap.subscribe(pm => {
+      const n = Number(pm.get('id')) || 0;
+      if (this.id() && n && n !== this.id()) location.reload();
+    });
     this.plugins.load();
     void this.postTypes.ensureLoaded();
     void this.loadTaxTerms();
-    this.api.settings().then(s => this.templateId.set(Number(s[templateOption(this.type())] || s['post_template_id']) || 0)).catch(() => undefined);
+    this.api.settings().then(s => {
+      this.templateId.set(Number(s[templateOption(this.type())] || s['post_template_id']) || 0);
+      this.siteLang.set(s['language'] || 'th');
+      this.langs.set(parseLangs(s['content_languages'] ?? '', s['language'] || 'th'));
+    }).catch(() => undefined);
     // categories are optional for editing: a failure here must not stop the post from loading
     this.api.terms().then(t => this.terms.set(t)).catch(e => this.error.set(errorMessage(e)));
     const id = Number(this.route.snapshot.paramMap.get('id')) || 0;
@@ -243,9 +281,21 @@ export class PostEdit implements OnInit {
     try {
       this.fill(await this.api.getPost(id));
       this.revisions.set(await this.api.revisions(id));
+      this.api.translations(id).then(t => this.translations.set(t)).catch(() => undefined);
     } catch (e) {
       this.error.set(errorMessage(e));
     }
+  }
+
+  langLabel(code: string) { return langLabel(code); }
+  editRouteOf(t: { id: number; type: string }) { return editRoute(t.type, t.id); }
+  async translate(lang: string) {
+    const p = this.post();
+    if (!p) return;
+    try {
+      const t = await this.api.translatePost(p.id, lang);
+      await this.router.navigate(editRoute(t.type, t.id));
+    } catch (e) { this.error.set(errorMessage(e)); }
   }
 
   private fill(p: Post) {
@@ -303,12 +353,18 @@ export class PostEdit implements OnInit {
     await Promise.all(this.taxes().map(async tx => { out[tx.id] = await this.api.terms(tx.id).catch(() => []); }));
     this.txTerms.set(out);
   }
+  /** Adds terms typed in the box — several at once separated by commas (tags, 2.5.0); an existing name is ticked. */
   async txAdd(tax: string, input: HTMLInputElement) {
-    if (!input.value.trim()) return;
+    const names = [...new Set(input.value.split(/[,，]/).map(s => s.trim()).filter(Boolean))];
+    if (!names.length) return;
     try {
-      const t = await this.api.createTerm({ name: input.value.trim(), taxonomy: tax });
-      this.txTerms.update(all => ({ ...all, [tax]: [...(all[tax] ?? []), t] }));
-      this.txToggle(tax, t.id);
+      for (const name of names) {
+        const have = (this.txTerms()[tax] ?? []).find(t => t.name.toLowerCase() === name.toLowerCase());
+        if (have) { if (!this.txHas(tax, have.id)) this.txToggle(tax, have.id); continue; }
+        const t = await this.api.createTerm({ name, taxonomy: tax });
+        this.txTerms.update(all => ({ ...all, [tax]: [...(all[tax] ?? []), t] }));
+        this.txToggle(tax, t.id);
+      }
       input.value = '';
     } catch (e) {
       this.error.set(errorMessage(e));
@@ -381,7 +437,7 @@ export class PostEdit implements OnInit {
 
   private savedMsg(p: Post) {
     if (p.status === 'scheduled') return this.i18n.t('post.scheduledMsg', { when: this.i18n.date(p.publishedAt!, true) });
-    return this.i18n.t(p.status === 'publish' ? 'post.publishedMsg' : 'post.draftMsg');
+    return this.i18n.t(p.status === 'publish' ? 'post.publishedMsg' : p.status === 'pending' ? 'post.pendingMsg' : 'post.draftMsg');
   }
 
   async restore(r: Revision) {

@@ -1,0 +1,35 @@
+{
+  "id": "courses",
+  "name": "Courses",
+  "version": "1.0.0",
+  "description": "Online courses: courses and lessons with video, free, members-only or paid access (card through Payments, or granted by you), lessons locked until enrolled, progress per member and a certificate. Needs Members. / คอร์สออนไลน์ บทเรียนวิดีโอ ขายคอร์ส ติดตามความคืบหน้า ใบประกาศ",
+  "author": "Anasaki Studio",
+  "icon": "🎓",
+  "category": "ecommerce",
+  "tags": ["courses", "lms", "lessons", "education", "membership"],
+  "license": "MIT",
+  "minCore": "2.5.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการผู้เรียน", "en": "Manage students" },
+      "description": { "th": "ดูผู้เรียนและความคืบหน้า เปิดหรือปิดสิทธิ์เรียน", "en": "See students and progress, grant or remove access" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "certificate", "type": "boolean", "default": true,
+      "label": { "th": "ใบประกาศเมื่อเรียนจบ", "en": "Certificate on completion" } },
+    { "key": "issuer", "type": "text", "maxLength": 200,
+      "label": { "th": "ชื่อผู้ออกใบประกาศ", "en": "Certificate issued by" },
+      "help": { "th": "เว้นว่าง = ชื่อเว็บ", "en": "Empty = the site's title" } },
+    { "key": "paymentNote", "type": "textarea", "maxLength": 1000,
+      "label": { "th": "วิธีชำระเงินค่าคอร์ส (เมื่อไม่ได้ใช้ปลั๊กอิน Payments)", "en": "How to pay for a course (without the Payments plugin)" },
+      "help": { "th": "เช่น บัญชีโอนเงิน — คุณกดเปิดสิทธิ์ในหน้า ผู้เรียน หลังได้รับเงิน", "en": "E.g. bank details — you grant access on the Students page once paid" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "admin-pages", "post-types", "content", "filters-core"],
+    "routes": ["/learn", "/course", "/lesson"],
+    "hooks": { "events": ["courses.enrolled", "courses.completed"] }
+  }
+}

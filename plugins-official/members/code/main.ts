@@ -1,7 +1,7 @@
 // members: visitor accounts for the public site. Own tables (members, sessions, tokens), JSON routes
 // under /members, the same flows as site.action for designer forms, the site.visitor resolver (groups
 // "member" and "verified"), a "my profile" collection and an admin screen to disable members.
-import { register, verify, login, logout, forgot, reset, profile, sessionMember, groupsOf, normEmail, Result } from './service';
+import { register, verify, login, logout, forgot, reset, profile, sessionMember, groupsOf, normEmail, Result, verificationNeeded } from './service';
 import { csvOf, csvDisposition } from './csv';
 import { accountPage, forgotPage, loginPage, registerMenuBlock, registerPage, resetPage, toLogin, verifyPage } from './pages';
 
@@ -31,9 +31,9 @@ const answer = (r: Result) => (r.ok ? r : { status: r.errors ? 400 : 401, body: 
 const needJson = { status: 415, body: { ok: false, message: 'Content-Type must be application/json' } };
 const PUBLIC = { access: ['*'] };
 
-site.route('POST /members/register', PUBLIC, ({ request }) => {
+site.route('POST /members/register', PUBLIC, ({ request, response }) => {
   const b = body(request);
-  return b ? answer(register(b, request)) : needJson;
+  return b ? answer(register(b, request, response)) : needJson;
 });
 
 // The link in the confirmation mail: a page in the site's layout, or a redirect to the "afterVerifyUrl" setting.
@@ -95,7 +95,7 @@ const act = (r: Result) => (r.ok ? { message: r.message, data: r.data } : { mess
 site.action('register', {
   input: { email: 'email', password: 'text', name: 'text?' },
   access: ['*'],
-  run: ({ input, request }) => act(register(input, request)),
+  run: ({ input, request, response }) => act(register(input, request, response)),
 });
 site.action('login', {
   input: { email: 'email', password: 'text' },
@@ -149,6 +149,18 @@ function memberQuery(q: string) {
     b = b.where((w) => w.where('email', 'like', like).orWhere('name', 'like', like));
   }
   return b.orderByDesc('id');
+}
+
+// 1.1.0: confirmation by email is on but the site cannot send email yet — say so (new members are let in
+// without the confirmation until Settings → Email is set up).
+if (typeof site.adminNotice === 'function') {
+  site.adminNotice(() => {
+    if (String(site.settings('requireVerification') ?? 'true') === 'false' || verificationNeeded()) return null;
+    return { level: 'warning',
+      text: { th: 'สมาชิก: เว็บยังส่งอีเมลไม่ได้ สมาชิกใหม่จึงเข้าสู่ระบบได้โดยไม่ต้องยืนยันอีเมล — ตั้งค่าอีเมลเพื่อเปิดการยืนยัน',
+        en: 'Members: the site cannot send email yet, so new members sign in without confirming their email — set up email to turn the confirmation on' },
+      link: { href: '/admin/settings?tab=email', label: { th: 'ตั้งค่าอีเมล', en: 'Email settings' } } };
+  }, { access: ['administrator'] });
 }
 
 site.adminPage('list', {

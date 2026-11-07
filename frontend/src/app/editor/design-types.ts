@@ -19,6 +19,9 @@ export type NodeType =
   | 'vector' // pen path / boolean result (props.path, props.viewBox) — see vector.ts
   | 'pagination' // page links of a collection (props.collection, props.style) — Site Code
   | 'input' // form field (props.kind, props.name) — filters and Site Code actions
+  | 'postFields' // 2.5.0: the post's custom fields with their labels (props.max, props.layout)
+  | 'postTags' // 2.5.0: the post's tags as links to /tag/<slug>
+  | 'langSwitch' // 2.5.0: the page in the site's other content languages
   | 'codeblock'; // frontend code: props.html / css (scoped to .rea-cb-<id>) / js (runs on the site only) — needs edit_scripts
 
 export type SizeMode = 'fixed' | 'fill' | 'hug';
@@ -142,6 +145,10 @@ export interface PostQuery {
   category?: string;
   limit?: number;
   order?: 'newest' | 'oldest' | 'title' | 'manual';
+  /** 2.5.0: sort by a custom field (orderDesc = highest first) and conditions on fields. */
+  orderBy?: string;
+  orderDesc?: boolean;
+  where?: { field: string; op?: string; value?: string }[];
 }
 
 export interface Props {
@@ -151,6 +158,9 @@ export interface Props {
   alt?: string;
   /** Image: open large on click; images with it in one frame form a gallery (2.4.0). */
   lightbox?: boolean;
+  /** postFields (2.5.0): show the first max fields; layout 'inline' = one line (cards). */
+  max?: number;
+  layout?: 'list' | 'inline';
   href?: string;
   /** Name for code (2.2.0): rendered as data-ref, found with anasaki.ref(name). */
   ref?: string;
@@ -446,7 +456,7 @@ export const NODE_ICON: Record<NodeType, string> = {
   frame: '▢', text: 'T', rect: '■', image: '🖼', button: '⏺',
   menu: '☰', postList: '▤', postContent: '¶', instance: '◈', embed: '</>',
   collection: '▦', pluginBlock: '🧩', download: '⬇', breadcrumb: '»', icon: '★', shape: '〰', vector: '✎',
-  pagination: '⋯', input: '⌨', codeblock: '{ }',
+  pagination: '⋯', input: '⌨', codeblock: '{ }', postFields: '☷', postTags: '#', langSwitch: '🌐',
 };
 
 /** Root-to-node path ([root, …, node]); empty if not found. */

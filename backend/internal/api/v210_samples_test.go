@@ -44,7 +44,7 @@ func TestSampleCatalog(t *testing.T) {
 	}
 	// the admin: two taxonomies with terms screens
 	_, txs := admin.doList("GET", "/api/v1/taxonomies")
-	if len(txs) != 3 || txs[1]["id"] != "catalog_category" || txs[1]["hierarchical"] != true || txs[2]["slug"] != "brands" {
+	if len(txs) != 4 || txs[3]["id"] != "tag" || txs[1]["id"] != "catalog_category" || txs[1]["hierarchical"] != true || txs[2]["slug"] != "brands" {
 		t.Fatalf("taxonomies: %v", txs)
 	}
 	// the feed: off without a key, then guarded by the secret

@@ -62,6 +62,9 @@ func main() {
 	if err := seed.Run(st, cfg.AdminEmail, cfg.AdminPassword, cfg.UploadDir); err != nil {
 		log.Fatalf("seed: %v", err)
 	}
+	if err := seed.Upgrade(st); err != nil {
+		log.Printf("design upgrades: %v", err)
+	}
 
 	// The plugin platform: package / service / WASM / JS plugins. No feature
 	// plugins are compiled in any more (phase 7: they are official JS plugins
@@ -98,14 +101,35 @@ func main() {
 	}
 	code = sitecode.New(st, sitecode.Config{Disabled: cfg.SiteCodeDisabled, Demo: playground != nil, Auth: authn,
 		Services: plugins.ServicePublicPaths, PostURL: site.PostURL, DSN: cfg.DSN, CodeDSN: cfg.CodeDSN,
-		Emit: plugins.Emit, Mailer: mailer, SecretKey: cfg.SiteCodeSecretKey, KeyDir: cfg.PluginsDir, UploadDir: cfg.UploadDir, TypeSlugs: site.SetTypeSlugs,
+		Emit: plugins.Emit, Mailer: mailer, MailReady: func() bool {
+			if cfg.SiteCodeMailSink == "log" {
+				return true
+			}
+			opts, err := st.Options()
+			if err != nil {
+				return false
+			}
+			_, err = mail.FromOptions(opts)
+			return err == nil
+		}, SecretKey: cfg.SiteCodeSecretKey, KeyDir: cfg.PluginsDir, UploadDir: cfg.UploadDir, TypeSlugs: site.SetTypeSlugs,
 		Plugins: plugins})
 	defer code.Close()
 	plugins.SetCodeRuntime(code) // JS plugins ("runtime": "js") run as Site Code units
 	web.SetPostTypes(func(opts map[string]string) []site.PostTypeRoute {
 		var out []site.PostTypeRoute
 		for _, t := range code.ContentFor(opts).PostTypes {
-			out = append(out, site.PostTypeRoute{Type: t.Type, Slug: t.Slug, Public: t.Public, Label: t.Label})
+			r := site.PostTypeRoute{Type: t.Type, Slug: t.Slug, Public: t.Public, Label: t.Label}
+			for _, f := range t.Fields {
+				if f.Plugin != "" { // a plugin's panel field (SEO title …) is not content
+					continue
+				}
+				rf := site.RouteField{Key: f.Key, Type: f.Type, Label: f.Label, Hidden: f.HideOnSite, OnCards: f.HideOnPage}
+				for _, o := range f.Options {
+					rf.Options = append(rf.Options, site.RouteOption{Value: o.Value, Label: o.Label})
+				}
+				r.Fields = append(r.Fields, rf)
+			}
+			out = append(out, r)
 		}
 		return out
 	})

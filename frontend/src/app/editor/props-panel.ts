@@ -30,12 +30,13 @@ import { CodeBlockPanel } from './codeblock-panel';
 import { PostTypes } from '../core/post-types';
 import { CodePostType } from '../core/code-models';
 import '../admin/messages-content-types';
+import './messages-editor250';
 
 
 /** Figma's names for layer types (Figma users recognise these). */
 const FIGMA_TYPE: Record<string, string> = {
   frame: 'Frame', text: 'Text', rect: 'Rectangle', image: 'Image', button: 'Button', menu: 'Menu',
-  postList: 'Post list', postContent: 'Post content', instance: 'Instance', embed: 'Embed',
+  postList: 'Post list', postContent: 'Post content', postFields: 'Fields', postTags: 'Tags', langSwitch: 'Language switch', instance: 'Instance', embed: 'Embed',
   collection: 'Collection', pluginBlock: 'Plugin block', download: 'Download',
   breadcrumb: 'Breadcrumb', vector: 'Vector', pagination: 'Pagination', input: 'Input', codeblock: 'Code',
 };
@@ -622,8 +623,56 @@ const OVR_LABEL: Record<string, string> = {
                   </select>
                 </label>
               </div>
+              @if (typeFields(n); as tf) {
+                @if (tf.length) {
+                  <div class="fg-row2">
+                    <label>{{ 'ed.pp.sortField' | t }}
+                      <select id="pp-sort-field" [value]="n.props?.query?.orderBy || ''" (change)="query(n, { orderBy: val($event) || undefined })">
+                        <option value="">{{ 'ed.pp.sortNone' | t }}</option>
+                        @for (f of tf; track f[0]) { <option [value]="f[0]">{{ f[1] }}</option> }
+                      </select>
+                    </label>
+                    <label class="fg-check"><input type="checkbox" id="pp-sort-desc" [checked]="!!n.props?.query?.orderDesc" [disabled]="!n.props?.query?.orderBy"
+                      (change)="query(n, { orderDesc: checked($event) || undefined })" /> {{ 'ed.pp.sortDesc' | t }}</label>
+                  </div>
+                  <h6 class="fg-sub">{{ 'ed.pp.where' | t }}</h6>
+                  @for (w of whereOf(n); track $index; let i = $index) {
+                    <div class="fg-where" [attr.data-i]="i">
+                      <select [value]="w.field" (change)="setWhere(n, i, { field: val($event) })" [attr.aria-label]="'ed.pp.sortField' | t">
+                        @for (f of tf; track f[0]) { <option [value]="f[0]">{{ f[1] }}</option> }
+                      </select>
+                      <select [value]="w.op || '='" (change)="setWhere(n, i, { op: val($event) })" aria-label="op">
+                        @for (o of whereOps; track o) { <option [value]="o">{{ o }}</option> }
+                      </select>
+                      <input [value]="w.value ?? ''" (change)="setWhere(n, i, { value: val($event) })" [placeholder]="'ed.pp.whereValue' | t" [attr.aria-label]="'ed.pp.whereValue' | t" />
+                      <button type="button" class="icon-btn" (click)="removeWhere(n, i)" [attr.aria-label]="'ed.pp.whereRemove' | t">✕</button>
+                    </div>
+                  }
+                  <button type="button" class="btn btn-sm" id="pp-where-add" (click)="addWhere(n, tf[0][0])">{{ 'ed.pp.whereAdd' | t }}</button>
+                  <p class="hint">{{ 'ed.pp.whereHint' | t }}</p>
+                }
+              }
               <p class="hint">📌 {{ 'ed.pp.pinHint' | t }}</p>
               <label>{{ 'ed.pp.empty' | t }} <input [value]="n.props?.emptyText ?? ''" (change)="props({ emptyText: val($event) })" /></label>
+            </section>
+          }
+          @case ('postFields') {
+            <section class="fg-sec">
+              <h5>{{ 'ed.node.postFields' | t }}</h5>
+              <div class="fg-row2">
+                <label>{{ 'ed.pp.fieldsMax' | t }}
+                  <select id="pp-fields-max" [value]="'' + (n.props?.max ?? '')" (change)="props({ max: num($event) || undefined })">
+                    <option value="">{{ 'ed.pp.fieldsAll' | t }}</option>
+                    @for (c of [1, 2, 3, 4, 5, 6]; track c) { <option [value]="'' + c">{{ c }}</option> }
+                  </select>
+                </label>
+                <label>{{ 'ed.pp.fieldsLayout' | t }}
+                  <select id="pp-fields-layout" [value]="n.props?.layout || ''" (change)="props({ layout: $any(val($event)) || undefined })">
+                    <option value="">{{ 'ed.pp.fieldsTable' | t }}</option><option value="inline">{{ 'ed.pp.fieldsInline' | t }}</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hint">{{ 'ed.pp.fieldsHint' | t }}</p>
             </section>
           }
           @case ('codeblock') {
@@ -919,7 +968,7 @@ export class PropsPanel {
       const id = this.store.selectedId();
       untracked(() => {
         const t = id ? findNode(this.store.doc(), id)?.node.type : undefined;
-        if (!this.tabChosen && t && ['menu', 'postList', 'postContent', 'embed', 'codeblock', 'breadcrumb', 'pagination', 'input'].includes(t)) this.tab.set('content');
+        if (!this.tabChosen && t && ['menu', 'postList', 'postContent', 'postFields', 'embed', 'codeblock', 'breadcrumb', 'pagination', 'input'].includes(t)) this.tab.set('content');
       });
     });
   }
@@ -931,6 +980,18 @@ export class PropsPanel {
   editCard(n: DNode) { firstCard(this.store, n); this.tab.set('design'); }
 
   typeName(pt: CodePostType) { this.i18n.locale(); return localized(pt.label) || pt.type; }
+  /** 2.5.0: the custom fields of a post list's type ([key, label]) — sort and conditions. */
+  typeFields(n: DNode): [string, string][] {
+    this.i18n.locale();
+    const t = this.postTypes.list().find(x => x.type === n.props?.query?.postType);
+    return Object.entries(t?.fields ?? {}).filter(([k, f]) => !k.includes('.') && typeof f === 'object' && !['repeater', 'gallery', 'relation', 'richtext', 'file', 'user', 'term'].includes(f.type))
+      .map(([k, f]) => [k, (typeof f === 'object' && localized(f.label)) || k]);
+  }
+  readonly whereOps = ['=', '!=', '>=', '<=', '>', '<'];
+  whereOf(n: DNode): { field: string; op?: string; value?: string }[] { return Array.isArray(n.props?.query?.where) ? n.props.query.where : []; }
+  addWhere(n: DNode, field: string) { this.query(n, { where: [...this.whereOf(n), { field, op: '=', value: '' }] }); }
+  setWhere(n: DNode, i: number, patch: object) { this.query(n, { where: this.whereOf(n).map((w, j) => (j === i ? { ...w, ...patch } : w)) }); }
+  removeWhere(n: DNode, i: number) { const w = this.whereOf(n).filter((_, j) => j !== i); this.query(n, { where: w.length ? w : undefined }); }
   hasLayout(n: DNode) { return ['frame', 'postList', 'menu', 'button', 'input', 'pagination'].includes(n.type); }
   /** Layers whose layout section is padding only (no auto layout direction / gap). */
   padOnly(n: DNode) { return n.type === 'button' || n.type === 'input'; }

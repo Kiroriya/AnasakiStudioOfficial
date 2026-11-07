@@ -32,12 +32,12 @@ site.route('GET /visible/{id}', { access: ['*'] }, ({ request }) => db.posts.get
 	if _, b := c.public("GET", "/visible/"+id(p)); strings.Contains(b, "Later") {
 		t.Fatalf("db.posts.get shows a scheduled post to a visitor: %s", b)
 	}
-	// scheduled without a date is refused; a contributor's schedule becomes a draft
+	// scheduled without a date is refused; a contributor's schedule goes for review (2.5.0)
 	if code, _ := admin.do("POST", "/api/v1/posts", map[string]any{"title": "x", "status": "scheduled"}); code != 400 {
 		t.Fatalf("scheduled without publishedAt: %d", code)
 	}
 	con := user("Co", "contributor")
-	if code, b := con.do("POST", "/api/v1/posts", map[string]any{"title": "c", "status": "scheduled", "publishedAt": future}); code != 201 || b["status"] != "draft" {
+	if code, b := con.do("POST", "/api/v1/posts", map[string]any{"title": "c", "status": "scheduled", "publishedAt": future}); code != 201 || b["status"] != "pending" {
 		t.Fatalf("contributor schedules: %d %v", code, b)
 	}
 	// the list filter

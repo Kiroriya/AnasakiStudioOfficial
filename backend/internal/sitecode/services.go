@@ -92,6 +92,19 @@ func (v *vm) checkMail(m *MailMessage, what string) {
 	}
 }
 
+// mailReady is mail.ready() (2.5.0): true when the site can send email (Settings → Email set up), so a
+// plugin can skip a step that needs it (Members' email verification) instead of leaving people stuck.
+func (v *vm) mailReady(goja.FunctionCall) goja.Value {
+	e := v.h.e
+	if e == nil || e.cfg.Demo {
+		return v.rt.ToValue(false)
+	}
+	if e.cfg.MailReady != nil {
+		return v.rt.ToValue(e.cfg.MailReady())
+	}
+	return v.rt.ToValue(e.cfg.Mailer != nil)
+}
+
 func (v *vm) mailSend(c goja.FunctionCall) goja.Value {
 	const what = "mail.send"
 	v.handlerOnly(what)

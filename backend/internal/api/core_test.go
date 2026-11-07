@@ -211,8 +211,8 @@ func TestSetupUsersRolesFlow(t *testing.T) {
 	_, login := c.do("POST", "/api/v1/auth/login", map[string]any{"email": "con@x.io", "password": "password1"})
 	con := c.as(login["token"].(string))
 	code, body = con.do("POST", "/api/v1/posts", map[string]any{"type": "post", "title": "Draft please", "status": "publish"})
-	if code != 201 || body["status"] != "draft" {
-		t.Fatalf("contributor publish must be forced to draft: %d %v", code, body)
+	if code != 201 || body["status"] != "pending" { // 2.5.0: sent for review
+		t.Fatalf("contributor publish must go for review: %d %v", code, body)
 	}
 
 	// custom role

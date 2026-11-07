@@ -124,3 +124,24 @@ func (s *Store) ReplaceLinks(from, to string, editorID int64) (int, error) {
 	}
 	return n, tx.Commit()
 }
+
+// UpgradePostDesign replaces a post's design for a system upgrade (2.5.0):
+// the previous version is kept as a revision and updated_at moves on, like a
+// link replacement.
+func (s *Store) UpgradePostDesign(id int64, design []byte) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	var r designRow
+	var raw sql.NullString
+	if err := tx.QueryRow(`SELECT id, title, COALESCE(content,''), design FROM posts WHERE id = ? FOR UPDATE`, id).Scan(&r.id, &r.title, &r.content, &raw); err != nil {
+		return err
+	}
+	r.raw = []byte(raw.String)
+	if err := rewriteDesign(tx, "posts", r, design, 0); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

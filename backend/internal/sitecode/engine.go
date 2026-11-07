@@ -47,6 +47,9 @@ type Config struct {
 	// Mailer sends mail.send messages (SMTP from the site settings); nil =
 	// mail.send throws "not configured".
 	Mailer func(m MailMessage) error
+	// MailReady reports whether mail.send can reach people (SMTP set up, or
+	// the development sink) — mail.ready(), 2.5.0; nil = Mailer != nil.
+	MailReady func() bool
 	// SecretKey is SITE_CODE_SECRET_KEY; KeyDir holds site-code.key when it
 	// is empty (PLUGINS_DIR).
 	SecretKey string
@@ -1320,7 +1323,7 @@ func (e *Engine) PostTypes() Manifest {
 // made in the admin (option content_types; code and plugin types win a clash).
 func (e *Engine) ContentFor(opts map[string]string) Manifest {
 	m := e.ManifestFor(opts)
-	return expandAllTypes(withAdminTypes(withUnits(m, e.units().loaded()), opts[OptContentTypes]))
+	return expandAllTypes(withCoreTaxonomies(withAdminTypes(withUnits(m, e.units().loaded()), opts[OptContentTypes])))
 }
 
 func jsonUnmarshal(s string, v any) error { return json.Unmarshal([]byte(s), v) }

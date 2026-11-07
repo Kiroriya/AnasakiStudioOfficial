@@ -1,6 +1,7 @@
 package design
 
 import (
+	"encoding/json"
 	"html"
 	"math"
 	"net/url"
@@ -28,6 +29,68 @@ type Query struct {
 	TermIDs   []int64
 	// Search (2.2.0): words a search box sent to this list (?<key>_q=).
 	Search string
+	// 2.5.0: conditions on custom fields (the list's own and those its inputs
+	// send: ?<key>_f_<field>=, _min_ / _max_), and a sort by a field.
+	Where     []FieldCond
+	OrderBy   string // a field key ("" = Order)
+	OrderDesc bool
+	// Offset skips posts (2.5.0: a post list with a Pagination node shows page N).
+	Offset int
+	// AuthorID: only this author's posts (2.5.0, /author/<id>).
+	AuthorID int64
+}
+
+// PostPager is a DataSource that also counts a query's posts (2.5.0: page
+// links of a post list); without it a post list has no pages.
+type PostPager interface {
+	QueryPostsPage(q Query) ([]PostCtx, int)
+}
+
+// FieldCond compares the custom field Key with Value (Op: = != < <= > >=).
+type FieldCond struct {
+	Key   string
+	Op    string
+	Value string
+}
+
+var fieldKeyRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{0,40}$`)
+
+// fieldValue resolves a condition value: "today" / "now", "query.<param>"
+// (the page URL), or the text itself ("" = skip the condition).
+func (r *renderer) fieldValue(v string) string {
+	v = strings.TrimSpace(v)
+	switch {
+	case v == "today":
+		return time.Now().In(r.loc()).Format("2006-01-02")
+	case v == "now":
+		return time.Now().In(r.loc()).Format("2006-01-02T15:04")
+	case strings.HasPrefix(v, "query."):
+		if r.ctx.Query == nil {
+			return ""
+		}
+		return truncRunes(strings.TrimSpace(r.ctx.Query.Get(strings.TrimPrefix(v, "query."))), 100)
+	}
+	return truncRunes(v, 200)
+}
+
+// LangLink is the page in one content language (2.5.0): its translation
+// (Translated) or that language's home page.
+type LangLink struct {
+	Lang, Name, URL     string
+	Current, Translated bool
+}
+
+// LangSource gives the page's language links (the langSwitch node).
+type LangSource interface {
+	LangLinks() []LangLink
+}
+
+// FieldsSource renders a post's custom fields as HTML (the CMS side of the
+// postFields node, 2.5.0); max > 0 keeps the first max fields, card = the
+// one-line layout of a card in a list. The HTML is built and escaped by the
+// source.
+type FieldsSource interface {
+	PostFields(post PostCtx, max int, card bool) string
 }
 
 // MenuItem is one navigation link.
@@ -592,6 +655,44 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 			w.WriteString(`</span>`)
 		}
 		w.WriteString(`</nav>`)
+	case TypePostFields:
+		if f, ok := r.data.(FieldsSource); ok && f != nil && sc.post != nil {
+			max, _ := getNum(n.Props, "max")
+			inline := getStr(n.Props, "layout") == "inline"
+			if h := f.PostFields(sc.post, int(max), inline); h != "" {
+				extra := ""
+				if inline {
+					extra = " rea-fields-inline"
+				}
+				w.WriteString(`<div class="` + cls + extra + `">` + h + `</div>`)
+			}
+		}
+	case TypeLangSwitch:
+		if ls, ok := r.data.(LangSource); ok && ls != nil {
+			if links := ls.LangLinks(); len(links) > 1 {
+				w.WriteString(`<nav class="` + cls + ` rea-langs" aria-label="Language">`)
+				for _, l := range links {
+					cur := ""
+					if l.Current {
+						cur = ` aria-current="true"`
+					}
+					w.WriteString(`<a href="` + attr(safeHref(l.URL)) + `" hreflang="` + attr(l.Lang) + `" lang="` + attr(l.Lang) + `"` + cur + `>` +
+						html.EscapeString(l.Name) + `</a>`)
+				}
+				w.WriteString(`</nav>`)
+			}
+		}
+	case TypePostTags:
+		if sc.post != nil && sc.post["tags"] != "" {
+			var tags []struct{ Name, URL string }
+			if json.Unmarshal([]byte(sc.post["tags"]), &tags) == nil && len(tags) > 0 {
+				w.WriteString(`<div class="` + cls + ` rea-tags">`)
+				for _, t := range tags {
+					w.WriteString(`<a href="` + attr(safeHref(t.URL)) + `" rel="tag">#` + html.EscapeString(t.Name) + `</a>`)
+				}
+				w.WriteString(`</div>`)
+			}
+		}
 	case TypePostContent:
 		w.WriteString(`<div class="` + cls + ` rea-content">`)
 		if sc.post != nil {
@@ -639,6 +740,9 @@ func (r *renderer) renderElement(n *Node, pm parentModes, sc scope) {
 				w.WriteString(` data-autoplay="` + strconv.Itoa(ap) + `"`)
 			}
 			w.WriteString(`><div class="rea-track">`)
+		} else if getBool(n.Props, "searchForm") { // 2.5.0: a GET form to this page (the search page's box)
+			tag = "form"
+			w.WriteString(`<form class="` + cls + `" method="get" role="search">`)
 		} else {
 			w.WriteString("<" + tag + ` class="` + cls + `">`)
 		}
@@ -760,6 +864,24 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 		if v := getStr(m, "order"); v != "" {
 			q.Order = v
 		}
+		if k := getStr(m, "orderBy"); fieldKeyRe.MatchString(k) {
+			q.OrderBy, q.OrderDesc = k, getBool(m, "orderDesc")
+		}
+		if list, ok := m["where"].([]any); ok {
+			for _, it := range list {
+				c, _ := it.(map[string]any)
+				k, op := getStr(c, "field"), getStr(c, "op")
+				if op == "" {
+					op = "="
+				}
+				if !fieldKeyRe.MatchString(k) || !validFieldOp(op) {
+					continue
+				}
+				if v := r.fieldValue(getStr(c, "value")); v != "" {
+					q.Where = append(q.Where, FieldCond{Key: k, Op: op, Value: v})
+				}
+			}
+		}
 	}
 	// 2.2.0: a search box / category select of the page filters this list
 	// (?<key>_q=words, ?<key>_cat=<category slug>), like a code collection
@@ -770,6 +892,26 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 		}
 		if c := strings.TrimSpace(r.ctx.Query.Get(key + "_cat")); c != "" && len(c) <= 200 && !strings.ContainsAny(c, "/?#&") {
 			q.Category = c
+		}
+		// 2.5.0: inputs filtering by a field (?<key>_f_price=, _min_price=, _max_price=)
+		for name, vals := range r.ctx.Query {
+			if !strings.HasPrefix(name, key+"_") || len(vals) == 0 {
+				continue
+			}
+			rest, op := strings.TrimPrefix(name, key+"_"), ""
+			switch {
+			case strings.HasPrefix(rest, "f_"):
+				rest, op = rest[2:], "="
+			case strings.HasPrefix(rest, "min_"):
+				rest, op = rest[4:], ">="
+			case strings.HasPrefix(rest, "max_"):
+				rest, op = rest[4:], "<="
+			default:
+				continue
+			}
+			if v := truncRunes(strings.TrimSpace(vals[0]), 100); v != "" && fieldKeyRe.MatchString(rest) && len(q.Where) < 10 {
+				q.Where = append(q.Where, FieldCond{Key: rest, Op: op, Value: v})
+			}
 		}
 	}
 	// On a taxonomy term's archive (2.1.0) "this archive's posts" lists the
@@ -785,7 +927,22 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 		if q.Limit > 50 {
 			q.Limit = 50
 		}
-		return r.data.QueryPosts(q)
+		return r.runPostQuery(n, q)
+	}
+	// 2.5.0: the search page (/search?q=) and an author's page (/author/<id>) fill their list ("current").
+	if s := r.ctx.Post["archiveSearch"]; r.ctx.Post["archiveTypes"] != "" && (q.PostType == "current" || q.Category == "current") {
+		q.PostType, q.Category = "", ""
+		q.PostTypes = strings.Split(r.ctx.Post["archiveTypes"], ",")
+		q.Search = s
+		if s == "" {
+			q.PostTypes = []string{"none"} // nothing to look for yet
+		}
+		return r.runPostQuery(n, q)
+	}
+	if a := r.ctx.Post["archiveAuthor"]; a != "" && (q.PostType == "current" || q.Category == "current") {
+		q.PostType, q.Category = "post", ""
+		q.AuthorID, _ = strconv.ParseInt(a, 10, 64)
+		return r.runPostQuery(n, q)
 	}
 	// On a custom type's archive (/events) the template's "this archive's
 	// posts" list (category "current", or postType "current") shows that type.
@@ -804,7 +961,40 @@ func (r *renderer) queryPosts(n *Node) []PostCtx {
 	if q.Limit > 50 {
 		q.Limit = 50
 	}
-	return r.data.QueryPosts(q)
+	return r.runPostQuery(n, q)
+}
+
+func (r *renderer) loc() *time.Location {
+	if r.ctx.Loc != nil {
+		return r.ctx.Loc
+	}
+	return time.Local
+}
+
+// runPostQuery runs a post list's query; a list a Pagination node points at (2.5.0) shows the page of
+// ?<key>_page= (or ?page=) and records its total for the page links.
+func (r *renderer) runPostQuery(n *Node, q Query) []PostCtx {
+	pager, ok := r.data.(PostPager)
+	if !ok || pager == nil || !r.pageScan().paginated[n.ID] || q.Limit <= 0 {
+		return r.data.QueryPosts(q)
+	}
+	key := CollectionKey(n)
+	page, generic := r.pageFor(n.ID, key)
+	q.Offset = (page - 1) * q.Limit
+	posts, total := pager.QueryPostsPage(q)
+	if r.colls == nil {
+		r.colls = map[string]*collState{}
+	}
+	r.colls[n.ID] = &collState{key: key, page: page, perPage: q.Limit, total: total, generic: generic}
+	return posts
+}
+
+func validFieldOp(op string) bool {
+	switch op {
+	case "=", "!=", "<", "<=", ">", ">=":
+		return true
+	}
+	return false
 }
 
 // renderDownload renders a file download button:

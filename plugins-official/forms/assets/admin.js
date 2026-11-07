@@ -6,7 +6,7 @@
   var M = {
     th: {
       title: 'แบบฟอร์ม', desc: 'สร้างฟอร์มติดต่อ สมัครสมาชิก หรือรับสมัครงาน — ข้อความที่ส่งมาจะเก็บไว้ที่นี่',
-      howto: 'วางฟอร์มบนหน้าเว็บ: เปิดหน้าออกแบบ → แผงเพิ่ม → บล็อกปลั๊กอิน → “ฟอร์ม” แล้วใส่หมายเลขฟอร์มในช่อง “ฟอร์ม (หมายเลข)”',
+      howto: 'วางฟอร์มบนหน้าเว็บ: เปิดหน้าออกแบบ → องค์ประกอบ → บล็อกปลั๊กอิน → “ฟอร์ม” แล้วเลือกฟอร์มในแผงด้านขวา',
       'new': 'สร้างฟอร์ม', newName: 'ฟอร์มติดต่อ', count: '{n} รายการ', empty: 'ยังไม่มีฟอร์ม', build: 'ออกแบบฟอร์ม',
       subs: 'ข้อความที่ส่งมา', name: 'ชื่อฟอร์ม', submitLabel: 'ข้อความบนปุ่มส่ง', send: 'ส่งข้อความ',
       thanks: 'ขอบคุณ! เราได้รับข้อความของคุณแล้ว', message: 'ข้อความ', fields: 'ช่องกรอก', label: 'ชื่อช่อง', required: 'จำเป็น',
@@ -16,13 +16,14 @@
       created: 'สร้างเมื่อ', optional: '(ไม่ใส่ก็ได้)', cname: 'ชื่อ', cemail: 'อีเมล', blockId: 'หมายเลขสำหรับบล็อก',
       webhookHint: 'ส่ง POST JSON {event, form, submissionId, data, submittedAt} ไปยัง URL นี้ทุกครั้งที่ฟอร์มนี้มีข้อความใหม่',
       deleteForm: 'ลบฟอร์ม “{n}”?',
-      type: { text: 'ข้อความสั้น', email: 'อีเมล', tel: 'เบอร์โทร', textarea: 'ข้อความยาว', select: 'ตัวเลือก', checkbox: 'ช่องติ๊ก', number: 'ตัวเลข', date: 'วันที่', radio: 'เลือกหนึ่งข้อ', checkboxes: 'เลือกได้หลายข้อ' },
+      type: { text: 'ข้อความสั้น', email: 'อีเมล', tel: 'เบอร์โทร', textarea: 'ข้อความยาว', select: 'ตัวเลือก', checkbox: 'ช่องติ๊ก', number: 'ตัวเลข', date: 'วันที่', radio: 'เลือกหนึ่งข้อ', checkboxes: 'เลือกได้หลายข้อ', file: 'แนบไฟล์' },
+      fileHint: 'รับรูป PDF Word Excel PowerPoint ข้อความ หรือ ZIP ไม่เกิน 4 MB — ดาวน์โหลดได้จากข้อความที่ส่งมา', sentFrom: 'ส่งจากหน้า',
       showIf: 'แสดงเมื่อ', always: 'แสดงเสมอ', anyValue: 'มีค่าใดก็ได้ (หรือพิมพ์ค่าที่ต้องการ)', autoReply: 'อีเมลตอบกลับอัตโนมัติ', arSubject: 'หัวเรื่อง (เว้นว่าง = ไม่ส่ง)', arMessage: 'ข้อความ',
       arHint: 'ส่งถึงอีเมลในช่องอีเมลช่องแรกของฟอร์ม ทันทีหลังกดส่ง',
     },
     en: {
       title: 'Forms', desc: 'Build contact, sign-up or job forms — submissions are stored here.',
-      howto: 'To place a form: open the designer → Insert → Plugin blocks → “Form”, then enter the form number in “Form (number)”.',
+      howto: 'To place a form: open the designer → Elements → Plugin blocks → “Form”, then pick the form in the panel on the right.',
       'new': 'New form', newName: 'Contact form', count: '{n} submissions', empty: 'No forms yet', build: 'Builder',
       subs: 'Submissions', name: 'Form name', submitLabel: 'Submit button text', send: 'Send',
       thanks: 'Thanks! We received your message.', message: 'Message', fields: 'Fields', label: 'Field label', required: 'Required',
@@ -32,13 +33,14 @@
       created: 'Created', optional: '(optional)', cname: 'Name', cemail: 'Email', blockId: 'Number for the block',
       webhookHint: 'POSTs JSON {event, form, submissionId, data, submittedAt} to this URL on every submission of this form.',
       deleteForm: 'Delete the form “{n}”?',
-      type: { text: 'Short text', email: 'Email', tel: 'Phone', textarea: 'Long text', select: 'Dropdown', checkbox: 'Checkbox', number: 'Number', date: 'Date', radio: 'Single choice', checkboxes: 'Multiple choice' },
+      type: { text: 'Short text', email: 'Email', tel: 'Phone', textarea: 'Long text', select: 'Dropdown', checkbox: 'Checkbox', number: 'Number', date: 'Date', radio: 'Single choice', checkboxes: 'Multiple choice', file: 'File upload' },
+      fileHint: 'Images, PDF, Word, Excel, PowerPoint, text or ZIP up to 4 MB — download them from the submissions', sentFrom: 'Sent from',
       showIf: 'Show when', always: 'Always shown', anyValue: 'any value (or type the value)', autoReply: 'Auto-reply email', arSubject: 'Subject (empty = none)', arMessage: 'Message',
       arHint: 'Sent to the address in the form\'s first email field right after a submission',
     },
   };
-  var TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'number', 'date'];
-  var ICON = { text: '🔤', email: '✉️', tel: '📞', textarea: '📝', select: '▾', radio: '🔘', checkbox: '☑️', checkboxes: '✅', number: '#', date: '📅' };
+  var TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'number', 'date', 'file'];
+  var ICON = { text: '🔤', email: '✉️', tel: '📞', textarea: '📝', select: '▾', radio: '🔘', checkbox: '☑️', checkboxes: '✅', number: '#', date: '📅', file: '📎' };
   var WITH_OPTIONS = ['select', 'radio', 'checkboxes'];
   function hasOptions(ty) { return WITH_OPTIONS.indexOf(ty) >= 0; }
   var PER = 25;
@@ -250,7 +252,9 @@
   }
 
   function inbox() {
-    var cols = (st.sel ? st.sel.fields : []).map(function (f) { return { key: f.key, label: f.label, long: f.type === 'textarea' }; });
+    var cols = (st.sel ? st.sel.fields : []).map(function (f) { return { key: f.key, label: f.label, long: f.type === 'textarea', file: f.type === 'file' }; });
+    // 2.2: the page each message was sent from (a listing, an event), when the form sat on one
+    if (st.subs.some(function (s) { return s.data && s.data._about; })) cols.push({ key: '_about', label: t('sentFrom'), long: true });
     var box = el('div', { id: 'forms-subs' });
     box.append(el('div', { class: 'ak-row' }, [
       el('span', { class: 'ak-muted ak-small', text: t('count', st.subs.length) }), el('span', { class: 'ak-grow' }),
@@ -263,7 +267,12 @@
     shown.forEach(function (s) {
       body.append(el('tr', { class: s.read ? '' : 'forms-unread', 'data-id': s.id }, [
         el('td', {}, [el('button', { type: 'button', class: 'ak-btn ak-btn-sm ak-btn-ghost', title: s.read ? t('markUnread') : t('markRead'), onclick: function () { toggleRead(s); }, text: s.read ? '○' : '●' })]),
-      ].concat(cols.map(function (c) { return el('td', { class: c.long ? 'forms-long' : '', text: s.data[c.key] == null ? '' : s.data[c.key] }); }), [
+      ].concat(cols.map(function (c) {
+        if (c.file && s.data[c.key]) {
+          return el('td', {}, [el('button', { type: 'button', class: 'ak-btn ak-btn-sm', 'data-file': c.key, onclick: function () { anasaki.download({ file: s.id, key: c.key }); }, text: '📎 ' + s.data[c.key] })]);
+        }
+        return el('td', { class: c.long ? 'forms-long' : '', text: s.data[c.key] == null ? '' : s.data[c.key] });
+      }), [
         el('td', { class: 'ak-muted ak-small forms-nowrap', text: new Date(s.createdAt).toLocaleString(loc) }),
         el('td', {}, [el('button', { type: 'button', class: 'ak-btn ak-btn-sm ak-btn-danger', onclick: function () { removeSub(s); }, text: '🗑' })]),
       ])));

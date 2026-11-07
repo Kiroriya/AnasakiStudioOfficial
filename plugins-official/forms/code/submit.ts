@@ -2,6 +2,7 @@
 // 5 submissions per minute per IP, validation, storage, "forms.submitted" event, mail notification, JSON or
 // redirect answers.
 import { addSubmission, clean, DEFAULT_SUCCESS, Form, getForm, localPath } from './model';
+import { checkFile, extOf, safeName } from './files';
 import { esc, failPage } from './render';
 
 // ---------------------------------------------------------------- body parsing
@@ -179,10 +180,41 @@ export function submit(request: SiteRequest): RouteResult {
   const success = fm.successMessage || DEFAULT_SUCCESS;
   if ((input._hp ?? '') !== '') return done(fm, success, json, request.headers); // bot: pretend everything went fine
   if (!allow(request.ip || '?')) return fail(429, TOO_MANY);
+  // 2.2: the files of file fields (multipart only), checked by type and size; the value is the file's name
+  const fileFields = fm.fields.filter((f) => f.type === 'file');
+  const sent: Record<string, { name: string; bytes: Uint8Array }> = {};
+  if (fileFields.length && mediaType(request.headers['content-type'] ?? '') === 'multipart/form-data') {
+    let list: { field: string; filename: string; size: number; bytes: Uint8Array }[] = [];
+    try {
+      list = request.files();
+    } catch {
+      return fail(413, 'ไฟล์ใหญ่เกินไป (รวมไม่เกิน 4 MB) / The files are too large');
+    }
+    for (const fd of fileFields) {
+      const f = list.find((x) => x.field === fd.key && x.size > 0);
+      if (!f) continue;
+      const err = checkFile(f.filename, f.bytes);
+      if (err) return fail(400, '"' + fd.label + '": ' + err);
+      sent[fd.key] = { name: safeName(f.filename), bytes: f.bytes };
+      input[fd.key] = sent[fd.key].name;
+    }
+  }
+  for (const fd of fileFields) if (!sent[fd.key]) input[fd.key] = ''; // a typed value is not a file
   const { data, problem } = clean(fm, input);
   if (problem || !data) return fail(400, problem);
+  const stored: Record<string, string> = {};
+  for (const [key, f] of Object.entries(sent)) {
+    if (!data[key]) continue; // a hidden (condition) field
+    // the stored name is ASCII (files.put); the sent name stays in the value
+    const path = `forms/${fm.id}/${crypto.random(8)}.${extOf(f.name) || 'bin'}`;
+    files.put(path, f.bytes);
+    stored[key] = path;
+  }
+  // 2.2: the post page the form was on ("Condo Sukhumvit — /listings/condo"), kept beside the answers
+  const about = String(input._about ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 300);
+  if (about) data._about = about;
   const now = new Date();
-  const submissionId = addSubmission(fm.id, data, now);
+  const submissionId = addSubmission(fm.id, Object.keys(stored).length ? { ...data, _files: JSON.stringify(stored) } : data, now);
   const submittedAt = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
   // the form's own webhook (the built-in plugin's body; any public http(s) URL)
   if (fm.webhookUrl) {
@@ -224,8 +256,9 @@ export function notifyMail(fm: Form, data: Record<string, string>, at: Date, sit
   for (const fd of fm.fields) {
     const v = data[fd.key] ?? '';
     if (fd.type === 'email' && replyTo === '') replyTo = v;
-    rows.push([fd.label, v]);
+    rows.push([fd.label, fd.type === 'file' && v ? '📎 ' + v + ' (ดาวน์โหลดได้ที่หน้าจัดการ → แบบฟอร์ม / download it on the Forms page)' : v]);
   }
+  if (data._about) rows.push(['ส่งจากหน้า / Sent from', data._about]);
   const p = (s: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#454a5c">${esc(s)}</p>`;
   const html = `<!doctype html><html><body style="margin:0;background:#f5f6fa;font-family:-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;color:#171a26">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">` +

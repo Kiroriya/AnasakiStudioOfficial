@@ -69,6 +69,9 @@ func Migrate(db *sql.DB) error {
 		{"script_logs", "unit", "VARCHAR(64) NOT NULL DEFAULT 'site'"},
 		// 2.3.0: unpublished designer changes of a published page (model.PostDraft)
 		{"posts", "draft", "LONGTEXT NULL"},
+		// 2.5.0: multilingual content — the post's language ("" = the site's) and the original it translates
+		{"posts", "lang", "VARCHAR(10) NOT NULL DEFAULT ''"},
+		{"posts", "translation_of", "BIGINT NOT NULL DEFAULT 0"},
 	}
 	for _, c := range cols {
 		if err := EnsureColumn(db, c[0], c[1], c[2]); err != nil {

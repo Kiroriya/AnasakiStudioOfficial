@@ -1,0 +1,24 @@
+{
+  "id": "maps",
+  "name": "Maps",
+  "version": "1.0.0",
+  "description": "A map block for the designer: an address or coordinates, or each post's own address field (listings, events, branches), Google Maps without an API key or OpenStreetMap, with a directions link. / บล็อกแผนที่ จากที่อยู่ พิกัด หรือช่องข้อมูลของแต่ละหน้า พร้อมปุ่มนำทาง",
+  "author": "Anasaki Studio",
+  "icon": "🗺️",
+  "category": "utilities",
+  "tags": ["map", "google maps", "location", "directions"],
+  "license": "MIT",
+  "minCore": "2.5.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "address", "type": "text", "maxLength": 300, "placeholder": "Siam Paragon, Bangkok",
+      "label": { "th": "ที่อยู่ร้าน (ค่าเริ่มต้นของบล็อก)", "en": "Business address (the block's default)" } },
+    { "key": "label", "type": "text", "maxLength": 120,
+      "label": { "th": "ชื่อสถานที่ (สำหรับโปรแกรมอ่านหน้าจอ)", "en": "Place name (for screen readers)" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": []
+  }
+}

@@ -1,8 +1,9 @@
-// forms 2.0 — the built-in form builder as a JS plugin: forms designed in the admin page "Forms", placed on
+// forms 2.2 — the built-in form builder as a JS plugin: forms designed in the admin page "Forms", placed on
 // pages with the server-rendered designer block "forms/form" (site.block; the same node as before, so existing
 // pages keep working; the form is chosen from a list), submissions in an inbox with CSV export, the
 // "forms.submitted" event (also delivered as the former core event "form.submitted"), per-form webhooks, the
-// package webhook setting and a mail to the site's admin address.
+// package webhook setting and a mail to the site's admin address. 2.2: file fields (CV, photo, document) kept as
+// private files and downloaded from the inbox.
 import { getForm } from './model';
 import { CHOOSE, NOT_FOUND, formPage, page, renderForm } from './render';
 import { notify, submit } from './submit';
@@ -18,7 +19,8 @@ const html = (body: string): RouteResult => ({
 
 const idOf = (s: string) => (/^\d+$/.test(s) ? Number(s) : 0);
 
-site.route('POST /forms/{id}/submit', { access: ['*'] }, ({ request }) => submit(request));
+// 5 MB: forms with file fields (2.2, a file up to 4 MB)
+site.route('POST /forms/{id}/submit', { access: ['*'], maxBody: 5 << 20 }, ({ request }) => submit(request));
 
 // the form markup alone (older pages' block script loaded it from here)
 site.route('GET /forms/{id}/embed', { access: ['*'] }, ({ request }) => {

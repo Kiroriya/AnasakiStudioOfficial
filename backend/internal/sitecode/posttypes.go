@@ -32,9 +32,14 @@ type FieldInfo struct {
 	Type     string            `json:"type"`
 	Label    map[string]string `json:"label"`
 	Required bool              `json:"required,omitempty"`
-	Min      *float64          `json:"min,omitempty"`
-	Max      *float64          `json:"max,omitempty"`
-	Options  []FieldOption     `json:"options,omitempty"`
+	// HideOnSite (2.5.0): the Fields block on the site leaves it out (stock,
+	// cost, internal notes); the admin and code still see it. HideOnPage:
+	// listed on cards in lists only, not on the post's own page.
+	HideOnSite bool          `json:"hideOnSite,omitempty"`
+	HideOnPage bool          `json:"hideOnPage,omitempty"`
+	Min        *float64      `json:"min,omitempty"`
+	Max        *float64      `json:"max,omitempty"`
+	Options    []FieldOption `json:"options,omitempty"`
 	// 2.1.0 field types: relation (PostTypes, Multiple), user / file
 	// (Multiple), term (Taxonomy, Multiple), gallery, repeater (Fields: one
 	// level of simple fields; Max = rows), richtext, color.
@@ -108,7 +113,7 @@ var (
 	// repeaterSubType: what a repeater row may hold (no nesting)
 	repeaterSubType = map[string]bool{"text": true, "textarea": true, "number": true, "bool": true, "date": true, "datetime": true,
 		"select": true, "url": true, "image": true, "email": true, "file": true, "color": true, "relation": true}
-	supportsAll = map[string]bool{"title": true, "content": true, "excerpt": true, "image": true, "categories": true}
+	supportsAll = map[string]bool{"title": true, "content": true, "excerpt": true, "image": true, "categories": true, "tags": true}
 	// builtinTypes cannot be redefined by site.postType.
 	builtinTypes = map[string]bool{"post": true, "page": true, "template": true, "revision": true, "attachment": true,
 		"media": true, "menu": true, "nav_menu": true, "component": true, "user": true, "users": true, "category": true,
@@ -186,6 +191,13 @@ func (v *vm) fieldMap(x goja.Value, what string) []FieldInfo {
 			f.Label = v.i18nLabel(spec.Get("label"), k, what+"."+k)
 			if r := spec.Get("required"); r != nil && !goja.IsUndefined(r) {
 				f.Required = r.ToBoolean()
+			}
+			if h := spec.Get("hideOnSite"); h != nil && !goja.IsUndefined(h) { // true, or "page" (cards only)
+				if s, ok := h.Export().(string); ok && s == "page" {
+					f.HideOnPage = true
+				} else {
+					f.HideOnSite = h.ToBoolean()
+				}
 			}
 			num := func(name string) *float64 {
 				x := spec.Get(name)

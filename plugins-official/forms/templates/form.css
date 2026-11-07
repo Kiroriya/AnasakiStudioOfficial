@@ -16,3 +16,4 @@ input:focus,select:focus,textarea:focus{outline:2px solid #6366f1;outline-offset
 .rea-form-group legend{font-size:.9em;font-weight:600;margin-bottom:4px;padding:0}
 .rea-form-group .rea-form-check{display:flex;align-items:center;gap:8px;font-weight:400}
 [data-show-if][hidden]{display:none}
+.rea-form-hint{display:block;margin-top:4px;font-size:.85em;opacity:.7}

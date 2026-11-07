@@ -397,7 +397,7 @@ func (e *Engine) WithUnitFields(m Manifest) Manifest {
 	if opts, err := e.st.Options(); err == nil {
 		raw = opts[OptContentTypes]
 	}
-	return expandAllTypes(withAdminTypes(withUnits(m, e.units().loaded()), raw))
+	return expandAllTypes(withCoreTaxonomies(withAdminTypes(withUnits(m, e.units().loaded()), raw)))
 }
 
 // CodeOwnedTypes are the post types of Site Code (live version) and the running plugins, without the admin ones

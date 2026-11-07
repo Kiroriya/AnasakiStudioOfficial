@@ -88,7 +88,7 @@ func (s *Site) termArchive(w http.ResponseWriter, opts map[string]string, tax *T
 		return
 	}
 	posts, _, _ := s.st.ListPosts(model.PostFilter{Types: tax.PostTypes, Status: model.StatusPublish, TermIDs: family,
-		Limit: 50, NoContent: true, PinnedFirst: true})
+		Limit: 50, NoContent: true, PinnedFirst: true, Lang: pageLang(opts)})
 	b := `<h1>` + html.EscapeString(t.Name) + `</h1>`
 	if t.Description != "" {
 		b += `<p>` + html.EscapeString(t.Description) + `</p>`

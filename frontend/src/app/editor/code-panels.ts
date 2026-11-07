@@ -524,8 +524,24 @@ export class InputPanel extends CodePanelBase {
     return buildInputOptions(this.node().props, this.code.preview(f?.collection ? this.code.sourceRequest(f.collection) : null)?.items);
   });
   readonly filterTarget = computed(() => this.code.collectionNode(this.node().props?.filter?.collection));
-  readonly filterParams = computed(() => this.filterTarget()?.type === 'postList' ? POST_LIST_PARAMS
+  readonly filterParams = computed(() => this.filterTarget()?.type === 'postList' ? [...POST_LIST_PARAMS, ...this.fieldParams()]
     : Object.keys(sourceParams(this.filterTarget()?.props?.source, this.code.bindings())));
+  /**
+   * 2.5.0: a post list of a content type is filtered by its fields too: f_<key> (equals), and for number /
+   * date fields min_<key> / max_<key> (a price range, events from a date).
+   */
+  readonly fieldParams = computed(() => {
+    const type = this.filterTarget()?.props?.query?.postType;
+    const t = this.types.list().find(x => x.type === type);
+    const out: string[] = [];
+    for (const [k, f] of Object.entries(t?.fields ?? {})) {
+      const ty = typeof f === 'string' ? f : f.type;
+      if (k.includes('.') || !['text', 'number', 'select', 'bool', 'date', 'datetime', 'email', 'url', 'color'].includes(ty)) continue;
+      out.push('f_' + k);
+      if (['number', 'date', 'datetime'].includes(ty)) out.push('min_' + k, 'max_' + k);
+    }
+    return out;
+  });
   /** A category select of a post list: its options can come from the site's categories. */
   readonly categorySelect = computed(() => this.filterTarget()?.type === 'postList' && this.node().props?.filter?.param === 'cat' && this.node().props?.kind === 'select');
   private readonly api = inject(Api);
@@ -576,7 +592,7 @@ export class InputPanel extends CodePanelBase {
   setFilterCollection(id: string) {
     if (!id) { this.props({ filter: undefined }); return; }
     const t = this.code.collectionNode(id);
-    const params = t?.type === 'postList' ? (this.node().props?.kind === 'select' ? ['cat', 'q'] : POST_LIST_PARAMS)
+    const params = t?.type === 'postList' ? (this.node().props?.kind === 'select' ? ['cat', 'q', ...this.fieldParams()] : [...POST_LIST_PARAMS, ...this.fieldParams()])
       : Object.keys(sourceParams(t?.props?.source, this.code.bindings()));
     const cur = this.node().props?.filter?.param;
     const name = this.node().props?.name;

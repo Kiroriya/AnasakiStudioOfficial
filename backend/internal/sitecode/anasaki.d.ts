@@ -807,7 +807,7 @@ interface PostInput {
 
 /** Core filter points. / จุด filter ของระบบ */
 interface SiteFilters {
-  /** Post HTML on the public site (50 ms). ctx {post} */
+  /** Post HTML on the public site (50 ms). ctx {post, visitor?} (visitor: 2.5.0, when a site.visitor resolver knows the reader) */
   'post.content': string;
   /** Before a save (admin or db.posts, 2 s); return {error: '…'} to refuse. ctx {user, isNew} */
   'post.beforeSave': PostInput & { error?: string };
@@ -883,6 +883,11 @@ type CustomField = CustomFieldType | {
   taxonomy?: string;
   /** repeater: the fields of a row (no gallery, repeater, json, richtext, user or term inside). */
   fields?: Record<string, CustomField>;
+  /**
+   * 2.5.0: left out of the "Fields" block on the site (true: stock, cost, internal notes), or 'page': shown on
+   * cards in lists only (a price the post's own page shows in its own way). / ซ่อนจากบล็อกข้อมูลเพิ่มเติม
+   */
+  hideOnSite?: boolean | 'page';
 };
 
 /** site.taxonomy (CMS 2.1.0). / ชุดหมวดหมู่ */
@@ -1100,7 +1105,11 @@ declare const files: {
 };
 
 /** Email through the site's SMTP settings (100 / hour by default). / ส่งอีเมล */
-declare const mail: { send(msg: MailMessage): { ok: boolean; cancelled?: boolean } };
+declare const mail: {
+  send(msg: MailMessage): { ok: boolean; cancelled?: boolean };
+  /** CMS 2.5.0: true when the site can send email (Settings → Email is set up). / เว็บส่งอีเมลได้หรือยัง */
+  ready(): boolean;
+};
 /** https requests to allowlisted hosts (Site code → Settings); internal addresses are refused. / เรียก API ภายนอก */
 declare const http: {
   fetch(url: string, opts?: FetchOptions): FetchResponse;

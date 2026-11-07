@@ -222,6 +222,8 @@ body.rea-scrubbing, body.rea-scrubbing * { cursor: ew-resize !important; user-se
 }
 .fg-add { border: 0; background: none; font-size: 15px; line-height: 1; padding: 0 4px; border-radius: 4px; cursor: pointer; color: var(--fg-text); &:hover { background: var(--fg-hover); } }
 .fg-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; align-items: center; &.tight { margin: 6px 0 0; } }
+.fg-where { display: grid; grid-template-columns: minmax(0, 1.2fr) 56px minmax(0, 1fr) 28px; gap: 4px; margin-bottom: 6px; align-items: center; select, input { min-width: 0; } }
+.fg-sub { margin: 10px 0 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .fg-row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
 .editor-root.fg .fg-field {
   display: flex; align-items: center; margin: 0; background: var(--fg-hover); border-radius: 5px; border: 1px solid transparent; min-width: 0;

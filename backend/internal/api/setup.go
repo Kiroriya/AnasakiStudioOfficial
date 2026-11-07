@@ -44,6 +44,9 @@ type setupInput struct {
 	AdminPassword string `json:"adminPassword"`
 	Locale        string `json:"locale"`
 	Demo          bool   `json:"demo"`
+	// Kit is a starter kit of the Plugin Store (2.5.0): the site starts from it instead of the demo content;
+	// when the store cannot send it the demo content is used.
+	Kit string `json:"kit"`
 	// SetupToken must match SETUP_TOKEN when the server sets one (audit M-5).
 	SetupToken string `json:"setupToken"`
 }
@@ -123,7 +126,16 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	admin, err := seed.Admin(a.st.As(store.Actor{Source: "setup"}), in.AdminName, in.AdminEmail, in.AdminPassword, in.Locale)
 	if err == nil {
-		if in.Demo {
+		var kit *kitDoc
+		if in.Demo && in.Kit != "" {
+			if kit, err = a.fetchKit(in.Kit); err != nil {
+				log.Printf("setup: starter kit %q: %v (demo content instead)", in.Kit, err)
+				kit, err = nil, nil
+			}
+		}
+		if kit != nil {
+			err = a.applyKit(kit, admin.ID)
+		} else if in.Demo {
 			err = seed.Demo(a.st.Quiet(), a.uploadDir, admin.ID) // sample content: no events
 		} else {
 			err = seed.Blank(a.st.Quiet(), admin.ID)
@@ -139,6 +151,16 @@ func (a *API) runSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.issueToken(w, r, admin, http.StatusCreated)
+}
+
+// setupKits answers GET /api/v1/setup/kits while the site is not set up (the wizard runs before anyone
+// can sign in); afterwards it is not offered.
+func (a *API) setupKits(w http.ResponseWriter, r *http.Request) {
+	if n, err := a.st.CountUsers(); err != nil || n > 0 {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	a.kitsList(w, r)
 }
 
 // rollbackSetup undoes a failed setup: its rows and uploaded files.

@@ -16,16 +16,33 @@
     if (!kind) return;
     e.preventDefault();
     var o = {};
-    new FormData(f).forEach(function (v, k) { o[k] = v; });
+    var svc = [];
+    new FormData(f).forEach(function (v, k) { if (k === 'svc') svc.push(v); else o[k] = v; });
     var input = kind === 'saveHours' ? { values: o } : o;
+    if (kind === 'saveStaff') {
+      if (o.id) input.id = Number(o.id); else delete input.id;
+      if (!o.active) input.active = 'off';
+      input.services = svc.join(',');
+    }
     if (kind === 'saveService') {
       if (o.id) input.id = Number(o.id); else delete input.id;
       if (!o.active) input.active = 'off';
-      ['minutes', 'price', 'capacity'].forEach(function (k) { if (o[k] !== undefined) input[k] = Number(o[k]); });
+      ['minutes', 'price', 'capacity', 'max_party', 'deposit'].forEach(function (k) { if (o[k] !== undefined) input[k] = Number(o[k]); });
     }
     call(kind, input).then(function () { location.reload(); }).catch(function () {});
   });
   document.addEventListener('click', function (e) {
+    var d = e.target.closest && e.target.closest('[data-ak-download]');
+    if (d) {
+      e.preventDefault();
+      var q = {};
+      d.getAttribute('data-ak-download').split('&').forEach(function (p) {
+        var i = p.indexOf('=');
+        if (i > 0) q[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1));
+      });
+      anasaki.download(q);
+      return;
+    }
     var b = e.target.closest && e.target.closest('[data-bk]');
     if (!b) return;
     e.preventDefault();

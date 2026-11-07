@@ -184,6 +184,8 @@ export class InsertPanel {
   ];
   readonly cmsElements: Tile[] = [
     { type: 'postList', hint: 'ed.el.postList' }, { type: 'menu', hint: 'ed.el.menu' }, { type: 'postContent', hint: 'ed.el.postContent' },
+    { type: 'postFields', hint: 'ed.el.postFields' }, { type: 'postTags', hint: 'ed.el.postTags' },
+    { type: 'langSwitch', hint: 'ed.el.langSwitch' },
     { type: 'download', hint: 'ed.el.download' }, { type: 'breadcrumb', hint: 'ed.el.breadcrumb' },
   ];
   /** Collection block: only when an active plugin provides data. */

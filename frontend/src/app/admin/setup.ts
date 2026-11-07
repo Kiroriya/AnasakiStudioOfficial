@@ -5,7 +5,7 @@ import { Api, errorMessage } from '../core/api';
 import { Auth, SetupState } from '../core/auth';
 import { I18n, LOCALES, Locale, TPipe, localized, tr } from '../core/i18n';
 import { PRODUCT, SiteInfo } from '../core/site';
-import { RecommendedInstall, RecommendedItem, defaultSelection, installOutcome, selectionIds } from '../core/legacy';
+import { RecommendedInstall, RecommendedItem, SetupKit, defaultSelection, installOutcome, selectionIds } from '../core/legacy';
 import { scopeLabel, sortScopes } from './plugin-deps';
 import './messages-platform';
 import './messages-plugins4b';
@@ -87,6 +87,20 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
               </label>
               <label class="check"><input type="checkbox" name="demo" [(ngModel)]="demo" /> {{ 'setup.demo' | t }}</label>
               <p class="hint">{{ 'setup.demoHint' | t }}</p>
+              @if (demo && kits().length) {
+                <h2 class="setup-kits-title">{{ 'setup.kitTitle' | t }}</h2>
+                <div class="setup-kits" id="setup-kits" role="radiogroup" [attr.aria-label]="'setup.kitTitle' | t">
+                  <button type="button" class="setup-kit" role="radio" data-kit="" [class.on]="!kit()" [attr.aria-checked]="!kit()" (click)="kit.set('')">
+                    <span class="setup-kit-icon" aria-hidden="true">✨</span><b>{{ 'setup.kitGeneral' | t }}</b><span class="muted small">{{ 'setup.kitGeneralDesc' | t }}</span>
+                  </button>
+                  @for (k of kits(); track k.id) {
+                    <button type="button" class="setup-kit" role="radio" [attr.data-kit]="k.id" [class.on]="kit() === k.id" [attr.aria-checked]="kit() === k.id" (click)="kit.set(k.id)">
+                      <span class="setup-kit-icon" aria-hidden="true">{{ k.icon || '📄' }}</span><b>{{ text(k.name) }}</b><span class="muted small">{{ text(k.description) }}</span>
+                    </button>
+                  }
+                </div>
+                <p class="hint">{{ 'setup.kitHint' | t }}</p>
+              }
             </section>
           }
           @case (2) {
@@ -152,6 +166,7 @@ export function recommendedPerms(r: Pick<RecommendedItem, 'permissions' | 'scope
                 <dt>{{ 'setup.step.admin' | t }}</dt><dd>{{ adminName }} · {{ adminEmail }}</dd>
                 <dt>{{ 'setup.adminLang' | t }}</dt><dd>{{ localeLabel() }}</dd>
                 <dt>{{ 'setup.demoShort' | t }}</dt><dd>{{ (demo ? 'common.yes' : 'setup.no') | t }}</dd>
+                @if (demo && kits().length) { <dt>{{ 'setup.kitShort' | t }}</dt><dd id="setup-review-kit">{{ kitName() }}</dd> }
               </dl>
             </section>
           }
@@ -211,6 +226,9 @@ export class Setup {
   tagline = '';
   language = this.i18n.locale();
   demo = true;
+  /** 2.5.0: the starter kit the site starts from ('' = the general sample site). */
+  readonly kits = signal<SetupKit[]>([]);
+  readonly kit = signal('');
   adminName = '';
   adminEmail = '';
   confirm = '';
@@ -229,6 +247,7 @@ export class Setup {
 
   constructor() {
     this.api.setupStatus().then(s => { this.version.set(s.version ?? ''); this.tokenRequired.set(!!s.tokenRequired); }).catch(() => undefined);
+    this.api.setupKits().then(k => this.kits.set(k.items ?? [])).catch(() => undefined); // no store: the general site
     this.site.setTitle('');
   }
 
@@ -238,6 +257,8 @@ export class Setup {
   }
 
   name(r: RecommendedItem) { this.i18n.locale(); return localized(r.name); }
+  text(v: SetupKit['name']) { this.i18n.locale(); return localized(v as never) || ''; }
+  kitName() { const k = this.kits().find(x => x.id === this.kit()); return k ? this.text(k.name) : this.i18n.t('setup.kitGeneral'); }
   desc(r: RecommendedItem) { this.i18n.locale(); return localized(r.description); }
   perms(r: RecommendedItem) { this.i18n.locale(); return recommendedPerms(r); }
   outcome(r: RecommendedInstall) { return installOutcome(r); }
@@ -310,7 +331,7 @@ export class Setup {
       const res = await this.api.runSetup({
         siteTitle: this.siteTitle.trim(), tagline: this.tagline.trim(), language: this.language,
         adminName: this.adminName.trim(), adminEmail: this.adminEmail.trim(), adminPassword: this.password(),
-        locale: this.i18n.locale(), demo: this.demo,
+        locale: this.i18n.locale(), demo: this.demo, ...(this.demo && this.kit() ? { kit: this.kit() } : {}),
         ...(this.tokenRequired() ? { setupToken: this.setupToken().trim() } : {}),
       });
       this.state.done();

@@ -9,6 +9,7 @@ import { buildInputOptions, isCodeSource } from './code-logic';
 import { evalExpr, exprPaths, toText, truthy } from './expr';
 import { canvasHtml, codeBlockClass, scopeCss } from './codeblock';
 import './messages-sitecode';
+import './messages-editor250';
 import { vectorSvg } from './vector';
 
 /** Result of an inline edit: plain text, plus formatted HTML when the text has formatting. */
@@ -161,6 +162,17 @@ export class InlineEdit implements OnInit {
           @empty { <a class="muted">{{ 'ed.ph.chooseMenu' | t }}</a> }
         }
       }
+      @case ('postFields') {
+        <div [class.rea-fields-inline]="view().props?.layout === 'inline'"><dl class="rea-fields">
+          @for (f of sampleFields(); track $index) { <div class="rea-field"><dt>{{ f[0] }}</dt><dd>{{ f[1] }}</dd></div> }
+        </dl></div>
+      }
+      @case ('postTags') {
+        <div class="rea-tags">@for (t of sampleTags(); track $index) { <a>#{{ t }}</a> }</div>
+      }
+      @case ('langSwitch') {
+        <nav class="rea-langs">@for (l of sampleLangs(); track $index) { <a [attr.aria-current]="$first ? 'true' : null">{{ l }}</a> }</nav>
+      }
       @case ('postContent') {
         <div class="rea-content" [innerHTML]="post()?.['content'] || placeholderContent"></div>
       }
@@ -305,6 +317,34 @@ export class NodeView {
   readonly chain = input<readonly number[]>([]);
 
   get placeholderContent() { return tr('ed.ph.postContent'); }
+  /** The Fields block on the canvas: the post's own fields when the preview has them, else a sample. */
+  sampleFields(): [string, string][] {
+    const meta = this.post()?.['meta'];
+    let pairs: [string, string][] = [];
+    if (meta) {
+      try {
+        pairs = Object.entries(JSON.parse(meta) as Record<string, unknown>)
+          .filter(([k, v]) => !k.includes('.') && v !== '' && v !== null && typeof v !== 'object')
+          .map(([k, v]) => [k, String(v)] as [string, string]);
+      } catch { /* sample below */ }
+    }
+    if (!pairs.length) {
+      const p = tr('ed.ph.postFields').split('|');
+      for (let i = 0; i + 1 < p.length; i += 2) pairs.push([p[i], p[i + 1]]);
+    }
+    const max = Number(this.view().props?.max) || 0;
+    return max > 0 ? pairs.slice(0, max) : pairs;
+  }
+
+  /** The tags of the previewed post, else samples (2.5.0). */
+  sampleTags(): string[] {
+    try {
+      const tags = JSON.parse(String(this.post()?.['tags'] ?? '[]')) as { name: string }[];
+      if (Array.isArray(tags) && tags.length) return tags.map(t => t.name);
+    } catch { /* samples */ }
+    return tr('ed.ph.postTags').split('|');
+  }
+  sampleLangs(): string[] { return tr('ed.ph.langSwitch').split('|'); }
 
   readonly interactive = computed(() => !this.ghost() && !this.inInstance());
 

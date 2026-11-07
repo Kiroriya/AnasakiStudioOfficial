@@ -53,6 +53,8 @@ var settingDefaults = map[string]string{
 	"mail_from_name":        "",
 	"allowed_upload_types":  DefaultUploadTypes,
 	"theme":                 "", // design tokens (JSON), see site.Theme
+	// 2.5.0: extra content languages ("en, ja"), served under /<lang>/ (site.OptContentLanguages)
+	"content_languages": "",
 }
 
 // corePaths cannot be used as admin path or URL bases: the server's own
@@ -63,6 +65,7 @@ var corePaths = map[string]bool{
 	"api": true, "uploads": true, "download": true, "plugin-assets": true, "site-assets": true, "ext-ui": true, "setup": true,
 	"_a": true, "_c": true, "sitemap.xml": true, "robots.txt": true, "favicon.ico": true, "favicon.svg": true,
 	"assets": true, "static": true,
+	"feed": true, "rss.xml": true, "author": true, "tag": true, // 2.5.0: the RSS feed, author pages, tags
 }
 
 // reservedPaths returns every reserved first path segment → its owner: ""
@@ -99,8 +102,16 @@ func (a *API) reservedPathList(w http.ResponseWriter, r *http.Request) {
 
 var pathOptRe = regexp.MustCompile(`^[a-z0-9-]{3,32}$`)
 
-// postTemplateKeyRe: the template of a Site Code post type's single posts.
-var postTemplateKeyRe = regexp.MustCompile(`^post_template_[a-z][a-z0-9_]{1,19}$`)
+// postTemplateKeyRe: the template of a custom post type's single posts, and (2.5.0) of its archive.
+var postTemplateKeyRe = regexp.MustCompile(`^(post|archive)_template_[a-z][a-z0-9_]{1,19}$`)
+
+// langComponentKeyRe: the site header / footer of a content language (2.5.0).
+var langComponentKeyRe = regexp.MustCompile(`^site_(header|footer)_component_[a-z]{2}(-[a-z]{2})?$`)
+
+// extraSettingKey is a setting outside settingDefaults: per-type templates and per-language header / footer.
+func extraSettingKey(k string) bool {
+	return postTemplateKeyRe.MatchString(k) || langComponentKeyRe.MatchString(k)
+}
 
 // withDefaults returns every setting, defaults filled in for missing/empty values.
 func withDefaults(opts map[string]string) map[string]string {
@@ -148,7 +159,7 @@ func intIn(s string, lo, hi int) bool {
 // returns a user-facing error or "".
 func validateSettings(in, merged, reserved map[string]string) string {
 	for k, v := range in {
-		if postTemplateKeyRe.MatchString(k) && v != "" && !isDigits(v) {
+		if extraSettingKey(k) && v != "" && !isDigits(v) {
 			return "รหัสหน้าไม่ถูกต้อง: " + k
 		}
 		switch k {
@@ -212,6 +223,15 @@ func validateSettings(in, merged, reserved map[string]string) string {
 			if msg := site.ValidateTheme(v); msg != "" {
 				return msg
 			}
+		case "content_languages":
+			for _, c := range strings.Split(v, ",") {
+				if c = strings.TrimSpace(c); c != "" && !langCodeRe.MatchString(c) {
+					return "รหัสภาษาไม่ถูกต้อง: " + c + " (เช่น en, zh, ja)"
+				}
+			}
+			if strings.Count(v, ",") > 9 {
+				return "ภาษาเพิ่มเติมได้ไม่เกิน 10 ภาษา"
+			}
 		}
 	}
 	a, b, c := merged["admin_path"], merged["blog_base"], merged["category_base"]
@@ -228,8 +248,8 @@ func (a *API) getSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := withDefaults(opts)
-	for k, v := range opts { // per-type post templates of Site Code post types (post_template_<type>)
-		if postTemplateKeyRe.MatchString(k) && k != "post_template_id" {
+	for k, v := range opts { // per-type post templates of Site Code post types (post_template_<type>), per-language header / footer
+		if extraSettingKey(k) && k != "post_template_id" && k != "archive_template_id" {
 			out[k] = v
 		}
 	}
@@ -238,7 +258,7 @@ func (a *API) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if !auth.From(r).Can(auth.CapManageOptions) {
 		for k := range out {
-			if !sharedSettings[k] && !postTemplateKeyRe.MatchString(k) {
+			if !sharedSettings[k] && !extraSettingKey(k) {
 				delete(out, k)
 			}
 		}
@@ -253,7 +273,7 @@ var sharedSettings = map[string]bool{
 	"archive_template_id": true, "site_icon": true, "site_logo": true, "timezone": true, "date_format": true,
 	"posts_per_page": true, "blog_base": true, "category_base": true, "search_visibility": true,
 	"admin_path": true, "max_upload_mb": true, "allowed_upload_types": true, "theme": true,
-	"site_header_component": true, "site_footer_component": true,
+	"site_header_component": true, "site_footer_component": true, "content_languages": true,
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +300,7 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for k, v := range in {
-		if _, ok := settingDefaults[k]; !ok && !postTemplateKeyRe.MatchString(k) {
+		if _, ok := settingDefaults[k]; !ok && !extraSettingKey(k) {
 			delete(in, k)
 			continue
 		}
@@ -399,3 +419,6 @@ func (a *API) AdminPath() string {
 	c.value, c.at = v, time.Now()
 	return v
 }
+
+// langCodeRe is a content language code (2.5.0): "en", "zh-tw".
+var langCodeRe = regexp.MustCompile(`^[a-z]{2}(-[a-z]{2})?$`)

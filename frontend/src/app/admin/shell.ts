@@ -19,6 +19,7 @@ import './messages-platform';
 import './messages-activity';
 import './messages-content-types';
 import './messages-phase7';
+import { avatarInitial } from '../shared/initial';
 
 interface NavItem { path: string; label: string; desc: string; icon: string; cap?: Cap; id?: string }
 interface NavGroup { title: string; items: NavItem[] }
@@ -260,7 +261,7 @@ export class Shell {
 
   roleLabel() { this.i18n.locale(); return roleName(this.auth.user()?.role ?? ''); }
 
-  initial() { return (this.auth.user()?.name ?? '?').slice(0, 1).toUpperCase(); }
+  initial() { return avatarInitial(this.auth.user()?.name); }
 
   setLocale(l: Locale) { this.auth.setLocale(l); }
 

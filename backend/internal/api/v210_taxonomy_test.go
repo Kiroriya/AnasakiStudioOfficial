@@ -76,7 +76,7 @@ site.route('POST /visitor', { access: ['*'] }, () => db.terms.create({ taxonomy:
 
 	// REST: the catalog, rights per taxonomy, post terms
 	_, txs := admin.doList("GET", "/api/v1/taxonomies")
-	if len(txs) != 3 || txs[0]["id"] != "category" || txs[1]["id"] != "genre" || txs[1]["hierarchical"] != true || txs[2]["canManage"] != true {
+	if len(txs) != 4 || txs[3]["id"] != "tag" || txs[0]["id"] != "category" || txs[1]["id"] != "genre" || txs[1]["hierarchical"] != true || txs[2]["canManage"] != true {
 		t.Fatalf("taxonomies: %v", txs)
 	}
 	ed := user("Ed", "editor")

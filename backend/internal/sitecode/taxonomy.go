@@ -236,3 +236,26 @@ func taxSlugFree(taxes []TaxonomyInfo, types []PostTypeInfo, t TaxonomyInfo) boo
 	}
 	return true
 }
+
+// TagTaxonomy is the core "tag" taxonomy (2.5.0): flat keywords of posts (and of custom types supporting
+// "tags") with archives at /tag/<slug>. Anyone who writes posts may add tags. A taxonomy with the same id or
+// slug from Site Code or a plugin keeps it instead.
+const TagTaxonomy = "tag"
+
+func withCoreTaxonomies(m Manifest) Manifest {
+	for _, t := range m.Taxonomies {
+		if t.ID == TagTaxonomy || t.Slug == TagTaxonomy {
+			return m
+		}
+	}
+	tag := TaxonomyInfo{ID: TagTaxonomy, Label: map[string]string{"th": "แท็ก", "en": "Tags"},
+		Singular: map[string]string{"th": "แท็ก", "en": "Tag"}, PostTypes: []string{"post"}, Slug: TagTaxonomy, Public: true,
+		Access: TaxonomyAccess{Manage: []string{CapPrefix + auth.CapEditOwnPosts}}}
+	for _, t := range m.PostTypes {
+		if slices.Contains(t.Supports, "tags") {
+			tag.PostTypes = append(tag.PostTypes, t.Type)
+		}
+	}
+	m.Taxonomies = append(append([]TaxonomyInfo(nil), m.Taxonomies...), tag)
+	return m
+}

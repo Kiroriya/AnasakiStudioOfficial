@@ -55,11 +55,14 @@ const (
 	// StatusScheduled is a post waiting for its PublishedAt (2.1.0); the core
 	// scheduler publishes it then (WordPress "future"). Not public until then.
 	StatusScheduled = "scheduled"
+	// StatusPending is a post a contributor sent for review (2.5.0): not
+	// public; an editor publishes it.
+	StatusPending = "pending"
 )
 
 // ValidStatus reports whether s is a post status a client may set.
 func ValidStatus(s string) bool {
-	return s == StatusDraft || s == StatusPublish || s == StatusScheduled
+	return s == StatusDraft || s == StatusPublish || s == StatusScheduled || s == StatusPending
 }
 
 // ScheduleGrace: a publish date less than this ahead is "now" — the database
@@ -161,6 +164,19 @@ type Post struct {
 	// Meta holds the custom fields (post_meta: site.postType / site.fields of
 	// Site Code); {} when there are none.
 	Meta map[string]any `json:"meta"`
+	// Lang is the post's language (2.5.0): "" = the site's language, else one
+	// of the extra content languages (served under /<lang>/). TranslationOf is
+	// the original post it translates (0 = an original).
+	Lang          string `json:"lang"`
+	TranslationOf int64  `json:"translationOf"`
+}
+
+// TranslationRoot is the id of the post's translation group (the original).
+func (p *Post) TranslationRoot() int64 {
+	if p.TranslationOf > 0 {
+		return p.TranslationOf
+	}
+	return p.ID
 }
 
 // Revision is an earlier version of a post (PostID) or a component (also in
@@ -254,6 +270,9 @@ type PostFilter struct {
 	// MetaOrder sorts by a custom field instead of Order ("" = none).
 	MetaOrder string
 	MetaDesc  bool
+	// Lang keeps the posts of one language (2.5.0; "" = the site's language);
+	// nil = every language (the admin).
+	Lang *string
 }
 
 // MetaCond compares the custom field Key (a JSON value) with Value using Op:

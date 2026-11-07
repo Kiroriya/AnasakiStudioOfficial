@@ -3,7 +3,7 @@
 export interface Field {
   key: string;
   label: string;
-  type: string; // text|email|tel|textarea|select|checkbox|number|date, 2.1: radio|checkboxes
+  type: string; // text|email|tel|textarea|select|checkbox|number|date, 2.1: radio|checkboxes, 2.2: file
   required: boolean;
   options: string[];
   placeholder: string;
@@ -42,7 +42,7 @@ export interface Submission {
 export const DEFAULT_SUCCESS = 'ขอบคุณ! เราได้รับข้อความของคุณแล้ว';
 export const DEFAULT_SUBMIT = 'ส่งข้อความ';
 
-const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date', 'radio', 'checkboxes'];
+const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date', 'radio', 'checkboxes', 'file'];
 /** Types with a list of options. */
 export const WITH_OPTIONS = ['select', 'radio', 'checkboxes'];
 const keyRe = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
@@ -176,6 +176,8 @@ export function clean(fm: Form, input: Record<string, string>): { data: Record<s
       continue;
     }
     switch (fd.type) {
+      case 'file': // 2.2: the sent file's name (submit.ts checked and keeps the file)
+        break;
       case 'email':
         if (!plainEmail(v)) return { data: null, problem: 'อีเมลในช่อง "' + fd.label + '" ไม่ถูกต้อง' };
         break;
@@ -286,10 +288,21 @@ export function updateForm(id: number, fm: Form): Form | null {
   return getForm(id);
 }
 
-/** Deletes a form and its submissions. */
+/** Deletes a form and its submissions (and their files). */
 export function deleteForm(id: number): void {
+  for (const f of files.list(`forms/${id}/`)) files.delete(f.path);
   db.table('submissions').where('form_id', id).delete();
   db.table('forms').where('id', id).delete();
+}
+
+/** 2.2: the private files of a submission, {field key: path} (kept in its data as "_files"). */
+export function filesOf(s: Submission): Record<string, string> {
+  try {
+    const m = JSON.parse(s.data._files ?? '{}');
+    return m && typeof m === 'object' ? m : {};
+  } catch {
+    return {};
+  }
 }
 
 function toSubmission(r: any): Submission {
@@ -319,5 +332,7 @@ export function markRead(id: number, read: boolean): Submission | null {
 }
 
 export function deleteSubmission(id: number): void {
+  const s = getSubmission(id);
+  if (s) for (const p of Object.values(filesOf(s))) files.delete(p);
   db.table('submissions').where('id', id).delete();
 }

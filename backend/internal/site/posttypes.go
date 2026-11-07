@@ -21,6 +21,7 @@ type PostTypeRoute struct {
 	Slug   string
 	Public bool
 	Label  map[string]string // {th, en}
+	Fields []RouteField      // its custom fields (2.5.0: the Fields block, the default page)
 }
 
 var typeSlugs atomic.Pointer[map[string]string]
@@ -86,8 +87,11 @@ func (s *Site) singleCustom(w http.ResponseWriter, opts map[string]string, t *Po
 		return
 	}
 	tpl := s.typeTemplate(opts, t.Type)
+	if s.langGate(w, opts, p) {
+		return
+	}
 	if tpl == nil && len(p.Design) == 0 {
-		tpl = s.defaultPostTemplate()
+		tpl = s.defaultTemplateFor(p)
 	}
 	if tpl == nil {
 		s.renderPost(w, opts, p, nil, "", http.StatusOK)
@@ -109,11 +113,15 @@ func (s *Site) typeArchive(w http.ResponseWriter, opts map[string]string, t *Pos
 		title = t.Type
 	}
 	m := meta{title: title, postType: "archive"}
-	if tpl := s.template(opts["archive_template_id"]); tpl != nil {
+	tpl := s.template(opts["archive_template_"+t.Type]) // 2.5.0: the type's own archive (sorted, filtered)
+	if tpl == nil {
+		tpl = s.template(opts["archive_template_id"])
+	}
+	if tpl != nil {
 		s.renderPost(w, opts, tpl, design.PostCtx{"title": title, "url": "/" + t.Slug, "type": t.Type, "archiveType": t.Type}, "", http.StatusOK, m)
 		return
 	}
-	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: t.Type, Status: model.StatusPublish, Limit: 50, NoContent: true})
+	posts, _, _ := s.st.ListPosts(model.PostFilter{Type: t.Type, Status: model.StatusPublish, Limit: 50, NoContent: true, Lang: pageLang(opts)})
 	b := `<h1>` + html.EscapeString(title) + `</h1><ul>`
 	for _, p := range posts {
 		b += `<li><a href="` + html.EscapeString(PostURL(p)) + `">` + html.EscapeString(p.Title) + `</a></li>`
@@ -168,7 +176,13 @@ func (s *Source) FilterContent(h string, post design.PostCtx) string {
 	if pv, ok := postMapOf(post); ok {
 		pm = pv
 	}
-	if out, ok := f.ApplyFilter("post.content", h, map[string]any{"post": pm}).(string); ok {
+	ctx := map[string]any{"post": pm}
+	if vf := visitorFunc(s.code); vf != nil { // 2.5.0: who reads it (members-only content, course lessons)
+		if v := vf(); v != nil {
+			ctx["visitor"] = v
+		}
+	}
+	if out, ok := f.ApplyFilter("post.content", h, ctx).(string); ok {
 		return out
 	}
 	return h

@@ -30,6 +30,7 @@ type fakeStore struct {
 	details   map[string]map[string]any
 	down      atomic.Bool
 	downloads atomic.Int32
+	kits      map[string]map[string]any // starter kits (2.5.0)
 }
 
 func newFakeStore(t *testing.T) *fakeStore {
@@ -38,6 +39,26 @@ func newFakeStore(t *testing.T) *fakeStore {
 	fs.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if fs.down.Load() {
 			panic(http.ErrAbortHandler) // connection dropped: "store unreachable"
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/v1/starters") { // starter kits (2.5.0)
+			fs.mu.Lock()
+			defer fs.mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			if id := strings.TrimPrefix(r.URL.Path, "/api/v1/starters/"); id != r.URL.Path {
+				if k, ok := fs.kits[id]; ok {
+					_ = json.NewEncoder(w).Encode(k)
+					return
+				}
+				w.WriteHeader(404)
+				_, _ = w.Write([]byte(`{"error":"not found"}`))
+				return
+			}
+			items := []any{}
+			for _, k := range fs.kits {
+				items = append(items, map[string]any{"id": k["id"], "name": k["name"], "description": k["description"], "icon": k["icon"], "plugins": k["plugins"]})
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+			return
 		}
 		if r.URL.Path == "/api/v1/plugins" { // catalogue (only the recommended filter is faked)
 			items := []any{}

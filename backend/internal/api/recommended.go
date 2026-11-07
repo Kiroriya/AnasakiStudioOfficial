@@ -123,10 +123,46 @@ func (a *API) storeRecommended() ([]map[string]any, error) {
 	return out, nil
 }
 
+// setupOffer is what the "Recommended plugins" step offers: the store's recommended plugins, then the plugins
+// of the starter kit the site was made from (2.5.0) — each still an official plugin of the store; kit plugins
+// are ticked. The core names none of them.
+func (a *API) setupOffer() ([]map[string]any, error) {
+	list, err := a.storeRecommended()
+	if err != nil {
+		return nil, err
+	}
+	kit := map[string]bool{}
+	for _, id := range a.kitPlugins() {
+		kit[id] = true
+	}
+	have := map[string]bool{}
+	for _, o := range list {
+		id := o["id"].(string)
+		have[id] = true
+		if kit[id] {
+			o["recommendedChecked"] = true
+		}
+	}
+	for _, id := range a.kitPlugins() {
+		if have[id] {
+			continue
+		}
+		d, err := a.plugins.StoreJSON(http.MethodGet, "/api/v1/plugins/"+url.PathEscape(id), nil, nil, plugin.StoreRaw, nil)
+		o, ok := d.(map[string]any)
+		if err != nil || !ok || o["official"] != true || o["id"] != id {
+			continue
+		}
+		o["recommendedChecked"] = true
+		have[id] = true
+		list = append(list, o)
+	}
+	return list, nil
+}
+
 // recommendedList answers GET /api/v1/setup/recommended.
 func (a *API) recommendedList(w http.ResponseWriter, r *http.Request) {
 	items := []RecommendedItem{}
-	list, err := a.storeRecommended()
+	list, err := a.setupOffer()
 	if err != nil {
 		// unreachable, or a Store without the recommended list: nothing to offer
 		writeJSON(w, http.StatusOK, map[string]any{"storeAvailable": false, "items": items})
@@ -175,8 +211,9 @@ type RecommendedResult struct {
 }
 
 // recommendedInstall answers POST /api/v1/setup/recommended/install {ids}:
-// only ids the Store currently lists as recommended and official are
-// installed, in the list order (other ids are ignored); each package is
+// only ids of setupOffer (the Store's recommended official plugins and the
+// starter kit's official plugins) are installed, in that order (other ids
+// are ignored); each package is
 // downloaded, checked to be official, installed and activated (the wizard
 // showed its permissions).
 func (a *API) recommendedInstall(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +228,7 @@ func (a *API) recommendedInstall(w http.ResponseWriter, r *http.Request) {
 		want[id] = true
 	}
 	results := []RecommendedResult{}
-	list, err := a.storeRecommended()
+	list, err := a.setupOffer()
 	if err != nil {
 		for id := range want {
 			if plugin.ValidPackageID(id) {

@@ -1,0 +1,47 @@
+{
+  "id": "events",
+  "name": "Events",
+  "version": "1.0.0",
+  "description": "Events on a content type of yours: sign-up (RSVP) under each event with a seat limit, a month calendar at /calendar, add to Google Calendar or .ics, confirmation mails, attendee lists with check-in and CSV. / กิจกรรม ลงทะเบียนจำกัดที่นั่ง ปฏิทินรายเดือน เพิ่มลงปฏิทิน รายชื่อผู้ลงทะเบียน",
+  "author": "Anasaki Studio",
+  "icon": "🎟️",
+  "category": "utilities",
+  "tags": ["events", "calendar", "rsvp", "registration", "tickets"],
+  "license": "MIT",
+  "minCore": "2.5.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการผู้ลงทะเบียน", "en": "Manage registrations" },
+      "description": { "th": "ดูรายชื่อ เช็กอิน ยกเลิก และส่งออก CSV", "en": "See attendees, check in, cancel and export CSV" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "postType", "type": "text", "maxLength": 40, "default": "event",
+      "label": { "th": "ประเภทเนื้อหาของกิจกรรม", "en": "Content type of the events" },
+      "help": { "th": "รหัสประเภทเนื้อหา (ตั้งค่า → ประเภทเนื้อหา) เช่น event", "en": "The content type's id (Settings → Content types), e.g. event" } },
+    { "key": "dateField", "type": "text", "maxLength": 40, "default": "when",
+      "label": { "th": "ช่องวันเวลาเริ่ม", "en": "Start date field" },
+      "help": { "th": "คีย์ของช่องแบบวันที่หรือวันเวลา", "en": "The key of a date or date-time field" } },
+    { "key": "endField", "type": "text", "maxLength": 40,
+      "label": { "th": "ช่องวันเวลาจบ (ไม่ใส่ก็ได้)", "en": "End date field (optional)" } },
+    { "key": "placeField", "type": "text", "maxLength": 40, "default": "place",
+      "label": { "th": "ช่องสถานที่", "en": "Place field" } },
+    { "key": "seatsField", "type": "text", "maxLength": 40, "default": "seats",
+      "label": { "th": "ช่องจำนวนที่นั่ง", "en": "Seats field" },
+      "help": { "th": "ว่างหรือ 0 = ไม่จำกัด", "en": "Empty or 0 = unlimited" } },
+    { "key": "rsvp", "type": "boolean", "default": true,
+      "label": { "th": "ฟอร์มลงทะเบียนใต้รายละเอียดกิจกรรม", "en": "Sign-up form under the event's description" } },
+    { "key": "maxPerPerson", "type": "number", "default": 4, "min": 1, "max": 50,
+      "label": { "th": "ลงทะเบียนได้สูงสุดคนละกี่ที่", "en": "Most seats per sign-up" } },
+    { "key": "notifyEmail", "type": "text", "maxLength": 200,
+      "label": { "th": "อีเมลแจ้งเมื่อมีผู้ลงทะเบียน", "en": "New sign-up email" },
+      "help": { "th": "เว้นว่าง = ไม่แจ้ง", "en": "Empty = none" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "content", "filters-core", "jobs"],
+    "routes": ["/calendar"],
+    "hooks": { "events": ["events.registered", "events.cancelled"] }
+  }
+}

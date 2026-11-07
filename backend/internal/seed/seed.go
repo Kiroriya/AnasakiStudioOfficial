@@ -460,7 +460,7 @@ func (b *builder) blogPage() M {
 		"style":    M{"maxWidth": 1150},
 		"props":    M{"query": M{"postType": "post", "limit": 12, "order": "newest"}, "emptyText": "ยังไม่มีบทความ"},
 		"children": []M{card}}
-	return b.page(b.sectionTitle("บล็อก", "เรื่องราว แนวคิด และอัปเดตล่าสุดจากทีมงาน"), list)
+	return b.page(b.sectionTitle("บล็อก", "เรื่องราว แนวคิด และอัปเดตล่าสุดจากทีมงาน"), list, M(PagerNode(list["id"].(string))))
 }
 
 func (b *builder) aboutPage() M {
@@ -487,17 +487,24 @@ func (b *builder) singleTemplate() M {
 			"responsive": M{"mobile": M{"height": M{"mode": "fixed", "value": 220}}}},
 		M{"id": b.id("pc"), "type": "postContent", "name": "เนื้อหาบทความ", "width": fill(), "height": hug(),
 			"style": M{"fontSize": 18, "color": "#1f2937"}},
+		M(TagsNode()),
 	)
 	return b.page(article)
 }
 
 func (b *builder) archiveTemplate() M {
 	card := b.postCard(fixed(352))
+	// 2.5.0: on a content type's archive (/menu, /events) the card shows the post's first fields, not a date
+	body := card["children"].([]M)[1]
+	kids := body["children"].([]M)
+	date := kids[len(kids)-1]
+	date["props"].(M)["showWhen"] = "post.type == 'post'"
+	body["children"] = append(kids, M(CardFieldsNode()))
 	card["responsive"] = M{"mobile": M{"width": M{"mode": "fill"}}}
 	list := M{"id": b.id("pl"), "type": "postList", "name": "บทความในหมวด", "width": fill(), "height": hug(),
 		"layout":   M{"mode": "horizontal", "gap": 24, "wrap": true, "justify": "center", "padding": pad(0, 24, 96, 24)},
 		"style":    M{"maxWidth": 1150},
 		"props":    M{"query": M{"postType": "post", "category": "current", "limit": 24}, "emptyText": "ยังไม่มีบทความในหมวดนี้"},
 		"children": []M{card}}
-	return b.page(b.sectionTitle("{{post.title}}", "บทความทั้งหมดในหมวดหมู่นี้"), list)
+	return b.page(b.sectionTitle("{{post.title}}", "{{post.excerpt}}"), list, M(PagerNode(list["id"].(string))))
 }

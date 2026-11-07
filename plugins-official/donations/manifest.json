@@ -1,0 +1,49 @@
+{
+  "id": "donations",
+  "name": "Donations",
+  "version": "1.0.0",
+  "description": "Donations for foundations and causes: a donate block with amounts and a goal bar, any amount by PromptPay QR with slip upload, donor list, and a printable receipt for tax deduction. / รับบริจาค QR พร้อมเพย์ทุกยอด แนบสลิป เป้าหมาย และใบอนุโมทนาบัตรลดหย่อนภาษี",
+  "author": "Anasaki Studio",
+  "icon": "💝",
+  "category": "ecommerce",
+  "tags": ["donation", "charity", "promptpay", "foundation", "thai"],
+  "license": "MIT",
+  "minCore": "2.2.2",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "capabilities": [
+    { "id": "manage", "label": { "th": "จัดการเงินบริจาค", "en": "Manage donations" },
+      "description": { "th": "ดูรายการบริจาค สลิป ยืนยันยอด และออกใบอนุโมทนาบัตร", "en": "See gifts and slips, confirm them and issue receipts" },
+      "default": ["administrator", "editor"] }
+  ],
+  "settings": [
+    { "key": "orgName", "type": "text", "maxLength": 200, "placeholder": "มูลนิธิรักษ์น้ำ",
+      "label": { "th": "ชื่อองค์กร (บนใบอนุโมทนาบัตร)", "en": "Organisation name (on receipts)" } },
+    { "key": "orgTaxId", "type": "text", "maxLength": 20,
+      "label": { "th": "เลขประจำตัวผู้เสียภาษีขององค์กร", "en": "Organisation tax ID" } },
+    { "key": "orgAddress", "type": "textarea", "maxLength": 500,
+      "label": { "th": "ที่อยู่องค์กร", "en": "Organisation address" } },
+    { "key": "signer", "type": "text", "maxLength": 120,
+      "label": { "th": "ผู้ลงนามในใบอนุโมทนาบัตร", "en": "Receipt signed by" } },
+    { "key": "promptpayId", "type": "text", "maxLength": 20, "placeholder": "0812345678",
+      "label": { "th": "พร้อมเพย์รับบริจาค", "en": "PromptPay ID for gifts" } },
+    { "key": "promptpayName", "type": "text", "maxLength": 120,
+      "label": { "th": "ชื่อบัญชีพร้อมเพย์", "en": "PromptPay account name" } },
+    { "key": "bankInfo", "type": "textarea", "maxLength": 1000,
+      "label": { "th": "บัญชีสำหรับโอน", "en": "Bank details" } },
+    { "key": "amounts", "type": "text", "maxLength": 100, "default": "100, 300, 500, 1000",
+      "label": { "th": "ยอดที่ให้เลือก (บาท คั่นด้วย ,)", "en": "Suggested amounts (THB, comma separated)" } },
+    { "key": "goal", "type": "number", "default": 0, "min": 0, "max": 1000000000,
+      "label": { "th": "เป้าหมาย (บาท)", "en": "Goal (THB)" },
+      "help": { "th": "0 = ไม่แสดงแถบความคืบหน้า (นับเฉพาะยอดที่ยืนยันแล้ว)", "en": "0 = no progress bar (confirmed gifts only)" } },
+    { "key": "notifyEmail", "type": "text", "maxLength": 200,
+      "label": { "th": "อีเมลแจ้งเมื่อมีผู้บริจาค", "en": "New gift email" },
+      "help": { "th": "เว้นว่าง = อีเมลผู้ดูแลเว็บ", "en": "Empty = the site's admin email" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "mail", "admin-pages", "jobs", "files"],
+    "routes": ["/donate"],
+    "hooks": { "events": ["donations.received", "donations.confirmed"] }
+  }
+}

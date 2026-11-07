@@ -1,0 +1,38 @@
+{
+  "id": "payments",
+  "name": "Payments",
+  "version": "1.0.0",
+  "description": "Card and PromptPay payments through Stripe Checkout for Shop, Donations and your own code: a hosted payment page, the payment confirmed by a signed webhook and on return, and a payments list. / รับชำระด้วยบัตรและพร้อมเพย์ผ่าน Stripe ใช้กับร้านค้า รับบริจาค และโค้ดของคุณ",
+  "author": "Anasaki Studio",
+  "icon": "💳",
+  "category": "ecommerce",
+  "tags": ["payments", "stripe", "card", "promptpay", "checkout"],
+  "license": "MIT",
+  "minCore": "2.5.0",
+  "runtime": "js",
+  "permissions": ["code", "settings"],
+  "settings": [
+    { "key": "secretKey", "type": "secret",
+      "label": { "th": "Stripe secret key (sk_live_… หรือ sk_test_…)", "en": "Stripe secret key (sk_live_… or sk_test_…)" },
+      "help": { "th": "Stripe → Developers → API keys — และเพิ่ม api.stripe.com ใน Site code → ตั้งค่า → host ที่อนุญาต", "en": "Stripe → Developers → API keys — and add api.stripe.com in Site code → Settings → allowed hosts" } },
+    { "key": "webhookSecret", "type": "secret",
+      "label": { "th": "Webhook signing secret (whsec_…)", "en": "Webhook signing secret (whsec_…)" },
+      "help": { "th": "สร้าง webhook ที่ Stripe ชี้มาที่ https://<เว็บของคุณ>/payments/stripe/webhook เลือกเหตุการณ์ checkout.session.completed และ checkout.session.async_payment_succeeded", "en": "Add a Stripe webhook to https://<your site>/payments/stripe/webhook with checkout.session.completed and checkout.session.async_payment_succeeded" } },
+    { "key": "methods", "type": "select", "default": "card",
+      "label": { "th": "ช่องทางชำระ", "en": "Payment methods" },
+      "options": [
+        { "value": "card", "label": { "th": "บัตรเครดิต/เดบิต", "en": "Cards" } },
+        { "value": "card,promptpay", "label": { "th": "บัตร และพร้อมเพย์ (บัญชี Stripe ประเทศไทย)", "en": "Cards and PromptPay (Stripe Thailand accounts)" } }
+      ] },
+    { "key": "currency", "type": "text", "maxLength": 3, "default": "thb",
+      "label": { "th": "สกุลเงิน", "en": "Currency" } }
+  ],
+  "code": {
+    "entry": "code/main.ts",
+    "scopes": ["db", "routes", "admin-pages", "http"],
+    "hosts": ["api.stripe.com"],
+    "routes": ["/payments"],
+    "exports": ["available", "checkout", "status"],
+    "hooks": { "events": ["payments.paid"] }
+  }
+}
