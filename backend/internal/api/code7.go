@@ -86,7 +86,7 @@ func (a *API) codeWidgetPage(w http.ResponseWriter, r *http.Request, tok, id str
 	page := func(status int, title, body string) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-downloads; frame-ancestors 'self'")
+		w.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads; frame-ancestors 'self'")
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, sitecode.AdminPageDocumentFor(title, `<div class="ak-widget">`+body+`</div>`, "/ext-ui/code/"+tok+"/", "", sitecode.AdminLocale(user.Locale)))
 	}

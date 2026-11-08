@@ -322,7 +322,9 @@ func (a *API) codeExtUI(w http.ResponseWriter, r *http.Request, tok, rest string
 	page := func(status int, title, body string) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-downloads; frame-ancestors 'self'")
+		// allow-popups-to-escape-sandbox: a tab the page opens (target=_blank, e.g. the plugin's own public page) is a
+		// normal page of its URL; without it the tab inherits the sandbox (origin "null") and its forms all fail
+		w.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads; frame-ancestors 'self'")
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, sitecode.AdminPageDocumentFor(title, body, "/ext-ui/code/"+tok+"/", id, sitecode.AdminLocale(u.Locale)))
 	}

@@ -239,3 +239,13 @@ site.export('memberByEmail', (email: string) => {
   const m = db.table('members').where('email', normEmail(email)).first();
   return m ? { id: m.id, email: m.email, name: m.name, status: m.status, verified: !!m.verified_at, groups: groupsOf(m) } : null;
 });
+// 1.2.0: the member list for another unit's own back office (e.g. a service's "users" page): newest first,
+// optional search in email / name, at most 2000. No secrets (password hashes, tokens) leave the plugin.
+site.export('listMembers', (opts?: { q?: string; limit?: number }) => {
+  const q = String(opts?.q ?? '').trim().slice(0, 100);
+  const limit = Math.min(2000, Math.max(1, Math.floor(Number(opts?.limit) || 500)));
+  const b = db.table('members');
+  if (q) b.where((w) => w.whereLike('email', `%${q}%`).orWhereLike('name', `%${q}%`));
+  return (b.orderBy('id', 'desc').limit(limit).get() as any[]).map((m) => ({ id: m.id, email: m.email, name: m.name, status: m.status,
+    verified: !!m.verified_at, groups: groupsOf(m), created_at: m.created_at, last_login: m.last_login_at ?? null }));
+});

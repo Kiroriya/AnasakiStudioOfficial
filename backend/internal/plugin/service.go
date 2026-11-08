@@ -824,7 +824,8 @@ func (m *Manager) ServeAdminUI(w http.ResponseWriter, r *http.Request, id, rest,
 	defer resp.Body.Close()
 	resp.Header.Del("Set-Cookie") // never let a plugin set cookies on the CMS origin
 	extra := cors.Clone()
-	extra.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-downloads allow-modals")
+	// allow-popups-to-escape-sandbox: a tab the page opens is a normal page of its URL (not a null-origin copy of the sandbox)
+	extra.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals")
 	extra.Set("Referrer-Policy", "no-referrer")
 	extra.Set("X-Content-Type-Options", "nosniff")
 	copyResponse(w, resp, extra)

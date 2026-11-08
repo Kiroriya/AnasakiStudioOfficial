@@ -660,7 +660,9 @@ site.adminPage('orders', { label: { th: 'ออเดอร์', en: 'Orders' },
 - `GET /api/v1/code/admin-pages` → `[{id, label, icon}]` the caller's role may open (also `bindings.adminPages`).
 - `POST /api/v1/code/admin-pages/{id}/ticket {query?: "tab=x" | {tab:"x"}}` → `{url: "/ext-ui/code/<ticket>/<id>?…"}`
   (8 h ticket, bound to the password like plugin admin pages). The page is served there with
-  `Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups; frame-ancestors 'self'` and a
+  `Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads; frame-ancestors 'self'`
+  (2.5.1: a tab the page opens, e.g. a `target="_blank"` link to the plugin's public page, is a normal page of its URL;
+  before, it inherited the sandbox — origin `null` — so its forms and API calls failed) and a
   `window.anasaki.call(name, input)` helper that posts to `/ext-ui/code/<ticket>/_a/<name>` (CORS `*`, the
   ticket authenticates instead of CSRF) and runs the `site.action` as the ticket's user (role access applies).
   Relative links (`?tab=x`, `orders?x=1`) stay inside the ticket URL. Render errors → 500 page (details in Logs).

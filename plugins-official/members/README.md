@@ -15,4 +15,4 @@ Visitor accounts: sign-up with email confirmation, cookie sign-in, password rese
 a member menu block, a members admin screen (search, disable, CSV export) and the site's `site.visitor` (groups
 `member`, `verified`) — hide or show designer layers with the condition `visitor.is.member`. Only one `site.visitor`
 may exist on a site, so Members cannot run next to other code that defines one.
-Events `members.registered`, `members.verified`, `members.login`; filter `members.mail`; export `memberByEmail(email)`.
+Events `members.registered`, `members.verified`, `members.login`; filter `members.mail`; exports `memberByEmail(email)` and, from 1.2.0, `listMembers({q, limit})` (newest first, at most 2000; id, email, name, status, verified, groups, created_at, last_login — no secrets).

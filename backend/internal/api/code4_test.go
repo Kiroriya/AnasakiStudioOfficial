@@ -720,6 +720,10 @@ site.adminPage('boom', { render: () => { throw new Error('render broke') } })
 		!strings.Contains(rec.Header().Get("Content-Security-Policy"), "sandbox allow-scripts allow-forms allow-popups") {
 		t.Fatalf("admin page: %d %v\n%s", rec.Code, rec.Header(), h)
 	}
+	// a tab the page opens (a link to the plugin's public page) must not inherit the sandbox (origin "null": its forms fail)
+	if !strings.Contains(rec.Header().Get("Content-Security-Policy"), "allow-popups-to-escape-sandbox") {
+		t.Fatalf("admin page popups stay sandboxed: %s", rec.Header().Get("Content-Security-Policy"))
+	}
 	tok := strings.Split(strings.TrimPrefix(u, "/ext-ui/code/"), "/")[0]
 	act := c.send("POST", "/ext-ui/code/"+tok+"/_a/approve", strings.NewReader(`{"input":{"id":1}}`), map[string]string{"Content-Type": "text/plain;charset=utf-8", "Origin": "null"})
 	if act.Code != 200 || !strings.Contains(act.Body.String(), `"message":"approved 1 by editor"`) || act.Header().Get("Access-Control-Allow-Origin") != "*" {

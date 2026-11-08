@@ -54,7 +54,7 @@ interface Action { icon: string; key: string; cap?: Cap; show?: () => boolean; r
         @for (w of widgets(); track w.id) {
           <section class="card dash-widget" [attr.data-id]="w.id">
             <h3>{{ w.icon || '🧩' }} {{ label(w) }}</h3>
-            <iframe class="dash-widget-frame" [attr.data-id]="w.id" [src]="frameSrc(w)" [style.height.px]="frameHeight(w)" sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+            <iframe class="dash-widget-frame" [attr.data-id]="w.id" [src]="frameSrc(w)" [style.height.px]="frameHeight(w)" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
               referrerpolicy="no-referrer" [title]="label(w)"></iframe>
           </section>
         }

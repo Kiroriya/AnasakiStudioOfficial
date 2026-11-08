@@ -476,7 +476,8 @@ Declarative attributes: `data-ak-tabs`, `table[data-ak-sortable]`, `form[data-ak
 
 ## 7. Iframe messages
 
-Admin pages and widgets are sandboxed iframes with an opaque origin. The kit talks to the admin with
+Admin pages and widgets are sandboxed iframes with an opaque origin. Since 2.5.1 a tab they open (`target="_blank"`)
+escapes the sandbox and is a normal page of its URL (before, it kept the opaque origin and its forms failed). The kit talks to the admin with
 `postMessage`; the admin matches each message to its own iframe by window identity and ignores anything else.
 You normally use the `AK` functions; the messages are documented for pages that do not load the kit.
 

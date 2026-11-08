@@ -1,7 +1,7 @@
 {
   "id": "members",
   "name": "Members",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Visitor accounts: sign up with email confirmation, sign in, password reset, a My account page, a member menu block, members-only sections (visitor.is.member) and a members admin screen with CSV export. / ระบบสมาชิก สมัคร ยืนยันอีเมล เข้าสู่ระบบ ลืมรหัส หน้าบัญชีของฉัน และส่วนเฉพาะสมาชิก",
   "author": "Anasaki Studio",
   "icon": "👥",
@@ -31,7 +31,7 @@
     "entry": "code/main.ts",
     "scopes": ["db", "routes", "visitor", "mail", "admin-pages"],
     "routes": ["/members"],
-    "exports": ["memberByEmail"],
+    "exports": ["memberByEmail", "listMembers"],
     "hooks": {
       "filters": ["members.mail"],
       "events": ["members.registered", "members.verified", "members.login"]

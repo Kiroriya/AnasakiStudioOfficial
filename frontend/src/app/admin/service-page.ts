@@ -53,9 +53,9 @@ export function isPluginPageId(id: string, page: string): boolean {
     }
     @if (src(); as s) {
       @if (isCode()) {
-        <iframe class="svc-frame" id="code-admin-frame" [class.svc-frame-plugin]="isPluginPage()" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer" [title]="title()"></iframe>
+        <iframe class="svc-frame" id="code-admin-frame" [class.svc-frame-plugin]="isPluginPage()" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer" [title]="title()"></iframe>
       } @else {
-        <iframe class="svc-frame" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-downloads allow-modals" referrerpolicy="no-referrer" [title]="title()"></iframe>
+        <iframe class="svc-frame" [src]="s" [style.min-height.px]="contentHeight()" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals" referrerpolicy="no-referrer" [title]="title()"></iframe>
       }
     }
     <rea-media-picker [kind]="mediaPick.pending()?.accept ?? 'image'" [open]="mediaPick.pending() !== null" (openChange)="!$event && mediaPick.done(null)" (picked)="mediaPick.done($event)" />
