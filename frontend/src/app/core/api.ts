@@ -300,6 +300,10 @@ export class Api {
   codeAdminNotices() { return this.get<unknown>('/code/admin-notices'); }
   /** site.dashboardWidget cards with their iframe URLs (ticket included). */
   codeDashboardWidgets() { return this.get<unknown>('/code/dashboard-widgets'); }
+  /** 2.5.3: the signed-in user's own admin settings ({dashboard: …}), kept with the account. */
+  myPrefs() { return this.get<Record<string, unknown>>('/auth/me/prefs'); }
+  /** Saves one setting (null removes it); returns all of them. */
+  setMyPref(key: string, value: unknown) { return this.put<Record<string, unknown>>(`/auth/me/prefs/${encodeURIComponent(key)}`, value); }
   codeAdminTicket(id: string, query: Record<string, string>) {
     return this.post<{ url: string }>(`/code/admin-pages/${encodeURIComponent(id)}/ticket`, { query });
   }

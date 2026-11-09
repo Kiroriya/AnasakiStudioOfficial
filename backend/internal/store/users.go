@@ -119,6 +119,24 @@ func (s *Store) RevokeSession(jti string, expires time.Time) error {
 	return err
 }
 
+// UserPrefs returns the user's admin settings (a JSON object; "{}" when none).
+func (s *Store) UserPrefs(id int64) (string, error) {
+	var p sql.NullString
+	if err := s.DB.QueryRow(`SELECT prefs FROM users WHERE id = ?`, id).Scan(&p); err != nil {
+		return "", err
+	}
+	if !p.Valid || p.String == "" {
+		return "{}", nil
+	}
+	return p.String, nil
+}
+
+// SetUserPrefs stores the user's admin settings (a JSON object, checked by the caller).
+func (s *Store) SetUserPrefs(id int64, prefs string) error {
+	_, err := s.DB.Exec(`UPDATE users SET prefs = ? WHERE id = ?`, prefs, id)
+	return err
+}
+
 // BumpSessionEpoch signs user id out everywhere: every session token and
 // ticket issued before stops working (the credential changes).
 func (s *Store) BumpSessionEpoch(id int64) error {

@@ -72,6 +72,8 @@ func Migrate(db *sql.DB) error {
 		// 2.5.0: multilingual content — the post's language ("" = the site's) and the original it translates
 		{"posts", "lang", "VARCHAR(10) NOT NULL DEFAULT ''"},
 		{"posts", "translation_of", "BIGINT NOT NULL DEFAULT 0"},
+		// 2.5.3: a user's own settings of the admin ({"dashboard": {...}}), kept with the account
+		{"users", "prefs", "MEDIUMTEXT NULL"},
 	}
 	for _, c := range cols {
 		if err := EnsureColumn(db, c[0], c[1], c[2]); err != nil {

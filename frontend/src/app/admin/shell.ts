@@ -65,8 +65,10 @@ interface NavGroup { title: string; items: NavItem[] }
               <button class="back-btn" (click)="goBack()" [title]="'common.back' | t">← {{ 'common.back' | t }}</button>
             }
             <nav class="crumbs">
-              <a routerLink="/">{{ 'shell.home' | t }}</a>
-              @if (current(); as c) { <span>/</span><b>{{ c.label }}</b> }
+              @if (isHome()) { <b>{{ 'shell.home' | t }}</b> } @else {
+                <a routerLink="/">{{ 'shell.home' | t }}</a>
+                @if (current(); as c) { <span>/</span><b>{{ c.label }}</b> }
+              }
             </nav>
           </div>
           <div class="topbar-right">

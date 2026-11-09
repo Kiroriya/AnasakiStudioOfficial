@@ -15,6 +15,16 @@
         });
       return;
     }
+    var v = e.target.closest && e.target.closest('[data-member-verify]');
+    if (v) {
+      e.preventDefault();
+      v.disabled = true;
+      anasaki.call('members:verify', { id: Number(v.getAttribute('data-id')) }).then(function (r) {
+        if (done(r)) location.reload();
+        else { v.disabled = false; if (window.AK && AK.toast) AK.toast((r && r.message) || 'Error', 'danger'); }
+      });
+      return;
+    }
     var x = e.target.closest && e.target.closest('[data-members="export"]');
     if (x) {
       e.preventDefault();

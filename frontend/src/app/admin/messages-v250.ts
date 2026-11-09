@@ -25,3 +25,23 @@ registerMessages({
   'lang.title': { th: 'ภาษา', en: 'Languages' },
   'lang.thisIs': { th: 'ฉบับนี้: {lang}', en: 'This version: {lang}' },
 });
+
+/** 2.5.3: each user arranges the plugin widgets of their dashboard. */
+registerMessages({
+  'dash.widgets': { th: 'วิดเจ็ตจากปลั๊กอิน', en: 'Plugin widgets' },
+  'dash.customize': { th: 'ปรับแต่งหน้าหลัก', en: 'Customize' },
+  'dash.customizeDone': { th: 'เสร็จแล้ว', en: 'Done' },
+  'dash.customizeHint': { th: 'ลากการ์ดเพื่อสลับที่ หรือใช้ปุ่ม ↑ ↓ — ซ่อนการ์ดที่ไม่ใช้ เลือกขนาดได้ ตั้งค่าเป็นของคุณคนเดียวและตามไปทุกเครื่อง', en: 'Drag cards (or use ↑ ↓) to reorder, hide what you do not use, pick a size — saved to your account on every device' },
+  'dash.reset': { th: 'คืนค่าเริ่มต้น', en: 'Reset' },
+  'dash.hidden': { th: 'ซ่อนอยู่', en: 'Hidden' },
+  'dash.hiddenCount': { th: 'ซ่อน {n} การ์ด', en: '{n} hidden' },
+  'dash.show': { th: 'แสดง', en: 'Show' },
+  'dash.hide': { th: 'ซ่อน', en: 'Hide' },
+  'dash.up': { th: 'เลื่อนขึ้น', en: 'Move up' },
+  'dash.down': { th: 'เลื่อนลง', en: 'Move down' },
+  'dash.size': { th: 'ขนาด', en: 'Size' },
+  'dash.size.auto': { th: 'อัตโนมัติ', en: 'Auto' },
+  'dash.size.normal': { th: 'ปกติ', en: 'Normal' },
+  'dash.size.wide': { th: 'กว้าง', en: 'Wide' },
+  'dash.saveFailed': { th: 'บันทึกการจัดหน้าไม่สำเร็จ', en: 'Could not save the layout' },
+});

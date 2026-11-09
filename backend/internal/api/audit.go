@@ -19,7 +19,7 @@ import (
 
 // auditSkip are routes that change nothing worth a line, or run all the
 // time while someone works (presence beats, session renewal, previews).
-var auditSkip = []string{"/design/presence", "/auth/refresh", "/blocks/render", "/preview", "/ticket", "/ui-ticket", "/code/build"}
+var auditSkip = []string{"/auth/me/prefs", "/design/presence", "/auth/refresh", "/blocks/render", "/preview", "/ticket", "/ui-ticket", "/code/build"}
 
 func auditable(r *http.Request) bool {
 	switch r.Method {

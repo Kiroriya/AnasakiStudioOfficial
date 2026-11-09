@@ -22,7 +22,7 @@ export const en = () => {
   }
 };
 export const t = (th: string, e: string) => (en() ? e : th);
-const fail = (message: string, errors?: Record<string, string>): Result => ({ ok: false, message, errors });
+const fail = (message: string, errors?: Record<string, string>, data?: any): Result => ({ ok: false, message, errors, ...(data ? { data } : {}) });
 
 export const normEmail = (s: unknown) => String(s ?? '').trim().toLowerCase();
 const tokenHash = (token: string) => crypto.hash('sha256', token);
@@ -75,6 +75,12 @@ function issueToken(memberId: number, purpose: 'verify' | 'reset', ttlMs: number
 }
 
 /** Consumes a token: the member id, or null when unknown / used / expired. */
+/** 1.4.1: whether a link can still be used (not used, not expired) — without using it. */
+export function tokenUsable(token: unknown, purpose: 'verify' | 'reset'): boolean {
+  const s = String(token ?? '');
+  return /^[0-9a-f]{64}$/.test(s) && db.table('tokens').where({ token_hash: tokenHash(s), purpose }).whereNull('used_at').where('expires_at', '>', new Date()).exists();
+}
+
 function useToken(token: unknown, purpose: 'verify' | 'reset'): number | null {
   const s = String(token ?? '');
   if (!/^[0-9a-f]{64}$/.test(s)) return null;
@@ -84,20 +90,41 @@ function useToken(token: unknown, purpose: 'verify' | 'reset'): number | null {
   return n ? Number(row.member_id) : null;
 }
 
+/** 1.4.1: the mails look like a real service's — the site's name, a big button, the plain link as a fallback. */
+function mailHtml(site_: string, heading: string, intro: string, button: string, link: string, foot: string): string {
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f3f4f6">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 12px"><tr><td align="center">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;font-family:Arial,'Noto Sans Thai',sans-serif;color:#111827">` +
+    `<tr><td style="padding:28px 32px 8px;font-size:20px;font-weight:700">${esc(site_)}</td></tr>` +
+    `<tr><td style="padding:8px 32px 0;font-size:18px;font-weight:700">${esc(heading)}</td></tr>` +
+    `<tr><td style="padding:12px 32px 4px;font-size:15px;line-height:1.7;color:#374151">${intro}</td></tr>` +
+    `<tr><td style="padding:20px 32px"><a href="${esc(link)}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:13px 28px;border-radius:999px">${esc(button)}</a></td></tr>` +
+    `<tr><td style="padding:0 32px 8px;font-size:12px;line-height:1.6;color:#6b7280">ถ้าปุ่มกดไม่ได้ คัดลอกลิงก์นี้ไปเปิดในเบราว์เซอร์ / If the button does not work, open this link:<br><a href="${esc(link)}" style="color:#3b82f6;word-break:break-all">${esc(link)}</a></td></tr>` +
+    `<tr><td style="padding:16px 32px 28px;font-size:12px;line-height:1.6;color:#9ca3af;border-top:1px solid #f3f4f6">${foot}</td></tr>` +
+    `</table></td></tr></table></body></html>`;
+}
+
 function sendMail(kind: 'verify' | 'reset', member: { email: string; name: string }, link: string): boolean {
   const name = member.name;
+  let siteName = '';
+  try { siteName = String(site.info().title || ''); } catch { /* older cores */ }
+  const tag = siteName ? `[${siteName}] ` : '';
   const msg = kind === 'verify'
     ? {
       to: member.email,
-      subject: 'ยืนยันอีเมลของคุณ / Confirm your email',
-      text: `สวัสดี ${name}\n\nกดลิงก์นี้เพื่อยืนยันอีเมล (ภายใน 48 ชั่วโมง):\n${link}\n\nHi ${name}, confirm your email (within 48 hours):\n${link}\n`,
-      html: `<p>สวัสดี ${esc(name)}</p><p>กดลิงก์นี้เพื่อยืนยันอีเมล (ภายใน 48 ชั่วโมง) / Confirm your email (within 48 hours):</p><p><a href="${esc(link)}">${esc(link)}</a></p>`,
+      subject: `${tag}ยืนยันอีเมลของคุณ / Confirm your email`,
+      text: `สวัสดี ${name}\n\nขอบคุณที่สมัคร${siteName ? ' ' + siteName : ''} — กดลิงก์นี้เพื่อยืนยันอีเมล (ภายใน 48 ชั่วโมง):\n${link}\n\nถ้าคุณไม่ได้สมัคร ไม่ต้องทำอะไร\n\nHi ${name}, confirm your email (within 48 hours):\n${link}\nIf you did not sign up, ignore this mail.\n`,
+      html: mailHtml(siteName || 'Welcome', 'ยืนยันอีเมลของคุณ / Confirm your email',
+        `สวัสดี ${esc(name)}<br>ขอบคุณที่สมัครสมาชิก — กดปุ่มด้านล่างเพื่อยืนยันอีเมลและเริ่มใช้งาน (ลิงก์ใช้ได้ 48 ชั่วโมง)<br><span style="color:#6b7280">Thanks for signing up — confirm your email to get started (the link works for 48 hours).</span>`,
+        'ยืนยันอีเมล / Confirm email', link, 'ถ้าคุณไม่ได้สมัคร ไม่ต้องทำอะไร บัญชีจะไม่ถูกเปิดใช้ / If you did not sign up, ignore this mail.'),
     }
     : {
       to: member.email,
-      subject: 'ตั้งรหัสผ่านใหม่ / Reset your password',
+      subject: `${tag}ตั้งรหัสผ่านใหม่ / Reset your password`,
       text: `สวัสดี ${name}\n\nตั้งรหัสผ่านใหม่ที่ลิงก์นี้ (ภายใน 1 ชั่วโมง):\n${link}\nถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร\n\nReset your password (within 1 hour):\n${link}\nIgnore this mail if you did not ask for it.\n`,
-      html: `<p>สวัสดี ${esc(name)}</p><p>ตั้งรหัสผ่านใหม่ (ภายใน 1 ชั่วโมง) / Reset your password (within 1 hour):</p><p><a href="${esc(link)}">${esc(link)}</a></p><p>ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร / Ignore this mail if you did not ask for it.</p>`,
+      html: mailHtml(siteName || 'Account', 'ตั้งรหัสผ่านใหม่ / Reset your password',
+        `สวัสดี ${esc(name)}<br>มีคำขอตั้งรหัสผ่านใหม่สำหรับบัญชีนี้ — กดปุ่มด้านล่างภายใน 1 ชั่วโมง<br><span style="color:#6b7280">Someone asked to reset this account's password — use the button within an hour.</span>`,
+        'ตั้งรหัสผ่านใหม่ / Reset password', link, 'ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้ / If you did not ask for this, ignore this mail — your password stays the same.'),
     };
   // other units may restyle the mails: site.filter('members.mail', (msg, { kind, link }) => ({ ...msg, html: … }))
   const final = site.applyFilter('members.mail', msg, { kind, link });
@@ -162,19 +189,26 @@ export function register(input: { email?: unknown; password?: unknown; name?: un
     return fail(t('อีเมลนี้สมัครไว้แล้ว', 'This email is already registered'), { email: t('อีเมลนี้สมัครไว้แล้ว', 'Already registered') });
   }
   const id = db.table('members').insert({ email, name, password_hash: crypto.password.hash(String(input.password)) });
-  if (!verificationNeeded()) { // no confirmation step: signed in right away
+  if (!verificationNeeded()) { // no confirmation step: signed in right away (and never asked later, 1.4.0)
+    db.table('members').where('id', id).update({ verify_waived: true });
     site.emit('members.registered', { id, email, name });
     if (response) startSession(id, response);
     return { ok: true, message: t('สมัครแล้ว ยินดีต้อนรับ', 'Registered — welcome'), data: { id, mailSent: false, signedIn: !!response } };
   }
-  const token = issueToken(id, 'verify', 2 * DAY);
-  const sent = sendMail('verify', { email, name }, `${siteUrl(request)}/members/verify?token=${token}`);
+  queueMail('verify', id, siteUrl(request));
+  cache.set('members:resend:' + id, 1, 60);
   site.emit('members.registered', { id, email, name });
   return {
     ok: true,
     message: t('สมัครแล้ว กรุณายืนยันอีเมลจากลิงก์ที่ส่งไป', 'Registered — please confirm your email from the link we sent'),
-    data: { id, mailSent: sent },
+    data: { id, email, mailQueued: true },
   };
+}
+
+/** 1.4.1: after the confirmation link — a session for an active member (the mailbox owner just proved it). */
+export function signInVerified(memberId: number, response: SiteResponse): void {
+  const m = db.table('members').where('id', memberId).first();
+  if (m && m.status === 'active') { startSession(memberId, response); site.emit('members.login', { id: memberId }); }
 }
 
 export function verify(token: unknown): Result {
@@ -194,7 +228,7 @@ function dummyHash(): string {
   return h;
 }
 
-export function login(input: { email?: unknown; password?: unknown }, response: SiteResponse): Result {
+export function login(input: { email?: unknown; password?: unknown }, response: SiteResponse, request?: SiteRequest): Result {
   const email = normEmail(input.email);
   const key = 'members:fail:' + crypto.hash('sha256', email);
   const fails = cache.get<number>(key) ?? 0;
@@ -207,8 +241,12 @@ export function login(input: { email?: unknown; password?: unknown }, response: 
     return fail(t('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'Wrong email or password'));
   }
   if (m.status !== 'active') return fail(t('บัญชีนี้ถูกระงับ', 'This account is disabled'));
-  if (verificationNeeded() && !m.verified_at) {
-    return fail(t('กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ', 'Please confirm your email first'), { email: t('ยังไม่ได้ยืนยันอีเมล', 'Email not confirmed') });
+  if (verificationNeeded() && !m.verified_at && !m.verify_waived) {
+    const key = 'members:resend:' + m.id;
+    if (!cache.get(key)) { cache.set(key, 1, 600); queueMail('verify', Number(m.id), siteUrl(request)); }
+    return fail(t(`ยังไม่ได้ยืนยันอีเมล — เราส่งลิงก์ยืนยันไปที่ ${m.email} แล้ว กดลิงก์ในอีเมลแล้วเข้าสู่ระบบอีกครั้ง (ถ้าไม่เห็น ลองดูในกล่องจดหมายขยะ)`,
+      `Your email is not confirmed yet — we sent a confirmation link to ${m.email}. Open it, then sign in again (check the spam folder too).`),
+      { email: t('ยังไม่ได้ยืนยันอีเมล', 'Email not confirmed') }, { unverified: true, email: m.email });
   }
   cache.delete(key);
   startSession(Number(m.id), response);
@@ -223,20 +261,64 @@ export function logout(request: SiteRequest, response: SiteResponse): Result {
   return { ok: true, message: t('ออกจากระบบแล้ว', 'Signed out') };
 }
 
+/**
+ * 1.4.0: confirmation and reset mails go through the job queue ("members:mail", retried with growing pauses):
+ * the visitor's request answers at once instead of waiting for SMTP, and a mail server that is down for a while
+ * does not lose the mail. The job makes the link itself, so no raw token is ever stored in the queue.
+ */
+export function queueMail(kind: 'verify' | 'reset', memberId: number, base: string): void {
+  jobs.enqueue('mail', { kind, id: memberId, base });
+}
+
+/** The "members:mail" job: one mail (a fresh link each try). Throws when the server refused it, so the queue retries. */
+export function deliverMail(data: { kind?: unknown; id?: unknown; base?: unknown }): void {
+  const kind = data.kind === 'reset' ? 'reset' : 'verify';
+  const m = db.table('members').where('id', Number(data.id)).first();
+  if (!m || m.status !== 'active') return;
+  if (kind === 'verify' && m.verified_at) return; // confirmed meanwhile
+  const base = String(data.base ?? '').replace(/\/+$/, '');
+  const link = kind === 'verify'
+    ? `${base}/members/verify?token=${issueToken(Number(m.id), 'verify', 2 * DAY)}`
+    : `${base}${setting('resetPath', '/members/reset')}?token=${issueToken(Number(m.id), 'reset', 3600_000)}`;
+  if (!sendMail(kind, m, link) && mailReady()) throw new Error('mail not sent');
+}
+
+/** Whether the site can send mail (CMS 2.5.0 mail.ready; older cores: assume yes). */
+function mailReady(): boolean {
+  const m = mail as unknown as { ready?: () => boolean };
+  return typeof m.ready === 'function' ? !!m.ready() : true;
+}
+
 export function forgot(input: { email?: unknown }, request: SiteRequest): Result {
+  // 1.3.0: without e-mail nobody would ever get the link — say so instead of "we sent it"
+  if (!mailReady()) return fail(t('เว็บนี้ยังส่งอีเมลไม่ได้ กรุณาติดต่อผู้ดูแลเว็บเพื่อตั้งรหัสผ่านใหม่', 'This site cannot send e-mail yet — please contact the site owner to reset your password'));
   const email = normEmail(input.email);
   const m = email ? db.table('members').where({ email, status: 'active' }).first() : null;
   if (m) {
-    const token = issueToken(Number(m.id), 'reset', 3600_000);
-    sendMail('reset', m, `${siteUrl(request)}${setting('resetPath', '/members/reset')}?token=${token}`);
+    const key = 'members:reset:' + m.id;
+    if (!cache.get(key)) { cache.set(key, 1, 60); queueMail('reset', Number(m.id), siteUrl(request)); }
   }
   // the same answer either way (no account enumeration)
   return { ok: true, message: t('ถ้ามีบัญชีนี้ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปแล้ว', 'If the account exists, we sent a reset link') };
 }
 
-export function reset(input: { token?: unknown; password?: unknown }): Result {
+/** 1.4.0: "send the confirmation link again" — at most once a minute per account; the same answer for any address. */
+export function resend(input: { email?: unknown }, request: SiteRequest): Result {
+  if (!mailReady()) return fail(t('เว็บนี้ยังส่งอีเมลไม่ได้ กรุณาติดต่อผู้ดูแลเว็บ', 'This site cannot send e-mail yet — please contact the site owner'));
+  const m = db.table('members').where({ email: normEmail(input.email), status: 'active' }).first();
+  if (m && !m.verified_at) {
+    const key = 'members:resend:' + m.id;
+    if (!cache.get(key)) { cache.set(key, 1, 60); queueMail('verify', Number(m.id), siteUrl(request)); }
+  }
+  return { ok: true, message: t('ถ้าบัญชีนี้ยังไม่ได้ยืนยัน เราส่งลิงก์ยืนยันไปอีกครั้งแล้ว', 'If this account is not confirmed yet, we sent the link again') };
+}
+
+export function reset(input: { token?: unknown; password?: unknown; password2?: unknown }): Result {
   const e = checkPassword(input.password);
   if (e) return fail(e, { password: e });
+  if (input.password2 !== undefined && String(input.password2) !== String(input.password)) {
+    return fail(t('รหัสผ่านทั้งสองช่องไม่ตรงกัน', 'The two passwords differ'), { password2: t('ไม่ตรงกับช่องด้านบน', 'Does not match') });
+  }
   const id = useToken(input.token, 'reset');
   if (!id) return fail(t('ลิงก์ไม่ถูกต้องหรือหมดอายุ', 'The link is invalid or expired'));
   // resetting by mail also proves the address
@@ -244,6 +326,33 @@ export function reset(input: { token?: unknown; password?: unknown }): Result {
   db.table('members').where('id', id).whereNull('verified_at').update({ verified_at: new Date() });
   db.table('sessions').where('member_id', id).delete(); // sign out everywhere
   return { ok: true, message: t('ตั้งรหัสผ่านใหม่แล้ว', 'Password changed') };
+}
+
+/** 1.3.0: a signed-in member changes the password (the current one first); every other session is signed out. */
+export function changePassword(memberId: number | string, input: { current?: unknown; password?: unknown; password2?: unknown }, request: SiteRequest): Result {
+  const id = Number(memberId);
+  const key = 'members:pwfail:' + id;
+  const fails = cache.get<number>(key) ?? 0;
+  if (fails >= 10) return fail(t('ลองผิดหลายครั้งเกินไป กรุณารอ 15 นาที', 'Too many attempts — try again in 15 minutes'));
+  const m = db.table('members').where('id', id).first();
+  if (!m) return fail(t('ไม่พบบัญชี', 'Account not found'));
+  if (!crypto.password.verify(String(input.current ?? ''), m.password_hash)) {
+    cache.set(key, fails + 1, 900);
+    return fail(t('รหัสผ่านปัจจุบันไม่ถูกต้อง', 'The current password is wrong'), { current: t('รหัสผ่านปัจจุบันไม่ถูกต้อง', 'Wrong password') });
+  }
+  const e = checkPassword(input.password);
+  if (e) return fail(e, { password: e });
+  if (input.password2 !== undefined && String(input.password2) !== String(input.password)) {
+    return fail(t('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน', 'The two new passwords differ'), { password2: t('ไม่ตรงกับช่องด้านบน', 'Does not match') });
+  }
+  cache.delete(key);
+  db.table('members').where('id', id).update({ password_hash: crypto.password.hash(String(input.password)) });
+  // stay signed in here, sign out everywhere else
+  const sid = request.cookies?.sid;
+  const keep = sid && /^[0-9a-f]{64}$/.test(sid) ? tokenHash(sid) : '';
+  db.table('sessions').where('member_id', id).where('token_hash', '!=', keep).delete();
+  site.emit('members.password', { id });
+  return { ok: true, message: t('เปลี่ยนรหัสผ่านแล้ว — อุปกรณ์อื่นถูกออกจากระบบ', 'Password changed — other devices were signed out') };
 }
 
 export function profile(memberId: number | string, input: { name?: unknown }): Result {

@@ -1,7 +1,7 @@
 // members: visitor accounts for the public site. Own tables (members, sessions, tokens), JSON routes
 // under /members, the same flows as site.action for designer forms, the site.visitor resolver (groups
 // "member" and "verified"), a "my profile" collection and an admin screen to disable members.
-import { register, verify, login, logout, forgot, reset, profile, sessionMember, groupsOf, normEmail, Result, verificationNeeded } from './service';
+import { register, verify, login, logout, forgot, reset, resend, profile, changePassword, deliverMail, signInVerified, tokenUsable, sessionMember, groupsOf, normEmail, Result, verificationNeeded } from './service';
 import { csvOf, csvDisposition } from './csv';
 import { accountPage, forgotPage, loginPage, registerMenuBlock, registerPage, resetPage, toLogin, verifyPage } from './pages';
 
@@ -37,13 +37,15 @@ site.route('POST /members/register', PUBLIC, ({ request, response }) => {
 });
 
 // The link in the confirmation mail: a page in the site's layout, or a redirect to the "afterVerifyUrl" setting.
-site.route('GET /members/verify', PUBLIC, ({ request }) => {
+// 1.4.1: the link proves the address — the member is signed in right away and goes on to "after confirming" (or
+// "after sign-in"), instead of landing on a sign-in page that does not say anything happened.
+site.route('GET /members/verify', PUBLIC, ({ request, response }) => {
   const token = Array.isArray(request.query.token) ? request.query.token[0] : request.query.token;
   const r = verify(token);
-  const next = String(site.settings('afterVerifyUrl') ?? '');
-  if (r.ok && next && next.startsWith('/') && !next.startsWith('//')) {
-    return { status: 303, headers: { Location: next + (next.includes('?') ? '&' : '?') + 'verified=1' } };
-  }
+  if (r.ok && r.data?.id) signInVerified(Number(r.data.id), response);
+  const safe = (v: unknown) => { const x = String(v ?? ''); return x.startsWith('/') && !x.startsWith('//') ? x : ''; };
+  const next = safe(site.settings('afterVerifyUrl')) || (r.ok ? safe(site.settings('afterLoginUrl')) : '');
+  if (r.ok && next) return { status: 303, headers: { Location: next + (next.includes('?') ? '&' : '?') + 'verified=1', 'Cache-Control': 'no-store' } };
   return verifyPage(r.ok, r.message);
 });
 
@@ -54,11 +56,11 @@ site.route('GET /members/login', PUBLIC, ({ request, visitor }) =>
 site.route('GET /members/register', PUBLIC, ({ visitor }) =>
   visitor ? { status: 303, headers: { Location: '/members/account' } } : registerPage());
 site.route('GET /members/forgot', PUBLIC, () => forgotPage());
-site.route('GET /members/reset', PUBLIC, ({ request }) => resetPage(request.query));
-site.route('GET /members/account', PUBLIC, ({ visitor }) => {
+site.route('GET /members/reset', PUBLIC, ({ request }) => resetPage(request.query, tokenUsable(request.query.token && (Array.isArray(request.query.token) ? request.query.token[0] : request.query.token), 'reset')));
+site.route('GET /members/account', PUBLIC, ({ visitor, request }) => {
   if (!visitor) return toLogin('/members/account');
   const m = db.table('members').where('id', Number(visitor.id)).first();
-  return m ? accountPage(m) : toLogin('/members/account');
+  return m ? accountPage(m, request.query) : toLogin('/members/account');
 });
 site.route('POST /members/profile', PUBLIC, ({ request, visitor }) => {
   const b = body(request);
@@ -67,9 +69,24 @@ site.route('POST /members/profile', PUBLIC, ({ request, visitor }) => {
   return answer(profile(visitor.id, b));
 });
 
+// 1.4.0: mails leave through the queue (retried with growing pauses when the mail server refuses)
+site.job('mail', { timeout: 60, retries: 6 }, ({ data }) => deliverMail(data ?? {}));
+
+site.route('POST /members/resend', PUBLIC, ({ request }) => {
+  const b = body(request);
+  return b ? answer(resend(b, request)) : needJson;
+});
+
+site.route('POST /members/password', PUBLIC, ({ request, visitor }) => {
+  const b = body(request);
+  if (!b) return needJson;
+  if (!visitor) return { status: 401, body: { ok: false, message: 'Sign in first' } };
+  return answer(changePassword(visitor.id, b, request));
+});
+
 site.route('POST /members/login', PUBLIC, ({ request, response }) => {
   const b = body(request);
-  return b ? answer(login(b, response)) : needJson;
+  return b ? answer(login(b, response, request)) : needJson;
 });
 
 site.route('POST /members/logout', PUBLIC, ({ request, response }) => (body(request) ? logout(request, response) : needJson));
@@ -100,8 +117,8 @@ site.action('register', {
 site.action('login', {
   input: { email: 'email', password: 'text' },
   access: ['*'],
-  run: ({ input, response }) => {
-    const r = login(input, response);
+  run: ({ input, response, request }) => {
+    const r = login(input, response, request);
     const next = String(site.settings('afterLoginUrl') ?? '');
     return r.ok && next && next.startsWith('/') && !next.startsWith('//') ? { ...act(r), redirect: next } : act(r);
   },
@@ -177,7 +194,7 @@ site.adminPage('list', {
     const ql = one(query.lang);
     const keep = ql === 'en' || ql === 'th' ? `&lang=${ql}` : '';
     const rows = pg.items.map((m) => `<tr data-id="${m.id}"><td>${m.id}</td><td>${esc(m.email)}</td><td>${esc(m.name)}</td>` +
-      `<td>${m.verified_at ? '<span class="ak-badge ak-badge-ok">✓</span>' : '—'}</td><td class="ak-hint">${esc(String(m.last_login_at ?? '').slice(0, 16).replace('T', ' '))}</td>` +
+      `<td>${m.verified_at ? '<span class="ak-badge ak-badge-ok">✓</span>' : `<button class="ak-btn ak-btn-sm" data-member-verify data-id="${m.id}" title="${t('ยืนยันอีเมลให้สมาชิกคนนี้', 'Confirm this member\'s email')}">${t('ยืนยันให้', 'Confirm')}</button>`}</td><td class="ak-hint">${esc(String(m.last_login_at ?? '').slice(0, 16).replace('T', ' '))}</td>` +
       `<td>${m.status === 'active' ? `<span class="ak-badge ak-badge-info">${t('ใช้งาน', 'Active')}</span>` : `<span class="ak-badge ak-badge-danger">${t('ระงับ', 'Disabled')}</span>`}</td>` +
       `<td><button class="ak-btn ak-btn-sm${m.status === 'active' ? ' ak-btn-danger' : ''}" data-member-status="${m.status === 'active' ? 'disabled' : 'active'}" data-id="${m.id}">` +
       `${m.status === 'active' ? t('ระงับ', 'Disable') : t('เปิดใช้', 'Enable')}</button></td></tr>`).join('');
@@ -220,6 +237,16 @@ site.adminPage('list', {
       headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': csvDisposition('members.csv'), 'Cache-Control': 'no-store' },
       body: csvOf(rows, cols),
     };
+  },
+});
+
+// 1.4.0: an administrator confirms a member's email by hand (e.g. someone who never got the mail)
+site.action('verify', {
+  input: { id: 'number' },
+  run: ({ input }) => {
+    const n = db.table('members').where('id', input.id).whereNull('verified_at').update({ verified_at: new Date() });
+    if (n) site.emit('members.verified', { id: input.id });
+    return { message: n ? 'ยืนยันแล้ว / Confirmed' : 'ไม่พบ / Not found', data: { changed: n } };
   },
 });
 

@@ -86,6 +86,8 @@ func (a *API) Routes(mux *http.ServeMux) {
 	h("GET "+p+"/auth/me", "", a.me)
 	h("GET "+p+"/audit", auth.CapManageUsers, a.listAudit) // 2.4.0: admin activity log
 	h("PUT "+p+"/auth/me", "", a.updateMe)
+	h("GET "+p+"/auth/me/prefs", "", a.myPrefs) // 2.5.3: the user's own admin settings (dashboard layout …)
+	h("PUT "+p+"/auth/me/prefs/{key}", "", a.setMyPref)
 	h("GET "+p+"/auth/tokens", "", a.listTokens) // own tokens; ?user= with manage_users
 	h("POST "+p+"/auth/tokens", "", a.createToken)
 	h("DELETE "+p+"/auth/tokens/{id}", "", a.deleteToken)
