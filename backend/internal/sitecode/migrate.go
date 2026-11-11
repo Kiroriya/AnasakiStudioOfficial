@@ -621,7 +621,11 @@ func (e *Engine) runMigrationsFor(files map[string]string, user string, n Naming
 		if len(ps) > 0 {
 			return fail(ps)
 		}
-		p, err := e.livePlannerFor(ctx, migKey(n, mf.Name), n)
+		// each migration gets its own time to read the schema: the batch's ctx would run out on a long list
+		// (a plugin installed fresh with many migrations on a slow server)
+		pctx, pcancel := context.WithTimeout(context.Background(), adminTimeout)
+		p, err := e.livePlannerFor(pctx, migKey(n, mf.Name), n)
+		pcancel()
 		if err != nil {
 			return done, err
 		}
