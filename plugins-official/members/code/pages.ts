@@ -40,7 +40,7 @@ const page = (title: string, html: string, status = 200): RouteResult => ({
 const field = (name: string, label: string, type = 'text', extra = '') =>
   `<div class="mb-field" data-field="${name}"><label>${esc(label)}<input type="${type}" name="${name}"${extra}></label><span class="mb-err" hidden></span></div>`;
 
-const safeNext = (v: unknown) => {
+export const safeNext = (v: unknown) => {
   const s = String(Array.isArray(v) ? v[0] : v ?? '');
   return /^\/(?!\/)[^\s\\]*$/.test(s) ? s : '';
 };
@@ -48,6 +48,12 @@ const safeNext = (v: unknown) => {
 function afterLogin(): string {
   return safeNext(site.settings('afterLoginUrl')) || '/members/account';
 }
+
+/** 1.4.2: "?next=…" carried between the sign-in and the sign-up pages (only when one was given). */
+const withNext = (url: string, query: Record<string, unknown>) => {
+  const n = safeNext(query.next);
+  return n ? url + '?next=' + encodeURIComponent(n) : url;
+};
 
 export function loginPage(query: Record<string, unknown>): RouteResult {
   const next = safeNext(query.next) || afterLogin();
@@ -58,12 +64,15 @@ export function loginPage(query: Record<string, unknown>): RouteResult {
     field('email', t('อีเมล', 'Email'), 'email', ' required autocomplete="email"') +
     field('password', t('รหัสผ่าน', 'Password'), 'password', ' required autocomplete="current-password"') +
     `<button class="mb-btn" type="submit">${esc(t('เข้าสู่ระบบ', 'Sign in'))}</button></form>` +
-    `<div class="mb-links"><a href="/members/register">${esc(t('สมัครสมาชิก', 'Create an account'))}</a><a href="/members/forgot">${esc(t('ลืมรหัสผ่าน?', 'Forgot password?'))}</a></div>`);
+    `<div class="mb-links"><a href="${esc(withNext('/members/register', query))}">${esc(t('สมัครสมาชิก', 'Create an account'))}</a><a href="/members/forgot">${esc(t('ลืมรหัสผ่าน?', 'Forgot password?'))}</a></div>`);
 }
 
-export function registerPage(): RouteResult {
+export function registerPage(query: Record<string, unknown> = {}): RouteResult {
+  // 1.4.2: signed in right away (no confirmation step) → where the visitor was going, else the site's "after sign-in" page
+  const next = safeNext(query.next) || afterLogin();
+  const login = withNext('/members/login', query);
   return page(t('สมัครสมาชิก', 'Create an account'), `<h1>${esc(t('สมัครสมาชิก', 'Create an account'))}</h1>` +
-    `<form class="mb-form" data-members="register" data-done="${esc(t('เข้าสู่ระบบ', 'Sign in'))}"` +
+    `<form class="mb-form" data-members="register" data-next="${esc(next)}" data-login="${esc(login)}" data-done="${esc(t('เข้าสู่ระบบ', 'Sign in'))}"` +
     ` data-sent-title="${esc(t('ตรวจอีเมลของคุณ', 'Check your e-mail'))}"` +
     ` data-sent-text="${esc(t('เราส่งลิงก์ยืนยันไปที่ {email} แล้ว กดลิงก์ในอีเมลเพื่อเริ่มใช้งาน — ถ้าไม่เห็นภายในไม่กี่นาที ลองดูในกล่องจดหมายขยะ', 'We sent a confirmation link to {email}. Open it to start — if it is not there in a few minutes, check the spam folder.'))}"` +
     ` data-resend="${esc(t('ส่งลิงก์อีกครั้ง', 'Send the link again'))}" data-wait="${esc(t('ส่งอีกครั้งได้ใน {s} วินาที', 'Send again in {s} s'))}" novalidate><p class="mb-msg" hidden role="status"></p>` +
@@ -71,7 +80,7 @@ export function registerPage(): RouteResult {
     field('email', t('อีเมล', 'Email'), 'email', ' required autocomplete="email"') +
     field('password', t('รหัสผ่าน (อย่างน้อย 8 ตัว)', 'Password (8+ characters)'), 'password', ' required minlength="8" autocomplete="new-password"') +
     `<button class="mb-btn" type="submit">${esc(t('สมัครสมาชิก', 'Create account'))}</button></form>` +
-    `<div class="mb-links"><span>${esc(t('มีบัญชีแล้ว?', 'Have an account?'))} <a href="/members/login">${esc(t('เข้าสู่ระบบ', 'Sign in'))}</a></span></div>`);
+    `<div class="mb-links"><span>${esc(t('มีบัญชีแล้ว?', 'Have an account?'))} <a href="${esc(login)}">${esc(t('เข้าสู่ระบบ', 'Sign in'))}</a></span></div>`);
 }
 
 export function forgotPage(): RouteResult {

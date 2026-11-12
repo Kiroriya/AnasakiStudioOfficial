@@ -3,7 +3,7 @@
 // "member" and "verified"), a "my profile" collection and an admin screen to disable members.
 import { register, verify, login, logout, forgot, reset, resend, profile, changePassword, deliverMail, signInVerified, tokenUsable, sessionMember, groupsOf, normEmail, Result, verificationNeeded } from './service';
 import { csvOf, csvDisposition } from './csv';
-import { accountPage, forgotPage, loginPage, registerMenuBlock, registerPage, resetPage, toLogin, verifyPage } from './pages';
+import { accountPage, forgotPage, loginPage, registerMenuBlock, registerPage, resetPage, safeNext, toLogin, verifyPage } from './pages';
 
 // ---------------------------------------------------------------- who is visiting
 
@@ -51,10 +51,11 @@ site.route('GET /members/verify', PUBLIC, ({ request, response }) => {
 
 // ---------------------------------------------------------------- ready-made pages
 
+// 1.4.2: already signed in → straight to "?next=" when the link has one
 site.route('GET /members/login', PUBLIC, ({ request, visitor }) =>
-  visitor ? { status: 303, headers: { Location: '/members/account' } } : loginPage(request.query));
-site.route('GET /members/register', PUBLIC, ({ visitor }) =>
-  visitor ? { status: 303, headers: { Location: '/members/account' } } : registerPage());
+  visitor ? { status: 303, headers: { Location: safeNext(request.query.next) || '/members/account' } } : loginPage(request.query));
+site.route('GET /members/register', PUBLIC, ({ request, visitor }) =>
+  visitor ? { status: 303, headers: { Location: safeNext(request.query.next) || '/members/account' } } : registerPage(request.query));
 site.route('GET /members/forgot', PUBLIC, () => forgotPage());
 site.route('GET /members/reset', PUBLIC, ({ request }) => resetPage(request.query, tokenUsable(request.query.token && (Array.isArray(request.query.token) ? request.query.token[0] : request.query.token), 'reset')));
 site.route('GET /members/account', PUBLIC, ({ visitor, request }) => {

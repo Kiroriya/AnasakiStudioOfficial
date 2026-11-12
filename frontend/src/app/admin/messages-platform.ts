@@ -154,6 +154,7 @@ registerMessages({
   'settings.adminPathHint': { th: 'เปลี่ยนจาก /admin เป็นคำที่เดายาก ช่วยลดการสุ่มเดารหัสผ่าน', en: 'Change /admin to something hard to guess to reduce brute-force attempts' },
   'settings.adminPathWarn': { th: 'หลังเปลี่ยน ที่อยู่เดิมจะใช้ไม่ได้ทันที — จดที่อยู่ใหม่ไว้ให้ดี ถ้าลืม แก้ได้ด้วยตัวแปร ADMIN_PATH ตอนเปิดเซิร์ฟเวอร์', en: 'The old address stops working immediately — write the new one down. If you forget it, override it with the ADMIN_PATH environment variable.' },
   'settings.adminPathNew': { th: 'ที่อยู่หน้าจัดการ:', en: 'Admin address:' },
+  'settings.adminPathEnv': { th: 'ที่อยู่หน้าจัดการกำหนดไว้ด้วย ADMIN_PATH ในไฟล์ .env — เปลี่ยนได้ที่ .env แล้วเปิดเซิร์ฟเวอร์ใหม่', en: 'The admin address is set by ADMIN_PATH in .env — change it there and restart the server.' },
   'settings.adminPathInvalid': { th: 'ใช้ a-z 0-9 และ - ยาว 3–32 ตัว', en: 'Use a-z, 0-9 and -, 3–32 characters' },
   'settings.adminPathTaken': { th: 'คำนี้ระบบใช้อยู่แล้ว เลือกคำอื่น', en: 'This path is used by the system — choose another' },
   'settings.adminPathPlugin': { th: 'ปลั๊กอิน {id} ใช้ที่อยู่นี้อยู่ เลือกคำอื่น', en: 'The plugin {id} uses this path — choose another' },

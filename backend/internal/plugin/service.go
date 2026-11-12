@@ -42,6 +42,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -618,6 +619,9 @@ func (p *packages) siteSegments() map[string]bool {
 			}
 			rows.Close()
 		}
+	}
+	if v := strings.Trim(os.Getenv("ADMIN_PATH"), "/ "); v != "" { // 2.5.4: the admin really lives there
+		vals["admin_path"] = v
 	}
 	segs := map[string]bool{}
 	for name, def := range sitePathOptions {

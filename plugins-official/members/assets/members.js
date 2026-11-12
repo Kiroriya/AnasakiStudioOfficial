@@ -71,7 +71,7 @@
         if (!ok) return;
         if (kind === 'register' || kind === 'forgot' || kind === 'password') {
           f.reset();
-          if (kind === 'register' && j.data && j.data.signedIn) { location.href = '/members/account'; return; }
+          if (kind === 'register' && j.data && j.data.signedIn) { location.href = f.getAttribute('data-next') || '/members/account'; return; } // 1.4.2
           // 1.4.0: after signing up, the form becomes "check your e-mail" — the address, send again, and the way in
           if (kind === 'register') {
             f.querySelectorAll('.mb-field, button[type=submit], .mb-msg').forEach(function (x) { x.hidden = true; x.style.display = 'none'; });
@@ -88,12 +88,12 @@
             again.button.style.marginBottom = '10px';
             box.appendChild(again.button);
             var go = el('a', 'mb-btn', f.getAttribute('data-done') || 'Sign in');
-            go.href = '/members/login'; go.style.cssText = 'display:flex;align-items:center;justify-content:center;text-decoration:none';
+            go.href = f.getAttribute('data-login') || '/members/login'; go.style.cssText = 'display:flex;align-items:center;justify-content:center;text-decoration:none';
             box.appendChild(go);
             f.appendChild(box);
             // the "already have an account? sign in" line under the form repeats the button above
             var after = f.nextElementSibling;
-            if (after && after.querySelector && after.querySelector('a[href="/members/login"]')) after.hidden = true;
+            if (after && after.querySelector && after.querySelector('a[href^="/members/login"]')) after.hidden = true;
             again.wait(60);
             f.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }

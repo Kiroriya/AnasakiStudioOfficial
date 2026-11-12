@@ -292,11 +292,12 @@ export function reservedOwner(p: string, reserved: ReservedPath[]): string | nul
           }
 
           @case ('admin') {
-            <div class="info-box warn">⚠️ {{ 'settings.adminPathWarn' | t }}</div>
+            @if (envPath()) { <div class="info-box">🔒 {{ 'settings.adminPathEnv' | t }}</div> }
+            @else { <div class="info-box warn">⚠️ {{ 'settings.adminPathWarn' | t }}</div> }
             <div class="form-row">
               <div class="form-label">{{ 'settings.adminPath' | t }}<small>{{ 'settings.adminPathHint' | t }}</small></div>
               <div>
-                <div class="prefix-input"><span>{{ origin }}/</span><input [value]="v('admin_path') || 'admin'" (input)="setSlug('admin_path', $event)" /></div>
+                <div class="prefix-input"><span>{{ origin }}/</span><input [value]="v('admin_path') || 'admin'" [disabled]="envPath()" (input)="setSlug('admin_path', $event)" /></div>
                 @if (pathError()) { <p class="hint danger">{{ pathError() }}</p> }
                 @else { <p class="hint">{{ 'settings.adminPathNew' | t }} <b class="mono">{{ origin }}/{{ v('admin_path') || 'admin' }}/</b></p> }
               </div>
@@ -373,7 +374,10 @@ export class SettingsPage implements OnInit {
     const a = this.saved(), b = this.draft();
     return Object.keys(b).some(k => (a[k] ?? '') !== (b[k] ?? ''));
   });
+  /** 2.5.4: ADMIN_PATH in .env fixes the admin address — the field only shows it. */
+  readonly envPath = computed(() => this.saved()['admin_path_env'] === '1');
   readonly pathError = computed(() => {
+    if (this.envPath()) return '';
     const p = this.draft()['admin_path'] ?? 'admin';
     // same length as the server (3–32)
     if (!/^[a-z0-9][a-z0-9-]{2,31}$/.test(p)) return this.i18n.t('settings.adminPathInvalid');

@@ -1,6 +1,6 @@
 module github.com/anasaki/studio/backend
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/dop251/goja v0.0.0-20261023133238-1622cea953df

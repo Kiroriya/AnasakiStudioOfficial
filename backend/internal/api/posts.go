@@ -318,7 +318,7 @@ func (a *API) notifyPending(p *model.Post, me *auth.Principal) {
 		return
 	}
 	to, title, by := strings.TrimSpace(opts["admin_email"]), p.Title, me.Name
-	link := strings.TrimRight(opts["site_url"], "/") + "/" + orDefault(opts["admin_path"], "admin") + "/posts/" + strconv.FormatInt(p.ID, 10)
+	link := strings.TrimRight(opts["site_url"], "/") + "/" + a.AdminPath() + "/posts/" + strconv.FormatInt(p.ID, 10) // ADMIN_PATH wins (2.5.4)
 	go func() {
 		err := a.SendMailMessage(mail.Message{To: []string{to},
 			Subject: "มีบทความรอตรวจ: " + title + " / A post waits for review",

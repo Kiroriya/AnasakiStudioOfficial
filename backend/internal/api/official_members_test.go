@@ -51,6 +51,19 @@ func TestOfficialMembers(t *testing.T) {
 	if r := send("GET", "/members/account", ""); r.code != 303 || !strings.HasPrefix(r.hdr.Get("Location"), "/members/login?next=") {
 		t.Fatalf("account without a session: %d %v", r.code, r.hdr)
 	}
+	// 1.4.2: "?next=" goes from sign-in to sign-up and back; sign-up remembers where to go after it
+	if r := send("GET", "/members/login?next=/app", ""); !strings.Contains(r.body, `href="/members/register?next=%2Fapp"`) {
+		t.Fatalf("login → register keeps next: %.600s", r.body)
+	}
+	if r := send("GET", "/members/register?next=/app", ""); !strings.Contains(r.body, `data-next="/app"`) || !strings.Contains(r.body, `href="/members/login?next=%2Fapp"`) {
+		t.Fatalf("register page next: %.600s", r.body)
+	}
+	if r := send("GET", "/members/register?next=//evil.example", ""); strings.Contains(r.body, "evil.example") {
+		t.Fatal("register page takes another site as next")
+	}
+	if r := send("GET", "/members/register", ""); !strings.Contains(r.body, `data-next="/members/account"`) || !strings.Contains(r.body, `href="/members/login"`) {
+		t.Fatalf("register page default next: %.600s", r.body)
+	}
 	// a cross-site HTML form cannot post
 	if r := e.offBSend(offBReq{method: "POST", path: "/members/register", body: strings.NewReader("email=a@x.io&password=password1"),
 		hdr: map[string]string{"Content-Type": "application/x-www-form-urlencoded"}}); r.Code != 415 {
@@ -97,8 +110,15 @@ func TestOfficialMembers(t *testing.T) {
 	}
 	r := send("GET", "/members/account", "")
 	offBContains(t, "account", r.body, "fah@x.io", `value="Fah"`, ">member<", ">verified<", `data-members="logout"`)
-	if r := send("GET", "/members/login", ""); r.code != 303 {
+	if r := send("GET", "/members/login", ""); r.code != 303 || r.hdr.Get("Location") != "/members/account" {
 		t.Fatalf("login page while signed in: %d", r.code)
+	}
+	// 1.4.2: signed in already → straight on to next (never another site)
+	if r := send("GET", "/members/register?next=/app", ""); r.code != 303 || r.hdr.Get("Location") != "/app" {
+		t.Fatalf("register page while signed in, next: %d %v", r.code, r.hdr)
+	}
+	if r := send("GET", "/members/login?next=//evil.example", ""); r.code != 303 || r.hdr.Get("Location") != "/members/account" {
+		t.Fatalf("login page while signed in, bad next: %d %v", r.code, r.hdr)
 	}
 	if r := send("POST", "/members/profile", `{"name":"Fah K."}`); r.code != 200 {
 		t.Fatalf("profile: %d %s", r.code, r.body)

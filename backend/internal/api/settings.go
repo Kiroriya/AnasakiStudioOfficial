@@ -256,6 +256,10 @@ func (a *API) getSettings(w http.ResponseWriter, r *http.Request) {
 	if out["smtp_password"] != "" {
 		out["smtp_password"] = secretMask
 	}
+	// 2.5.4: ADMIN_PATH (.env) wins over the setting — show the address really in use, and that it is fixed there
+	if v := envAdminPath(); v != "" {
+		out["admin_path"], out["admin_path_env"] = v, "1"
+	}
 	if !auth.From(r).Can(auth.CapManageOptions) {
 		for k := range out {
 			if !sharedSettings[k] && !extraSettingKey(k) {
@@ -274,7 +278,11 @@ var sharedSettings = map[string]bool{
 	"posts_per_page": true, "blog_base": true, "category_base": true, "search_visibility": true,
 	"admin_path": true, "max_upload_mb": true, "allowed_upload_types": true, "theme": true,
 	"site_header_component": true, "site_footer_component": true, "content_languages": true,
+	"admin_path_env": true,
 }
+
+// envAdminPath is the admin path set by the ADMIN_PATH environment variable ("" when not set).
+func envAdminPath() string { return strings.Trim(os.Getenv("ADMIN_PATH"), "/ ") }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	var in map[string]string
@@ -309,6 +317,13 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	if in["smtp_password"] == secretMask {
 		delete(in, "smtp_password") // unchanged
 	}
+	if env := envAdminPath(); env != "" { // 2.5.4: fixed by ADMIN_PATH — the setting would not be used
+		if v, set := in["admin_path"]; set && v != env {
+			writeErr(w, http.StatusBadRequest, "ที่อยู่หน้าจัดการกำหนดไว้ด้วย ADMIN_PATH ในไฟล์ .env — แก้ที่ .env แล้วเปิดเซิร์ฟเวอร์ใหม่ / The admin path is set by ADMIN_PATH in .env")
+			return
+		}
+		delete(in, "admin_path")
+	}
 	if v, ok := in["allowed_upload_types"]; ok && v != "" {
 		types, msg := parseUploadTypes(v)
 		if msg != "" {
@@ -323,6 +338,9 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	merged := withDefaults(opts)
+	if env := envAdminPath(); env != "" {
+		merged["admin_path"] = env
+	}
 	for k, v := range in {
 		if v == "" {
 			v = settingDefaults[k]
@@ -401,7 +419,7 @@ func (c *pathCache) reset() {
 // unless changed in the settings). The ADMIN_PATH environment variable wins,
 // so an owner who forgot a custom path can always get back in.
 func (a *API) AdminPath() string {
-	if v := strings.Trim(os.Getenv("ADMIN_PATH"), "/"); v != "" {
+	if v := envAdminPath(); v != "" {
 		return v
 	}
 	c := &a.adminPath
