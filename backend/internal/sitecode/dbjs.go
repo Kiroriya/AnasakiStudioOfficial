@@ -128,6 +128,9 @@ func (v *vm) fillDBObject(o *goja.Object, tx *sql.Tx) {
 		if tx != nil {
 			return tx
 		}
+		if v.curTx != nil { // the global db inside db.transaction(…): the same transaction
+			return v.curTx
+		}
 		return v.data().code
 	}
 	table := func(c goja.FunctionCall) goja.Value {
@@ -402,8 +405,10 @@ func (v *vm) dbTransaction(c goja.FunctionCall) goja.Value {
 	}
 	done := false
 	v.inTx = true
+	v.curTx = tx
 	defer func() {
 		v.inTx = false
+		v.curTx = nil
 		if !done {
 			_ = tx.Rollback()
 		}

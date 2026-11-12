@@ -75,9 +75,10 @@ site.route('POST /orders', { access: ['*'] }, ({ request }) => {
   const b = request.json()
   try {
     return db.transaction((tx) => {
-      const id = tx.table('orders').insert({ code: b.code, customer_id: b.customer, total: b.total, user_id: b.user ?? null,
+      const w = b.global ? db : tx // 2.5.4: the global db inside the transaction is the same transaction
+      const id = w.table('orders').insert({ code: b.code, customer_id: b.customer, total: b.total, user_id: b.user ?? null,
         meta: { tags: ['a'] }, placed_at: new Date('2026-10-24T10:30:00.123Z') })
-      tx.table('order_items').insert(b.items.map((q) => ({ order_id: id, qty: q })))
+      w.table('order_items').insert(b.items.map((q) => ({ order_id: id, qty: q })))
       if (b.fail) throw new Error('boom')
       return { id }
     })
@@ -232,6 +233,10 @@ func TestCodeDBSeparate(t *testing.T) {
 	// a throw inside the transaction rolls everything back
 	if code, body := order(map[string]any{"code": "BAD", "customer": 1, "total": 1, "items": []int{1}, "fail": true}); code != 409 || !strings.Contains(body, "boom") {
 		t.Fatalf("failing transaction: %d %s", code, body)
+	}
+	// 2.5.4: writes through the global db inside db.transaction roll back too (they ran outside it before)
+	if code, body := order(map[string]any{"code": "BAD2", "customer": 1, "total": 1, "items": []int{1}, "fail": true, "global": true}); code != 409 || !strings.Contains(body, "boom") {
+		t.Fatalf("failing transaction (global db): %d %s", code, body)
 	}
 	code, body := c.public("GET", "/orders?page=1")
 	var pg map[string]any

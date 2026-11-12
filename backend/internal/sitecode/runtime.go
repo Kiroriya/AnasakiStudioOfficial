@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -159,6 +160,10 @@ type vm struct {
 
 	deadline time.Time // end of the running handler (db calls respect it)
 	inTx     bool
+	// curTx is the open db.transaction: inside its function the global db
+	// runs on it too (2.5.4), so a script that writes through db.table(…)
+	// rather than the tx argument is rolled back with the rest on an error.
+	curTx *sql.Tx
 
 	parse, stringify goja.Callable // the original JSON functions
 }
